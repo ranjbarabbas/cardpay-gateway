@@ -1,0 +1,152 @@
+// Prisma Schema for CardPay Automated P2P Gateway
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum TransactionStatus {
+  PENDING
+  PAID
+  EXPIRED
+  MISMATCHED
+  MANUALLY_VERIFIED
+  CANCELLED
+}
+
+enum SmsLogStatus {
+  MATCHED
+  UNMATCHED
+  IGNORED
+  MANUALLY_RESOLVED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  DISMISSED
+}
+
+model Device {
+  id          String        @id @default(uuid())
+  name        String        // e.g. "Admin Mobile", "Artist #1 - Reza"
+  apiKey      String        @unique // Bearer token for mobile app auth
+  phoneModel  String?
+  lastSeenAt  DateTime?
+  isActive    Boolean       @default(true)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  cards       BankCard[]
+  smsLogs     BankSmsLog[]
+
+  @@map("devices")
+}
+
+model BankCard {
+  id            String        @id @default(uuid())
+  deviceId      String?
+  device        Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  ownerName     String        // Cardholder name e.g. "Abbas Ranjbar"
+  cardNumber    String        @unique // 16 digits (e.g. 603799...)
+  accountNumber String?       // Account number (e.g. "662179818703777001" for Mehr Iran)
+  iban          String?       // IBAN e.g. "IR..."
+  bankSlug      String        @default("mehr_iran") // "mehr_iran", "meli", "mellat", etc.
+  bankTitle     String        @default("بانک قرض‌الحسنه مهر ایران")
+  dailyLimit    BigInt?       // Max daily deposit cap in Toman
+  isActive      Boolean       @default(true)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  transactions  Transaction[]
+
+  @@index([cardNumber])
+  @@index([accountNumber])
+  @@map("bank_cards")
+}
+
+model TrustedSender {
+  id          String   @id @default(uuid())
+  senderId    String   @unique // e.g. "B.QMEHRIRAN", "982000..."
+  bankSlug    String   @default("mehr_iran")
+  description String?  // Note by admin
+  isTrusted   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("trusted_senders")
+}
+
+model Transaction {
+  id                  String             @id @default(uuid())
+  authority           String             @unique // Unique payment authority token
+  cardId              String
+  card                BankCard           @relation(fields: [cardId], references: [id])
+  originalAmountToman BigInt             // Base amount requested (Toman)
+  offsetToman         Int                @default(0) // Dynamic offset (+0, +5, +10, etc.)
+  finalAmountToman    BigInt             // originalAmountToman + offsetToman
+  finalAmountRial     BigInt             // finalAmountToman * 10
+  status              TransactionStatus  @default(PENDING)
+  createdAt           DateTime           @default(now())
+  expiresAt           DateTime           // 10 minutes from creation
+  collisionLockUntil  DateTime           // 20 minutes from creation (cooldown window)
+  paidAt              DateTime?
+  callbackUrl         String             // Return URL to redirect user
+  webhookUrl          String?            // Server-to-server webhook
+  description         String?
+  customerMobile      String?
+  trackingCode        String?            // Reference / tracking code from SMS
+  smsLogId            String?            @unique
+  smsLog              BankSmsLog?        @relation(fields: [smsLogId], references: [id])
+  tickets             DiscrepancyTicket[]
+
+  @@index([cardId, status, collisionLockUntil])
+  @@index([finalAmountRial, status])
+  @@map("transactions")
+}
+
+model BankSmsLog {
+  id                   String        @id @default(uuid())
+  deviceId             String?
+  device               Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+  sender               String        // Originating phone/alias e.g. "B.QMEHRIRAN"
+  rawText              String        // Complete unmodified SMS text
+  receivedAt           DateTime      @default(now())
+  isDeposit            Boolean       @default(false)
+  parsedAccount        String?       // Parsed account number
+  parsedCardLast4      String?       // Parsed 4 digits of card
+  parsedAmountRial     BigInt?       // Extracted amount in Rials
+  parsedAmountToman    BigInt?       // Extracted amount in Tomans
+  parsedRefCode        String?       // Extracted reference or tracking code
+  status               SmsLogStatus  @default(UNMATCHED)
+  matchedTransactionId String?       @unique
+  transaction          Transaction?
+  tickets              DiscrepancyTicket[]
+
+  @@index([parsedAccount])
+  @@index([parsedAmountRial])
+  @@index([status])
+  @@map("bank_sms_logs")
+}
+
+model DiscrepancyTicket {
+  id            String            @id @default(uuid())
+  transactionId String?
+  transaction   Transaction?      @relation(fields: [transactionId], references: [id])
+  smsLogId      String?
+  smsLog        BankSmsLog?       @relation(fields: [smsLogId], references: [id])
+  reason        String            // e.g. "Amount mismatch", "Received after expiration", "Unmatched SMS"
+  notes         String?
+  status        TicketStatus      @default(OPEN)
+  resolvedBy    String?           // Admin username
+  resolvedAt    DateTime?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  @@map("discrepancy_tickets")
+}
