@@ -45,8 +45,7 @@ export class SmsMatcherService {
       };
     }
 
-    // 3. Find target card
-    // First try by account number (Bank Mehr Iran provides the full account number)
+    // 3. Find candidate target card
     let targetCard = null;
     if (parsed.accountNumber) {
       targetCard = await db.bankCard.findFirst({
@@ -57,7 +56,6 @@ export class SmsMatcherService {
       });
     }
 
-    // If not found by account, try by device cards
     if (!targetCard && deviceId) {
       const deviceCards = await db.bankCard.findMany({
         where: { deviceId, isActive: true },
@@ -71,6 +69,7 @@ export class SmsMatcherService {
     const now = new Date();
     let matchedTx = null;
 
+    // A) Try exact match on targetCard + exact finalAmountRial
     if (targetCard) {
       matchedTx = await db.transaction.findFirst({
         where: {
@@ -81,11 +80,26 @@ export class SmsMatcherService {
         },
         orderBy: { createdAt: "desc" },
       });
-    } else {
-      // Search across all pending transactions if card was not strictly determined
+    }
+
+    // B) If not found yet, search globally by finalAmountRial across ANY active pending transaction
+    // (Because each payable amount is collision-locked and uniquely allocated within the window!)
+    if (!matchedTx) {
       matchedTx = await db.transaction.findFirst({
         where: {
           finalAmountRial: parsed.amountRial,
+          status: "PENDING",
+          collisionLockUntil: { gte: now },
+        },
+        orderBy: { createdAt: "desc" },
+      });
+    }
+
+    // C) Fallback for human test input: In case user typed Toman in the SMS instead of Rial
+    if (!matchedTx) {
+      matchedTx = await db.transaction.findFirst({
+        where: {
+          finalAmountToman: parsed.amountRial, // user put Toman value in SMS
           status: "PENDING",
           collisionLockUntil: { gte: now },
         },
@@ -130,6 +144,7 @@ export class SmsMatcherService {
         smsLogId: smsLog.id,
         transactionId: matchedTx.id,
         authority: matchedTx.authority,
+        amountToman: matchedTx.finalAmountToman.toString(),
       };
     }
 
@@ -137,7 +152,7 @@ export class SmsMatcherService {
     await db.discrepancyTicket.create({
       data: {
         smsLogId: smsLog.id,
-        reason: `Deposit of ${parsed.amountToman.toString()} Toman (${parsed.amountRial.toString()} Rial) received but could not be matched with any active pending transaction.`,
+        reason: `واریز به مبلغ ${parsed.amountToman.toString()} تومان (${parsed.amountRial.toString()} ریال) دریافت شد ولی تراکنش فعالی با این مبلغ یافت نشد.`,
         status: "OPEN",
       },
     });
@@ -145,7 +160,7 @@ export class SmsMatcherService {
     return {
       matched: false,
       smsLogId: smsLog.id,
-      reason: "Deposit received with no matching active transaction",
+      reason: `Deposit of ${parsed.amountToman.toString()} Toman (${parsed.amountRial.toString()} Rial) received with no matching active transaction`,
     };
   }
 
