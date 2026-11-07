@@ -16,10 +16,18 @@ import {
   RefreshCw,
   Copy,
   Check,
+  Download,
+  FlaskConical,
+  ExternalLink,
+  Send,
+  Zap,
+  Sparkles,
+  Info,
+  Radio,
 } from "lucide-react";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<"cards" | "devices" | "transactions" | "sms" | "tickets">("cards");
+  const [activeTab, setActiveTab] = useState<"cards" | "devices" | "transactions" | "sms" | "tickets" | "sandbox">("cards");
   const [adminKey, setAdminKey] = useState("super-secret-admin-key-change-me");
 
   // State data
@@ -48,6 +56,18 @@ export default function AdminDashboard() {
   // New Sender Form
   const [newSender, setNewSender] = useState({ senderId: "", bankSlug: "mehr_iran", description: "" });
 
+  // Sandbox State
+  const [testAmount, setTestAmount] = useState(100000); // 100,000 Tomans
+  const [testCardId, setTestCardId] = useState("");
+  const [createdTestTx, setCreatedTestTx] = useState<any>(null);
+  const [simSender, setSimSender] = useState("B.QMEHRIRAN");
+  const [simText, setSimText] = useState(`662179818703777001
+1,000,050+
+1405/8/16-15:46
+مانده:2,420,000`);
+  const [simResult, setSimResult] = useState<any>(null);
+  const [simLoading, setSimLoading] = useState(false);
+
   const headers = {
     "Content-Type": "application/json",
     "x-admin-key": adminKey,
@@ -62,14 +82,19 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
-      if (activeTab === "cards") {
+      if (activeTab === "cards" || activeTab === "sandbox") {
         const [cRes, dRes] = await Promise.all([
           fetch("/api/v1/admin/cards", { headers }),
           fetch("/api/v1/admin/devices", { headers }),
         ]);
         const cData = await cRes.json();
         const dData = await dRes.json();
-        if (cData.success) setCards(cData.data);
+        if (cData.success) {
+          setCards(cData.data);
+          if (cData.data.length > 0 && !testCardId) {
+            setTestCardId(cData.data[0].id);
+          }
+        }
         if (dData.success) setDevices(dData.data);
       } else if (activeTab === "devices") {
         const res = await fetch("/api/v1/admin/devices", { headers });
@@ -196,36 +221,103 @@ export default function AdminDashboard() {
     loadData();
   };
 
+  // Create Test Payment in Sandbox
+  const handleCreateTestPayment = async () => {
+    try {
+      const res = await fetch("/api/v1/payment/request", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: testAmount,
+          cardId: testCardId || undefined,
+          callbackUrl: window.location.origin + "/admin",
+          description: "Test Transaction from Sandbox",
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setCreatedTestTx(data.data);
+        // Pre-fill the SMS simulator with matching amount and account
+        const account = cards.find((c) => c.id === testCardId)?.accountNumber || "662179818703777001";
+        setSimText(`${account}\n${data.data.payableAmountRial.toLocaleString()}+\n1405/8/16-15:46\nمانده:5,000,000`);
+      } else {
+        alert("خطا در ایجاد پرداخت: " + data.error);
+      }
+    } catch (e: any) {
+      alert("خطا در ارتباط با سرور: " + e.message);
+    }
+  };
+
+  // Simulate Incoming SMS
+  const handleSimulateIncomingSms = async () => {
+    setSimLoading(true);
+    setSimResult(null);
+    try {
+      const res = await fetch("/api/v1/test/simulate-sms", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          sender: simSender,
+          rawText: simText,
+        }),
+      });
+      const data = await res.json();
+      setSimResult(data);
+    } catch (e: any) {
+      setSimResult({ success: false, error: e.message });
+    } finally {
+      setSimLoading(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-950 text-slate-100 p-6 font-sans" dir="rtl">
+    <div className="min-h-screen bg-slate-950 text-slate-100 p-4 md:p-8 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
       <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-900 border border-slate-800 rounded-3xl p-6">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-2xl flex items-center justify-center">
-              <Shield className="w-6 h-6" />
+
+        {/* Top Header Card */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800/90 rounded-3xl p-6 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/10">
+              <Shield className="w-7 h-7" />
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white">مدیریت درگاه پرداخت کارت‌به‌کارت (CardPay Admin)</h1>
-              <p className="text-slate-400 text-xs mt-0.5">پایش ریل‌تایم تراکنش‌ها، سرخط‌ها و پیامک‌های بانکی</p>
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl md:text-2xl font-black text-white">سامانه هوشمند درگاه کارت‌به‌کارت</h1>
+                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full">
+                  نسخه ۱.۰
+                </span>
+              </div>
+              <p className="text-slate-400 text-xs mt-1">مدیریت کارت‌ها، پایش پیامک‌های بانکی و اعتبارسنجی خودکار واریزی‌ها</p>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <div className="flex items-center gap-2 bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs">
+          <div className="flex flex-wrap items-center gap-3">
+            {/* APK Download Button */}
+            <a
+              href="/api/v1/download/apk"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20"
+              title="دانلود مستقیم فایل نصب اپلیکیشن اندروید (APK)"
+            >
+              <Download className="w-4 h-4" />
+              <span>دانلود اپلیکیشن اندروید (APK)</span>
+            </a>
+
+            {/* Admin Key */}
+            <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs">
               <Key className="w-3.5 h-3.5 text-emerald-400" />
               <input
                 type="password"
                 value={adminKey}
                 onChange={(e) => setAdminKey(e.target.value)}
                 placeholder="کلید ادمین"
-                className="bg-transparent border-none text-slate-300 focus:outline-none font-mono text-xs w-36"
+                className="bg-transparent border-none text-slate-300 focus:outline-none font-mono text-xs w-32"
               />
             </div>
+
             <button
               onClick={loadData}
-              className="p-2 bg-slate-800 hover:bg-slate-700 rounded-xl text-slate-300 transition"
-              title="بارگذاری مجدد"
+              className="p-2.5 bg-slate-800/80 hover:bg-slate-700/80 rounded-xl text-slate-300 transition"
+              title="بارگذاری مجدد اطلاعات"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
             </button>
@@ -233,13 +325,14 @@ export default function AdminDashboard() {
         </div>
 
         {/* Navigation Tabs */}
-        <div className="flex overflow-x-auto gap-2 border-b border-slate-800 pb-2 text-sm">
+        <div className="flex overflow-x-auto gap-2 border-b border-slate-800/80 pb-3 text-sm no-scrollbar">
           {[
             { id: "cards", label: "کارت‌ها و حساب‌ها", icon: CreditCard, count: cards.length },
             { id: "devices", label: "دستگاه‌های اندروید", icon: Smartphone, count: devices.length },
-            { id: "transactions", label: "تراکنش‌های درگاه", icon: Receipt, count: transactions.length },
+            { id: "sandbox", label: "لابراتوار تست ریل‌تایم (Sandbox)", icon: FlaskConical, highlight: true },
+            { id: "transactions", label: "تراکنش‌ها", icon: Receipt, count: transactions.length },
             { id: "sms", label: "لاگ پیامک‌ها و سرخط‌ها", icon: MessageSquare, count: smsLogs.length },
-            { id: "tickets", label: "رفع مغایرت‌ها", icon: AlertCircle, count: tickets.length },
+            { id: "tickets", label: "مغایرت‌ها", icon: AlertCircle, count: tickets.length },
           ].map((tab) => {
             const Icon = tab.icon;
             const active = activeTab === tab.id;
@@ -247,16 +340,18 @@ export default function AdminDashboard() {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id as any)}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium transition whitespace-nowrap ${
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl font-semibold transition text-xs md:text-sm whitespace-nowrap ${
                   active
-                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/20"
-                    : "bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800"
+                    ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
+                    : tab.highlight
+                    ? "bg-teal-950/60 text-teal-300 border border-teal-500/30 hover:bg-teal-900/50"
+                    : "bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800/60"
                 }`}
               >
                 <Icon className="w-4 h-4" />
                 <span>{tab.label}</span>
-                {tab.count > 0 && (
-                  <span className={`text-xs px-2 py-0.5 rounded-full ${active ? "bg-emerald-700 text-white" : "bg-slate-800 text-slate-300"}`}>
+                {tab.count !== undefined && tab.count > 0 && (
+                  <span className={`text-[10px] px-2 py-0.5 rounded-full ${active ? "bg-emerald-700 text-white" : "bg-slate-800 text-slate-300"}`}>
                     {tab.count}
                   </span>
                 )}
@@ -264,6 +359,155 @@ export default function AdminDashboard() {
             );
           })}
         </div>
+
+        {/* Tab: Real-Time Sandbox Testing Lab */}
+        {activeTab === "sandbox" && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+
+            {/* Step 1: Create Test Payment Link */}
+            <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-teal-500/10 text-teal-400 border border-teal-500/20 rounded-2xl flex items-center justify-center">
+                  <Zap className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">گام اول: ایجاد لینک پرداخت تستی</h2>
+                  <p className="text-xs text-slate-400">تولید لینک پرداخت با افست خودکار (+۵ تومانی)</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">انتخاب کارت بانکی مقصد:</label>
+                  <select
+                    value={testCardId}
+                    onChange={(e) => setTestCardId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-slate-100 focus:border-emerald-500 focus:outline-none"
+                  >
+                    {cards.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.ownerName} - {c.bankTitle} ({c.cardNumber})
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1">مبلغ پایه (تومان):</label>
+                  <input
+                    type="number"
+                    value={testAmount}
+                    onChange={(e) => setTestAmount(Number(e.target.value))}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <button
+                  onClick={handleCreateTestPayment}
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                >
+                  <Plus className="w-4 h-4" />
+                  <span>تولید لینک پرداخت اختصاصی</span>
+                </button>
+              </div>
+
+              {createdTestTx && (
+                <div className="bg-slate-950/80 border border-emerald-500/30 rounded-2xl p-4 space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-emerald-400 font-bold">
+                    <span>لینک پرداخت ساخته شد:</span>
+                    <a
+                      href={createdTestTx.paymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-teal-300 hover:underline"
+                    >
+                      <span>مشاهده صفحه پرداخت</span>
+                      <ExternalLink className="w-3.5 h-3.5" />
+                    </a>
+                  </div>
+                  <div className="text-slate-400 space-y-1 font-mono text-[11px]">
+                    <div>مبلغ درخواستی: {createdTestTx.originalAmountToman.toLocaleString()} تومان</div>
+                    <div>افست اعمال‌شده: +{createdTestTx.offsetToman} تومان</div>
+                    <div className="text-white font-bold">مبلغ نهایی پرداختی: {createdTestTx.payableAmountToman.toLocaleString()} تومان ({createdTestTx.payableAmountRial.toLocaleString()} ریال)</div>
+                    <div>شناسه: {createdTestTx.authority}</div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Step 2: SMS Simulator */}
+            <div className="bg-slate-900/90 border border-slate-800/90 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 rounded-2xl flex items-center justify-center">
+                  <Send className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-white">گام دوم: شبیه‌سازی دریافت پیامک بانک</h2>
+                  <p className="text-xs text-slate-400">تست پارسر و تطبیق آنی تراکنش با پیامک ارسالی</p>
+                </div>
+              </div>
+
+              <div className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">سرخط یا فرستنده پیامک:</label>
+                  <input
+                    type="text"
+                    value={simSender}
+                    onChange={(e) => setSimSender(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-slate-400 mb-1">متن کامل پیامک بانکی (دقیقاً مانند بانک مهر ایران):</label>
+                  <textarea
+                    rows={4}
+                    value={simText}
+                    onChange={(e) => setSimText(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-slate-100 font-mono text-xs dir-ltr text-left focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSimulateIncomingSms}
+                    disabled={simLoading}
+                    className="flex-1 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+                  >
+                    {simLoading ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Sparkles className="w-4 h-4" />}
+                    <span>ارسال پیامک آزمایشی به درگاه</span>
+                  </button>
+                </div>
+              </div>
+
+              {simResult && (
+                <div className={`p-4 rounded-2xl border text-xs space-y-1.5 ${
+                  simResult.success && simResult.data?.matched
+                    ? "bg-emerald-950/40 border-emerald-500/40 text-emerald-200"
+                    : "bg-amber-950/40 border-amber-500/40 text-amber-200"
+                }`}>
+                  <div className="font-bold flex items-center gap-1.5">
+                    {simResult.success && simResult.data?.matched ? (
+                      <>
+                        <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                        <span>تطبیق تراکنش با موفقیت انجام شد!</span>
+                      </>
+                    ) : (
+                      <>
+                        <AlertCircle className="w-4 h-4 text-amber-400" />
+                        <span>پیامک دریافت شد ولی با تراکنشی تطبیق نیافت:</span>
+                      </>
+                    )}
+                  </div>
+                  <pre className="font-mono text-[11px] whitespace-pre-wrap dir-ltr text-left mt-1 text-slate-300">
+                    {JSON.stringify(simResult.data || simResult.error, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+
+          </div>
+        )}
 
         {/* Tab 1: Cards Management */}
         {activeTab === "cards" && (
@@ -366,11 +610,11 @@ export default function AdminDashboard() {
                     </div>
                     {card.accountNumber && (
                       <div className="text-xs text-slate-400 font-mono">
-                        حساب: {card.accountNumber}
+                        شماره حساب: {card.accountNumber}
                       </div>
                     )}
                     <div className="text-xs text-slate-500">
-                      شناسه یکتا جهت ارجاع از فروشگاه: <span className="font-mono text-slate-400">{card.id}</span>
+                      شناسه اختصاصی: <span className="font-mono text-slate-400">{card.id}</span>
                     </div>
                   </div>
 
@@ -426,6 +670,16 @@ export default function AdminDashboard() {
                   صدور کلید اتصال اختصاصی (API Key)
                 </button>
               </form>
+
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 text-slate-400">
+                <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-teal-400" />
+                  راهنمای اتصال به اپلیکیشن:
+                </span>
+                <p className="leading-relaxed">
+                  اپلیکیشن اندروید را دانلود کرده، سپس آدرس سرور (<code className="text-emerald-400">http://IP:3050</code>) و توکن هر دستگاه را در تنظیمات برنامه کپی کنید.
+                </p>
+              </div>
             </div>
 
             <div className="lg:col-span-2 space-y-3">
@@ -444,7 +698,7 @@ export default function AdminDashboard() {
                   <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
                     <div className="space-y-0.5">
                       <span className="text-xs text-slate-500 block">Device API Key (جهت درج در اپلیکیشن اندروید):</span>
-                      <span className="font-mono text-xs text-emerald-300">{device.apiKey}</span>
+                      <span className="font-mono text-xs text-emerald-300 select-all">{device.apiKey}</span>
                     </div>
                     <button
                       onClick={() => copyToClipboard(device.apiKey, device.id)}
@@ -462,7 +716,7 @@ export default function AdminDashboard() {
 
         {/* Tab 3: Transactions */}
         {activeTab === "transactions" && (
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden">
+          <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
             <div className="overflow-x-auto">
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
@@ -480,13 +734,18 @@ export default function AdminDashboard() {
                 <tbody className="divide-y divide-slate-800/60">
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-slate-800/40 transition">
-                      <td className="p-3 font-mono text-emerald-400">{tx.authority}</td>
+                      <td className="p-3 font-mono text-emerald-400">
+                        <a href={`/pay/${tx.authority}`} target="_blank" className="hover:underline flex items-center gap-1">
+                          <span>{tx.authority}</span>
+                          <ExternalLink className="w-3 h-3 opacity-60" />
+                        </a>
+                      </td>
                       <td className="p-3 font-medium text-slate-200">{Number(tx.originalAmountToman).toLocaleString()} تومان</td>
                       <td className="p-3 text-amber-400 font-bold">+{tx.offsetToman}</td>
                       <td className="p-3 font-bold text-white">{Number(tx.finalAmountToman).toLocaleString()} تومان</td>
                       <td className="p-3 text-slate-300">{tx.card?.ownerName} ({tx.card?.bankTitle})</td>
                       <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${
+                        <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold ${
                           tx.status === "PAID"
                             ? "bg-emerald-500/20 text-emerald-400"
                             : tx.status === "PENDING"
@@ -503,7 +762,7 @@ export default function AdminDashboard() {
                         {tx.status === "PENDING" && (
                           <button
                             onClick={() => handleManualReconcile(tx.id)}
-                            className="bg-blue-600/80 hover:bg-blue-600 text-white px-2.5 py-1 rounded-lg text-xs"
+                            className="bg-blue-600 hover:bg-blue-500 text-white px-2.5 py-1 rounded-lg text-xs transition"
                           >
                             تایید دستی
                           </button>
@@ -517,10 +776,9 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Tab 4: SMS Logs & Trusted Senders */}
+        {/* Tab 4: SMS Logs */}
         {activeTab === "sms" && (
           <div className="space-y-6">
-            {/* Trusted Senders management */}
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Shield className="w-5 h-5 text-emerald-400" />
@@ -560,7 +818,6 @@ export default function AdminDashboard() {
               </div>
             </div>
 
-            {/* Recent SMS logs */}
             <div className="space-y-3">
               <h2 className="text-base font-bold text-white">آخرین پیامک‌های بانکی دریافتی از اپلیکیشن اندروید</h2>
               {smsLogs.map((log) => (
@@ -633,6 +890,7 @@ export default function AdminDashboard() {
             )}
           </div>
         )}
+
       </div>
     </div>
   );
