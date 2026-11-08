@@ -401,6 +401,7 @@ export default function DocsPage() {
 
   // Playground state for selected endpoint
   const [testPayload, setTestPayload] = useState<string>(ENDPOINTS[0].requestSample);
+  const [playgroundApiKey, setPlaygroundApiKey] = useState<string>("cp_sec_art_hub_2026_live");
   const [liveResponse, setLiveResponse] = useState<any>(null);
   const [liveStatusCode, setLiveStatusCode] = useState<number | null>(null);
   const [liveLatency, setLiveLatency] = useState<number | null>(null);
@@ -442,15 +443,26 @@ export default function DocsPage() {
     const start = performance.now();
     try {
       let url = selectedEndpoint.path;
+      let headersObj: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (selectedEndpoint.id === "sms-receive") {
+        headersObj["x-device-key"] = playgroundApiKey || "dev_sec_99182345";
+      } else if (playgroundApiKey) {
+        headersObj["x-api-key"] = playgroundApiKey.trim();
+        headersObj["Authorization"] = `Bearer ${playgroundApiKey.trim()}`;
+      }
+
       let options: RequestInit = {
         method: selectedEndpoint.method,
-        headers: { "Content-Type": "application/json" },
+        headers: headersObj,
       };
 
       if (selectedEndpoint.method === "POST") {
         options.body = testPayload;
       } else if (selectedEndpoint.id === "payment-status") {
-        // Substitute path param
+        // Substitute path param with a test identifier
         url = "/api/v1/payment/status/test";
       }
 
@@ -472,26 +484,27 @@ export default function DocsPage() {
   // Generate code snippet by language
   const getCodeSnippet = (endpoint: EndpointDoc, lang: "curl" | "node" | "python" | "php") => {
     const url = `http://localhost:3050${endpoint.path}`;
+    const key = playgroundApiKey || "cp_sec_art_hub_2026_live";
     if (lang === "curl") {
       if (endpoint.method === "GET") {
-        return `curl -X GET "${url.replace("{authority}", "CP-sample-authority")}" \\\n  -H "Accept: application/json"`;
+        return `curl -X GET "${url.replace("{identifier}", "PAY-1405081723763374")}" \\\n  -H "Accept: application/json" \\\n  -H "x-api-key: ${key}"`;
       }
-      return `curl -X POST "${url}" \\\n  -H "Content-Type: application/json" \\\n  -d '${endpoint.requestSample.replace(/\n/g, "")}'`;
+      return `curl -X POST "${url}" \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${key}" \\\n  -d '${endpoint.requestSample.replace(/\n/g, "")}'`;
     }
     if (lang === "node") {
       if (endpoint.method === "GET") {
-        return `const res = await fetch("${url.replace("{authority}", "CP-sample-authority")}", {\n  headers: { "Accept": "application/json" }\n});\nconst data = await res.json();\nconsole.log(data);`;
+        return `const res = await fetch("${url.replace("{identifier}", "PAY-1405081723763374")}", {\n  headers: {\n    "Accept": "application/json",\n    "x-api-key": "${key}"\n  }\n});\nconst data = await res.json();\nconsole.log(data);`;
       }
-      return `const res = await fetch("${url}", {\n  method: "POST",\n  headers: { "Content-Type": "application/json" },\n  body: JSON.stringify(${endpoint.requestSample})\n});\nconst data = await res.json();\nconsole.log(data);`;
+      return `const res = await fetch("${url}", {\n  method: "POST",\n  headers: {\n    "Content-Type": "application/json",\n    "x-api-key": "${key}"\n  },\n  body: JSON.stringify(${endpoint.requestSample})\n});\nconst data = await res.json();\nconsole.log(data);`;
     }
     if (lang === "python") {
       if (endpoint.method === "GET") {
-        return `import requests\n\nurl = "${url.replace("{authority}", "CP-sample-authority")}"\nres = requests.get(url)\nprint(res.json())`;
+        return `import requests\n\nheaders = {"x-api-key": "${key}", "Accept": "application/json"}\nurl = "${url.replace("{identifier}", "PAY-1405081723763374")}"\nres = requests.get(url, headers=headers)\nprint(res.json())`;
       }
-      return `import requests\n\npayload = ${endpoint.requestSample}\nres = requests.post("${url}", json=payload)\nprint(res.json())`;
+      return `import requests\n\nheaders = {"x-api-key": "${key}", "Content-Type": "application/json"}\npayload = ${endpoint.requestSample}\nres = requests.post("${url}", json=payload, headers=headers)\nprint(res.json())`;
     }
     if (lang === "php") {
-      return `<?php\n$ch = curl_init("${url}");\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);\ncurl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(${endpoint.requestSample}));\n$response = curl_exec($ch);\ncurl_close($ch);\n$data = json_decode($response, true);\nprint_r($data);`;
+      return `<?php\n$ch = curl_init("${url}");\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\n    'Content-Type: application/json',\n    'x-api-key: ${key}'\n]);\ncurl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(${endpoint.requestSample}));\n$response = curl_exec($ch);\ncurl_close($ch);\n$data = json_decode($response, true);\nprint_r($data);`;
     }
     return "";
   };
@@ -868,20 +881,29 @@ export default function DocsPage() {
             </p>
 
             {/* Authentication & API Keys */}
-            <div className="bg-slate-950 border border-slate-800/90 rounded-2xl p-5 space-y-3">
+            <div className="bg-slate-950 border border-slate-800/90 rounded-2xl p-5 space-y-4">
               <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
                 <Key className="w-4 h-4" />
-                <span>احراز هویت و کلید وب‌سرویس (API Key): کجا و کی ساخته می‌شود؟</span>
+                <span>احراز هویت و کلید وب‌سرویس (API Key): معماری تک‌پذیرنده در مقابل کاربران</span>
               </div>
               <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
                 <li>
-                  <strong className="text-white">محل ساخت و تعریف:</strong> کلید اختصاصی پذیرنده در فایل پیکربندی محیطی درگاه (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">backend/.env</code>) با متغیر <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">MERCHANT_API_KEY</code> یا <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">ADMIN_API_KEY</code> تعریف می‌شود.
+                  <strong className="text-white">معماری کلید (یک کلید برای کل پلتفرم):</strong> وب‌سایت هنری شما به عنوان «پذیرنده اصلی (Platform Merchant)» دارای <strong>یک کلید محرمانه اختصاصی</strong> است. هنرمندان یا کاربران شما هرگز کلید ندارند و نباید هم داشته باشند؛ زیرا ارتباط وب‌سرویسی به صورت مستقیم از بک‌اند سایت شما به درگاه (Server-to-Server) برقرار می‌گردد و کاربران به لایه بک‌اند دسترسی ندارند.
                 </li>
                 <li>
-                  <strong className="text-white">مشاهده در پنل مدیریت:</strong> در تب اول پنل ادمین (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">/admin</code>) کلید با دکمه کپی فوری نمایش داده شده است.
+                  <strong className="text-white">تفکیک هنرمندان و کارت‌ها:</strong> تشخیص اینکه تراکنش متعلق به کدام هنرمند است، از طریق فیلدهای بدنه درخواست (<code className="text-emerald-400 font-mono">merchantUserId</code> یا <code className="text-emerald-400 font-mono">cartId</code> یا <code className="text-emerald-400 font-mono">cardNumber</code>) انجام می‌شود، نه با کلیدهای API جداگانه!
                 </li>
                 <li>
-                  <strong className="text-white">نحوه ارسال در درخواست‌ها:</strong> وب‌سایت شما باید این کلید را در هدر تمام درخواست‌های خود با کلید <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">x-api-key</code> یا <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">Authorization: Bearer YOUR_KEY</code> ارسال نماید.
+                  <strong className="text-white">محل تعریف و ساخت کلید:</strong> این کلید در فایل متغیرهای محیطی درگاه (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">backend/.env</code>) با متغیر <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">MERCHANT_API_KEY</code> مشخص می‌شود (مقدار پیش‌فرض تست: <code className="text-emerald-400 font-mono">cp_sec_art_hub_2026_live</code>).
+                </li>
+                <li>
+                  <strong className="text-white">مشاهده در پنل مدیریت:</strong> در تب اول پنل مدیریت (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">/admin</code>) کلید احراز هویت پذیرنده با امکان کپی فوری در دسترس ادمین است.
+                </li>
+                <li>
+                  <strong className="text-white">نحوه ارسال در هدرها:</strong> سرور سایت هنری شما این کلید را در هدر درخواست‌های ارسالی با فیلد <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">x-api-key</code> یا <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">Authorization: Bearer YOUR_KEY</code> ارسال می‌کند.
+                </li>
+                <li>
+                  <strong className="text-white">چه زمانی چند کلید API نیاز است؟</strong> تنها در صورتی که بخواهید درگاه CardPay را به عنوان یک سرویس‌دهنده عمومی (B2B SaaS Gateway مانند زرین‌پال یا Stripe) به فروشگاه‌ها یا وب‌سایت‌های متفرقه مختلف عرضه کنید، به ازای هر وب‌سایت مجزا یک کلید پذیرنده صادر خواهد شد.
                 </li>
               </ul>
             </div>
@@ -1049,6 +1071,22 @@ export default function DocsPage() {
             <p className="text-[11px] text-slate-400 leading-relaxed">
               شما می‌توانید درخواست را به صورت واقعی علیه سرور فعال اجرا کرده و پاسخ زنده دریافت کنید:
             </p>
+
+            {/* API Key Header Input */}
+            <div className="space-y-1">
+              <label className="text-[10px] font-mono text-slate-400 flex items-center justify-between">
+                <span>Header x-api-key:</span>
+                <span className="text-[9px] text-emerald-400 font-sans">پیش‌فرض تست پذیرنده</span>
+              </label>
+              <input
+                type="text"
+                value={playgroundApiKey}
+                onChange={(e) => setPlaygroundApiKey(e.target.value)}
+                placeholder="cp_sec_art_hub_2026_live"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 font-mono text-xs text-emerald-300 focus:outline-none focus:border-emerald-500 transition"
+                dir="ltr"
+              />
+            </div>
 
             {/* Editable Request Payload */}
             <div className="space-y-1">
