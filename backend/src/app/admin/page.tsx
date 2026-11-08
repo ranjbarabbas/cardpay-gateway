@@ -31,6 +31,8 @@ import {
   ShieldCheck,
   CheckCheck,
   Ban,
+  Archive,
+  RotateCcw,
 } from "lucide-react";
 
 export default function AdminDashboard() {
@@ -47,6 +49,7 @@ export default function AdminDashboard() {
   const [pendingSenders, setPendingSenders] = useState<any[]>([]);
   const [blockedSenders, setBlockedSenders] = useState<any[]>([]);
   const [senderSubTab, setSenderSubTab] = useState<"approved" | "blocked">("approved");
+  const [cardSubTab, setCardSubTab] = useState<"active" | "archived">("active");
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -181,13 +184,31 @@ export default function AdminDashboard() {
     loadData();
   };
 
-  const handleDeleteCard = async (id: string) => {
-    if (!confirm("آیا از حذف این کارت و کلیه سوابق آن اطمینان دارید؟")) return;
+  const handleArchiveCard = async (id: string) => {
+    if (!confirm("آیا از انتقال این کارت به آرشیو اطمینان دارید؟\n(تمام سوابق مالی و تراکنش‌های متناظر آن در سیستم حفظ خواهند شد)")) return;
     try {
       const res = await fetch(`/api/v1/admin/cards/${id}`, { method: "DELETE", headers });
       const data = await res.json();
       if (!data.success) {
-        alert("خطا در حذف کارت: " + (data.error || "مشکلی رخ داد"));
+        alert("خطا در آرشیو کارت: " + (data.error || "مشکلی رخ داد"));
+      } else {
+        loadData();
+      }
+    } catch (err: any) {
+      alert("خطای ارتباط با سرور: " + err.message);
+    }
+  };
+
+  const handleRestoreCard = async (id: string) => {
+    try {
+      const res = await fetch(`/api/v1/admin/cards/${id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({ isArchived: false, isActive: true }),
+      });
+      const data = await res.json();
+      if (!data.success) {
+        alert("خطا در بازیابی کارت: " + (data.error || "مشکلی رخ داد"));
       } else {
         loadData();
       }
@@ -1055,8 +1076,44 @@ export default function AdminDashboard() {
               </form>
             </div>
 
-            <div className="lg:col-span-2 space-y-3">
-              {cards.map((card) => (
+            <div className="lg:col-span-2 space-y-4">
+              {/* Sub-Tabs: Active vs Archived */}
+              <div className="flex items-center justify-between gap-3 bg-slate-900 border border-slate-800 rounded-2xl p-2 text-xs">
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCardSubTab("active")}
+                    className={`px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                      cardSubTab === "active"
+                        ? "bg-emerald-600 text-white shadow"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>کارت‌های فعال و جاری</span>
+                    <span className="bg-slate-800 text-[10px] px-2 py-0.5 rounded-full">
+                      {cards.filter((c) => !c.isArchived).length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setCardSubTab("archived")}
+                    className={`px-3.5 py-1.5 rounded-xl font-bold transition flex items-center gap-1.5 ${
+                      cardSubTab === "archived"
+                        ? "bg-amber-600 text-white shadow"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <Archive className="w-3.5 h-3.5" />
+                    <span>کارت‌های بایگانی شده (آرشیو)</span>
+                    <span className="bg-slate-800 text-[10px] px-2 py-0.5 rounded-full">
+                      {cards.filter((c) => c.isArchived).length}
+                    </span>
+                  </button>
+                </div>
+                <span className="text-[11px] text-slate-500 hidden sm:inline">
+                  سوابق مالی هرگز حذف فیزیکی نمی‌شوند
+                </span>
+              </div>
+
+              {cards.filter((c) => (cardSubTab === "active" ? !c.isArchived : c.isArchived)).map((card) => (
                 <div
                   key={card.id}
                   className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4"
@@ -1065,7 +1122,11 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2">
                       <span className="font-bold text-white text-sm">{card.ownerName}</span>
                       <span className="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md">{card.bankTitle}</span>
-                      {card.isActive ? (
+                      {card.isArchived ? (
+                        <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-md flex items-center gap-1">
+                          <Archive className="w-3 h-3" /> بایگانی شده
+                        </span>
+                      ) : card.isActive ? (
                         <span className="text-xs bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-md flex items-center gap-1">
                           <CheckCircle2 className="w-3 h-3" /> فعال
                         </span>
@@ -1114,23 +1175,37 @@ export default function AdminDashboard() {
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleToggleCard(card.id, card.isActive)}
-                      className={`text-xs px-3 py-1.5 rounded-xl border transition ${
-                        card.isActive
-                          ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
-                          : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
-                      }`}
-                    >
-                      {card.isActive ? "غیرفعال‌سازی" : "فعال‌سازی"}
-                    </button>
-                    <button
-                      onClick={() => handleDeleteCard(card.id)}
-                      className="p-1.5 text-slate-400 hover:text-red-400 rounded-lg hover:bg-slate-800 transition"
-                      title="حذف کارت"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
+                    {card.isArchived ? (
+                      <button
+                        onClick={() => handleRestoreCard(card.id)}
+                        className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-xl border border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10 transition"
+                        title="بازگرداندن کارت به لیست کارت‌های فعال"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>بازیابی کارت</span>
+                      </button>
+                    ) : (
+                      <>
+                        <button
+                          onClick={() => handleToggleCard(card.id, card.isActive)}
+                          className={`text-xs px-3 py-1.5 rounded-xl border transition ${
+                            card.isActive
+                              ? "border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
+                              : "border-emerald-500/40 text-emerald-400 hover:bg-emerald-500/10"
+                          }`}
+                        >
+                          {card.isActive ? "غیرفعال‌سازی" : "فعال‌سازی"}
+                        </button>
+                        <button
+                          onClick={() => handleArchiveCard(card.id)}
+                          className="flex items-center gap-1 text-xs px-2.5 py-1.5 text-slate-400 hover:text-amber-400 rounded-xl hover:bg-slate-800 border border-slate-800 transition"
+                          title="انتقال به آرشیو (حفظ سوابق)"
+                        >
+                          <Archive className="w-3.5 h-3.5" />
+                          <span className="hidden sm:inline">آرشیو</span>
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
               ))}

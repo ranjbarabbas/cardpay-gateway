@@ -50,6 +50,9 @@ model BankCard {
   bankTitle     String        @default("بانک قرض‌الحسنه مهر ایران")
   dailyLimit    BigInt?       // Max daily deposit cap in Toman
   isActive      Boolean       @default(true)
+  isArchived    Boolean       @default(false)
+  archivedAt    DateTime?
+  merchantUserId String?      // Optional Artist/User ID in the host website
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 

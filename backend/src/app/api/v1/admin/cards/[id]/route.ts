@@ -18,6 +18,13 @@ export async function PATCH(
       where: { id },
       data: {
         ...(body.isActive !== undefined ? { isActive: Boolean(body.isActive) } : {}),
+        ...(body.isArchived !== undefined
+          ? {
+              isArchived: Boolean(body.isArchived),
+              archivedAt: body.isArchived ? new Date() : null,
+              isActive: body.isArchived ? false : (body.isActive !== undefined ? Boolean(body.isActive) : true),
+            }
+          : {}),
         ...(body.ownerName ? { ownerName: body.ownerName } : {}),
         ...(body.accountNumber !== undefined ? { accountNumber: body.accountNumber } : {}),
         ...(body.iban !== undefined ? { iban: body.iban } : {}),
@@ -48,24 +55,21 @@ export async function DELETE(
       return NextResponse.json({ success: false, error: "کارت مورد نظر یافت نشد" }, { status: 404 });
     }
 
-    // Cascade delete any transactions and discrepancy tickets linked to this card
-    const txs = await db.transaction.findMany({
-      where: { cardId: id },
-      select: { id: true },
+    // Soft delete / Archival: Preserves 100% of financial records, transaction history, and tracking codes
+    const archived = await db.bankCard.update({
+      where: { id },
+      data: {
+        isArchived: true,
+        isActive: false,
+        archivedAt: new Date(),
+      },
     });
-    const txIds = txs.map((t) => t.id);
 
-    if (txIds.length > 0) {
-      await db.discrepancyTicket.deleteMany({
-        where: { transactionId: { in: txIds } },
-      });
-      await db.transaction.deleteMany({
-        where: { cardId: id },
-      });
-    }
-
-    await db.bankCard.delete({ where: { id } });
-    return NextResponse.json({ success: true, message: "کارت با موفقیت حذف شد" });
+    return NextResponse.json({
+      success: true,
+      message: "کارت با موفقیت و با حفظ کامل کلیه سوابق مالی به آرشیو منتقل شد.",
+      data: archived,
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });

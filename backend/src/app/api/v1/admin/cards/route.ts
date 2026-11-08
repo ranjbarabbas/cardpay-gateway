@@ -30,6 +30,9 @@ export async function POST(req: NextRequest) {
       bankSlug = "mehr_iran",
       bankTitle = "بانک قرض‌الحسنه مهر ایران",
       deviceId,
+      merchantUserId,
+      userId,
+      archivePrevious = false,
     } = body;
 
     if (!ownerName || !cardNumber) {
@@ -40,6 +43,23 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanCard = cardNumber.replace(/[^0-9]/g, "");
+    const cleanUserId = (merchantUserId || userId) ? String(merchantUserId || userId).trim() : null;
+
+    // If requested, safely archive user's previous active cards without deleting any history
+    if (archivePrevious && cleanUserId) {
+      await db.bankCard.updateMany({
+        where: {
+          merchantUserId: cleanUserId,
+          cardNumber: { not: cleanCard },
+          isArchived: false,
+        },
+        data: {
+          isArchived: true,
+          isActive: false,
+          archivedAt: new Date(),
+        },
+      });
+    }
 
     const card = await db.bankCard.upsert({
       where: { cardNumber: cleanCard },
@@ -49,8 +69,11 @@ export async function POST(req: NextRequest) {
         iban: iban ? iban.trim() : null,
         bankSlug,
         bankTitle,
+        ...(cleanUserId ? { merchantUserId: cleanUserId } : {}),
         ...(deviceId ? { deviceId } : {}),
         isActive: true,
+        isArchived: false,
+        archivedAt: null,
       },
       create: {
         ownerName,
@@ -59,8 +82,10 @@ export async function POST(req: NextRequest) {
         iban: iban ? iban.trim() : null,
         bankSlug,
         bankTitle,
+        merchantUserId: cleanUserId || null,
         deviceId: deviceId || null,
         isActive: true,
+        isArchived: false,
       },
     });
 

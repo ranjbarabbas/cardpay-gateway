@@ -36,29 +36,29 @@ export async function POST(req: NextRequest) {
     // Determine target card: Supports cardId/cartId, cardNumber/cartNumber, bankSlug, or auto-select default
     let targetCard = null;
     if (targetCardId) {
-      targetCard = await db.bankCard.findUnique({
-        where: { id: targetCardId, isActive: true },
+      targetCard = await db.bankCard.findFirst({
+        where: { id: targetCardId, isActive: true, isArchived: false },
       });
       if (!targetCard) {
         return NextResponse.json(
-          { success: false, error: "Specified card was not found or is currently inactive." },
+          { success: false, error: "Specified card was not found, is inactive, or has been archived." },
           { status: 404 }
         );
       }
     } else if (rawCardNumber) {
       const cleanCard = String(rawCardNumber).replace(/[^0-9]/g, "");
       targetCard = await db.bankCard.findFirst({
-        where: { cardNumber: cleanCard, isActive: true },
+        where: { cardNumber: cleanCard, isActive: true, isArchived: false },
       });
       if (!targetCard) {
         return NextResponse.json(
-          { success: false, error: `Card with number ${cleanCard} was not found or is currently inactive.` },
+          { success: false, error: `Card with number ${cleanCard} was not found, is inactive, or has been archived.` },
           { status: 404 }
         );
       }
     } else if (targetBankSlug) {
       targetCard = await db.bankCard.findFirst({
-        where: { bankSlug: targetBankSlug, isActive: true },
+        where: { bankSlug: targetBankSlug, isActive: true, isArchived: false },
         orderBy: { createdAt: "asc" },
       });
       if (!targetCard) {
@@ -68,9 +68,9 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      // Default: Pick the first active card
+      // Default: Pick the first active non-archived card
       targetCard = await db.bankCard.findFirst({
-        where: { isActive: true },
+        where: { isActive: true, isArchived: false },
         orderBy: { createdAt: "asc" },
       });
       if (!targetCard) {
