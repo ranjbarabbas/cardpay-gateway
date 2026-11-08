@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <attr name="appBackgroundColor" format="color" />
+    <attr name="appSurfaceColor" format="color" />
+    <attr name="appHeaderBackground" format="color" />
+    <attr name="appFooterBackground" format="color" />
+    <attr name="appCardStrokeColor" format="color" />
+    <attr name="appTextPrimary" format="color" />
+    <attr name="appTextSecondary" format="color" />
+    <attr name="appTextMuted" format="color" />
+    <attr name="appLogBackground" format="color" />
+    <attr name="appInputBackground" format="color" />
+    <attr name="appInputBorder" format="color" />
+    <attr name="appRippleColor" format="color" />
+    <attr name="appBadgeBackground" format="color" />
+    <attr name="appBadgeBorder" format="color" />
+    <attr name="appBadgeText" format="color" />
+</resources>

@@ -78,7 +78,7 @@ export default function Home() {
             <div className="flex items-center gap-2">
               <span className="font-black text-lg text-white tracking-tight">هنر هاب • CardPay</span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                v1.1.0
+                v1.2.0
               </span>
             </div>
           </div>
@@ -99,13 +99,13 @@ export default function Home() {
               <span>مستندات GitBook</span>
             </Link>
             <a
-              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.1.0/cardpay-sync.apk"
+              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.2.0/cardpay-sync.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span>دانلود APK (v1.1.0)</span>
+              <span>دانلود APK (v1.2.0)</span>
             </a>
             <Link
               href="/admin"
@@ -336,20 +336,20 @@ export default function Home() {
                 <span>نسخه رسمی منتشر شده در گیت‌هاب</span>
               </div>
               <h2 className="text-2xl md:text-3xl font-black text-white">
-                اپلیکیشن همگام‌ساز پیامک CardPay Sync (v1.1.0)
+                اپلیکیشن همگام‌ساز پیامک CardPay Sync (v1.2.0)
               </h2>
               <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                این اپلیکیشن کاتلین اختصاصی روی گوشی متصل به حساب بانکی نصب شده و پیامک‌های واریزی را به صورت رمزنگاری‌شده و آنی به درگاه ارسال می‌کند. دارای بخش تنظیمات مستقل ⚙️، فونت اصیل وزیرمتن، پشتیبانی کامل از راست‌چین (RTL) و لوگوی رسمی هنر هاب.
+                این اپلیکیشن کاتلین اختصاصی روی گوشی متصل به حساب بانکی نصب شده و پیامک‌های واریزی را به صورت رمزنگاری‌شده و آنی به درگاه ارسال می‌کند. دارای پوسته تیره و روشن (Dark / Light Mode)، بخش تنظیمات مستقل ⚙️، فوتر نسخه در پایین صفحه، فونت اصیل وزیرمتن و پشتیبانی کامل از راست‌چین (RTL).
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <a
-                  href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.1.0/cardpay-sync.apk"
+                  href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.2.0/cardpay-sync.apk"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20"
                 >
                   <Download className="w-4 h-4" />
-                  <span>دانلود فایل APK نسخه ۱.۱.۰ (5.5MB)</span>
+                  <span>دانلود فایل APK نسخه ۱.۲.۰ (5.5MB)</span>
                 </a>
                 <Link
                   href="/api/v1/download/apk"
@@ -364,7 +364,7 @@ export default function Home() {
             <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-6 w-full lg:w-80 space-y-3 font-mono text-xs">
               <div className="flex items-center justify-between text-slate-400">
                 <span>نسخه فایل:</span>
-                <span className="text-white font-bold">v1.1.0</span>
+                <span className="text-white font-bold">v1.2.0</span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>فرمت فایل:</span>

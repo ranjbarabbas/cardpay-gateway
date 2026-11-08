@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.CardPay" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#10B981</item>
+        <item name="colorSecondary">#059669</item>
+        <item name="android:statusBarColor">#070A0F</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <item name="android:navigationBarColor">#0B0F17</item>
+        <item name="android:windowBackground">#070A0F</item>
+        <item name="fontFamily">@font/vazirmatn</item>
+        <item name="android:fontFamily">@font/vazirmatn</item>
+
+        <!-- Custom Semantic Attributes for Dark Mode -->
+        <item name="appBackgroundColor">#070A0F</item>
+        <item name="appSurfaceColor">#0F172A</item>
+        <item name="appHeaderBackground">#0F172A</item>
+        <item name="appFooterBackground">#0B0F17</item>
+        <item name="appCardStrokeColor">#1E293B</item>
+        <item name="appTextPrimary">#F8FAFC</item>
+        <item name="appTextSecondary">#94A3B8</item>
+        <item name="appTextMuted">#64748B</item>
+        <item name="appLogBackground">#070A0F</item>
+        <item name="appInputBackground">#070A0F</item>
+        <item name="appInputBorder">#334155</item>
+        <item name="appRippleColor">#1E293B</item>
+        <item name="appBadgeBackground">#064E3B</item>
+        <item name="appBadgeBorder">#059669</item>
+        <item name="appBadgeText">#A7F3D0</item>
+    </style>
+</resources>

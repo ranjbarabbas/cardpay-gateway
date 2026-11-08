@@ -2,6 +2,7 @@ package com.cardpay.gateway.sync.utils
 
 import android.content.Context
 import android.content.SharedPreferences
+import androidx.appcompat.app.AppCompatDelegate
 
 class AppPreferences(context: Context) {
     private val prefs: SharedPreferences =
@@ -22,4 +23,19 @@ class AppPreferences(context: Context) {
     var lastSyncStatus: String
         get() = prefs.getString("last_sync_status", "Never synced") ?: "Never synced"
         set(value) = prefs.edit().putString("last_sync_status", value).apply()
+
+    /**
+     * Theme mode: "dark", "light", or "system"
+     */
+    var themeMode: String
+        get() = prefs.getString("theme_mode", "dark") ?: "dark"
+        set(value) = prefs.edit().putString("theme_mode", value).apply()
+
+    fun applyTheme() {
+        when (themeMode) {
+            "light" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_NO)
+            "dark" -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_YES)
+            else -> AppCompatDelegate.setDefaultNightMode(AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+        }
+    }
 }

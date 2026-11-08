@@ -42,7 +42,18 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        updateThemeToggleIcon()
         updateStatusView()
+    }
+
+    private fun updateThemeToggleIcon() {
+        if (prefs.themeMode == "light") {
+            binding.btnToggleTheme.setImageResource(com.cardpay.gateway.sync.R.drawable.ic_dark_mode)
+            binding.btnToggleTheme.contentDescription = "تغییر به حالت تیره"
+        } else {
+            binding.btnToggleTheme.setImageResource(com.cardpay.gateway.sync.R.drawable.ic_light_mode)
+            binding.btnToggleTheme.contentDescription = "تغییر به حالت روشن"
+        }
     }
 
     private fun setupUI() {
@@ -53,6 +64,17 @@ class MainActivity : AppCompatActivity() {
 
         binding.btnQuickSettings.setOnClickListener {
             startActivity(Intent(this, SettingsActivity::class.java))
+        }
+
+        // Quick Theme Toggle (Light / Dark)
+        updateThemeToggleIcon()
+        binding.btnToggleTheme.setOnClickListener {
+            val newTheme = if (prefs.themeMode == "light") "dark" else "light"
+            prefs.themeMode = newTheme
+            prefs.applyTheme()
+            updateThemeToggleIcon()
+            val themeName = if (newTheme == "dark") "تیره (Dark Mode)" else "روشن (Light Mode)"
+            Toast.makeText(this, "پوسته برنامه به $themeName تغییر یافت", Toast.LENGTH_SHORT).show()
         }
 
         binding.switchSync.isChecked = prefs.isSyncEnabled

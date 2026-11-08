@@ -1,192 +1,290 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#070A0F"
+    android:background="?attr/appBackgroundColor"
     android:layoutDirection="rtl"
-    android:fillViewport="true"
-    android:padding="20dp">
+    android:orientation="vertical">
 
-    <LinearLayout
+    <!-- Top App Bar with Standard Back Button -->
+    <RelativeLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:layout_height="64dp"
+        android:background="?attr/appHeaderBackground"
+        android:elevation="3dp"
+        android:paddingHorizontal="16dp">
 
-        <!-- Top bar with Standard Back Button -->
-        <RelativeLayout
-            android:layout_width="match_parent"
+        <ImageButton
+            android:id="@+id/btnBack"
+            android:layout_width="44dp"
+            android:layout_height="44dp"
+            android:layout_alignParentStart="true"
+            android:layout_centerVertical="true"
+            android:background="@drawable/ripple_circle"
+            android:contentDescription="بازگشت"
+            android:padding="10dp"
+            android:src="@drawable/ic_arrow_back"
+            app:tint="?attr/appTextPrimary" />
+
+        <TextView
+            android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:layout_marginBottom="24dp">
+            android:layout_centerVertical="true"
+            android:layout_marginStart="56dp"
+            android:fontFamily="@font/vazirmatn_bold"
+            android:text="تنظیمات درگاه و ظاهر"
+            android:textColor="?attr/appTextPrimary"
+            android:textSize="17sp"
+            android:textStyle="bold" />
+    </RelativeLayout>
 
-            <ImageButton
-                android:id="@+id/btnBack"
-                android:layout_width="48dp"
-                android:layout_height="48dp"
-                android:layout_alignParentStart="true"
-                android:layout_centerVertical="true"
-                android:background="@drawable/ripple_circle"
-                android:contentDescription="بازگشت"
-                android:padding="12dp"
-                android:src="@drawable/ic_arrow_back"
-                app:tint="#F8FAFC" />
+    <!-- Scrollable Settings -->
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:fillViewport="true"
+        android:padding="16dp">
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_centerVertical="true"
-                android:layout_marginStart="60dp"
-                android:fontFamily="@font/vazirmatn_bold"
-                android:text="تنظیمات درگاه و اتصال"
-                android:textColor="#F8FAFC"
-                android:textSize="18sp"
-                android:textStyle="bold" />
-        </RelativeLayout>
-
-        <!-- Configuration Card -->
-        <com.google.android.material.card.MaterialCardView
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            app:cardBackgroundColor="#0F172A"
-            app:cardCornerRadius="24dp"
-            app:cardElevation="2dp"
-            app:strokeColor="#1E293B"
-            app:strokeWidth="1dp">
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="vertical"
-                android:padding="24dp">
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:fontFamily="@font/vazirmatn_bold"
-                    android:text="تنظیمات سرور و توکن دستگاه"
-                    android:textColor="#F1F5F9"
-                    android:textSize="16sp"
-                    android:textStyle="bold" />
-
-                <TextView
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="4dp"
-                    android:fontFamily="@font/vazirmatn_regular"
-                    android:text="آدرس سرور مرکزی و کلید دسترسی دستگاه را وارد نمایید."
-                    android:textColor="#94A3B8"
-                    android:textSize="12sp" />
-
-                <!-- Server URL Input -->
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="22dp"
-                    android:hint="CardPay Server URL (مثال: http://192.168.0.205:3050)"
-                    android:textColorHint="#64748B"
-                    app:boxBackgroundColor="#070A0F"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:boxStrokeColor="#10B981"
-                    app:hintTextColor="#10B981">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etServerUrl"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/vazirmatn_medium"
-                        android:inputType="textUri"
-                        android:text="http://10.0.2.2:3050"
-                        android:textColor="#F8FAFC"
-                        android:textSize="14sp" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- API Key Input -->
-                <com.google.android.material.textfield.TextInputLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="16dp"
-                    android:hint="Device API Key (کلید اختصاصی دستگاه)"
-                    android:textColorHint="#64748B"
-                    app:boxBackgroundColor="#070A0F"
-                    app:boxCornerRadiusBottomEnd="16dp"
-                    app:boxCornerRadiusBottomStart="16dp"
-                    app:boxCornerRadiusTopEnd="16dp"
-                    app:boxCornerRadiusTopStart="16dp"
-                    app:boxStrokeColor="#10B981"
-                    app:hintTextColor="#10B981">
-
-                    <com.google.android.material.textfield.TextInputEditText
-                        android:id="@+id/etApiKey"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/vazirmatn_medium"
-                        android:inputType="text"
-                        android:textColor="#F8FAFC"
-                        android:textSize="14sp" />
-                </com.google.android.material.textfield.TextInputLayout>
-
-                <!-- Action Buttons -->
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:layout_marginTop="26dp"
-                    android:orientation="horizontal">
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnSave"
-                        android:layout_width="0dp"
-                        android:layout_height="54dp"
-                        android:layout_marginEnd="6dp"
-                        android:layout_weight="1"
-                        android:backgroundTint="#10B981"
-                        android:fontFamily="@font/vazirmatn_bold"
-                        android:text="ذخیره تنظیمات"
-                        android:textColor="#FFFFFF"
-                        android:textSize="14sp"
-                        android:textStyle="bold"
-                        app:cornerRadius="16dp" />
-
-                    <com.google.android.material.button.MaterialButton
-                        android:id="@+id/btnTest"
-                        style="@style/Widget.Material3.Button.OutlinedButton"
-                        android:layout_width="0dp"
-                        android:layout_height="54dp"
-                        android:layout_marginStart="6dp"
-                        android:layout_weight="1"
-                        android:fontFamily="@font/vazirmatn_bold"
-                        android:text="تست پینگ"
-                        android:textColor="#10B981"
-                        android:textSize="14sp"
-                        app:cornerRadius="16dp"
-                        app:strokeColor="#10B981" />
-                </LinearLayout>
-
-            </LinearLayout>
-        </com.google.android.material.card.MaterialCardView>
-
-        <!-- Bottom Center App Version Badge -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="40dp"
-            android:layout_marginBottom="16dp"
-            android:gravity="center"
             android:orientation="vertical">
 
-            <TextView
-                android:layout_width="wrap_content"
+            <!-- Theme Mode Selection Card (Dark / Light / System) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:background="#0F172A"
-                android:fontFamily="@font/vazirmatn_medium"
-                android:paddingHorizontal="16dp"
-                android:paddingVertical="6dp"
-                android:text="نسخه ۱.۱.۰ • سامانه هنر هاب"
-                android:textColor="#64748B"
-                android:textSize="12sp" />
-        </LinearLayout>
+                android:layout_marginBottom="16dp"
+                app:cardBackgroundColor="?attr/appSurfaceColor"
+                app:cardCornerRadius="22dp"
+                app:cardElevation="1dp"
+                app:strokeColor="?attr/appCardStrokeColor"
+                app:strokeWidth="1dp">
 
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/vazirmatn_bold"
+                        android:text="پوسته و حالت ظاهری (Dark / Light Mode)"
+                        android:textColor="?attr/appTextPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/vazirmatn_regular"
+                        android:text="حالت تیره، روشن یا هماهنگ با سیستم عامل را انتخاب فرمایید."
+                        android:textColor="?attr/appTextMuted"
+                        android:textSize="11sp" />
+
+                    <RadioGroup
+                        android:id="@+id/rgThemeMode"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="12dp"
+                        android:orientation="vertical">
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rbThemeDark"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/vazirmatn_medium"
+                            android:text="🌙 حالت تیره (Dark Mode)"
+                            android:textColor="?attr/appTextPrimary"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rbThemeLight"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/vazirmatn_medium"
+                            android:text="☀️ حالت روشن (Light Mode)"
+                            android:textColor="?attr/appTextPrimary"
+                            android:textSize="13sp" />
+
+                        <com.google.android.material.radiobutton.MaterialRadioButton
+                            android:id="@+id/rbThemeSystem"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/vazirmatn_medium"
+                            android:text="⚙️ هماهنگ با تنظیمات سیستم گوشی"
+                            android:textColor="?attr/appTextPrimary"
+                            android:textSize="13sp" />
+                    </RadioGroup>
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+            <!-- Configuration Card (Server & Token) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                app:cardBackgroundColor="?attr/appSurfaceColor"
+                app:cardCornerRadius="24dp"
+                app:cardElevation="1dp"
+                app:strokeColor="?attr/appCardStrokeColor"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="20dp">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/vazirmatn_bold"
+                        android:text="تنظیمات سرور و توکن دستگاه"
+                        android:textColor="?attr/appTextPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/vazirmatn_regular"
+                        android:text="آدرس سرور مرکزی و کلید دسترسی دستگاه را وارد نمایید."
+                        android:textColor="?attr/appTextMuted"
+                        android:textSize="11sp" />
+
+                    <!-- Server URL Input -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="18dp"
+                        android:hint="آدرس سرور مرکزی درگاه (Server URL)"
+                        android:textColorHint="?attr/appTextMuted"
+                        app:boxBackgroundColor="?attr/appInputBackground"
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp"
+                        app:boxStrokeColor="?attr/colorPrimary"
+                        app:hintTextColor="?attr/colorPrimary">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etServerUrl"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/vazirmatn_medium"
+                            android:inputType="textUri"
+                            android:text="http://10.0.2.2:3050"
+                            android:textColor="?attr/appTextPrimary"
+                            android:textSize="13sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- API Key Input -->
+                    <com.google.android.material.textfield.TextInputLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="14dp"
+                        android:hint="کلید توکن دستگاه (Device API Key)"
+                        android:textColorHint="?attr/appTextMuted"
+                        app:boxBackgroundColor="?attr/appInputBackground"
+                        app:boxCornerRadiusBottomEnd="16dp"
+                        app:boxCornerRadiusBottomStart="16dp"
+                        app:boxCornerRadiusTopEnd="16dp"
+                        app:boxCornerRadiusTopStart="16dp"
+                        app:boxStrokeColor="?attr/colorPrimary"
+                        app:hintTextColor="?attr/colorPrimary">
+
+                        <com.google.android.material.textfield.TextInputEditText
+                            android:id="@+id/etApiKey"
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:fontFamily="@font/vazirmatn_medium"
+                            android:inputType="text"
+                            android:textColor="?attr/appTextPrimary"
+                            android:textSize="13sp" />
+                    </com.google.android.material.textfield.TextInputLayout>
+
+                    <!-- Action Buttons -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="22dp"
+                        android:orientation="horizontal">
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnSave"
+                            android:layout_width="0dp"
+                            android:layout_height="52dp"
+                            android:layout_marginEnd="6dp"
+                            android:layout_weight="1"
+                            android:backgroundTint="?attr/colorPrimary"
+                            android:fontFamily="@font/vazirmatn_bold"
+                            android:text="ذخیره تنظیمات"
+                            android:textColor="#FFFFFF"
+                            android:textSize="13sp"
+                            android:textStyle="bold"
+                            app:cornerRadius="16dp" />
+
+                        <com.google.android.material.button.MaterialButton
+                            android:id="@+id/btnTest"
+                            style="@style/Widget.Material3.Button.OutlinedButton"
+                            android:layout_width="0dp"
+                            android:layout_height="52dp"
+                            android:layout_marginStart="6dp"
+                            android:layout_weight="1"
+                            android:fontFamily="@font/vazirmatn_bold"
+                            android:text="تست اتصال"
+                            android:textColor="?attr/colorPrimary"
+                            android:textSize="13sp"
+                            app:cornerRadius="16dp"
+                            app:strokeColor="?attr/colorPrimary" />
+                    </LinearLayout>
+
+                    <!-- Connection Log Box -->
+                    <TextView
+                        android:id="@+id/tvTestResult"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="16dp"
+                        android:background="?attr/appLogBackground"
+                        android:fontFamily="@font/vazirmatn_regular"
+                        android:padding="14dp"
+                        android:text="نتیجه تست اتصال سرور در اینجا نمایش داده می‌شود."
+                        android:textColor="?attr/appTextMuted"
+                        android:textSize="11sp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
+        </LinearLayout>
+    </ScrollView>
+
+    <!-- Bottom Sticky Footer Bar: App Version & Branding -->
+    <LinearLayout
+        android:id="@+id/footerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="?attr/appFooterBackground"
+        android:elevation="4dp"
+        android:gravity="center"
+        android:orientation="horizontal"
+        android:paddingVertical="12dp"
+        android:paddingHorizontal="16dp">
+
+        <TextView
+            android:id="@+id/tvSettingsAppVersion"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:fontFamily="@font/vazirmatn_medium"
+            android:text="نسخه ۱.۲.۰ • سامانه هنر هاب"
+            android:textColor="?attr/appTextMuted"
+            android:textSize="12sp" />
     </LinearLayout>
-</ScrollView>
+
+</LinearLayout>

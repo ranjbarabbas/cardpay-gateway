@@ -1,12 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.CardPay" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">#10B981</item>
-        <item name="colorSecondary">#059669</item>
-        <item name="android:statusBarColor">#070A0F</item>
-        <item name="android:navigationBarColor">#070A0F</item>
-        <item name="android:windowBackground">#070A0F</item>
+    <style name="Theme.CardPay" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">#059669</item>
+        <item name="colorSecondary">#10B981</item>
+        <item name="android:statusBarColor">#F8FAFC</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">#FFFFFF</item>
+        <item name="android:windowBackground">#F8FAFC</item>
         <item name="fontFamily">@font/vazirmatn</item>
         <item name="android:fontFamily">@font/vazirmatn</item>
+
+        <!-- Custom Semantic Attributes for Light Mode -->
+        <item name="appBackgroundColor">#F8FAFC</item>
+        <item name="appSurfaceColor">#FFFFFF</item>
+        <item name="appHeaderBackground">#FFFFFF</item>
+        <item name="appFooterBackground">#FFFFFF</item>
+        <item name="appCardStrokeColor">#E2E8F0</item>
+        <item name="appTextPrimary">#0F172A</item>
+        <item name="appTextSecondary">#475569</item>
+        <item name="appTextMuted">#64748B</item>
+        <item name="appLogBackground">#F1F5F9</item>
+        <item name="appInputBackground">#F8FAFC</item>
+        <item name="appInputBorder">#CBD5E1</item>
+        <item name="appRippleColor">#E2E8F0</item>
+        <item name="appBadgeBackground">#ECFDF5</item>
+        <item name="appBadgeBorder">#A7F3D0</item>
+        <item name="appBadgeText">#065F46</item>
     </style>
 </resources>
