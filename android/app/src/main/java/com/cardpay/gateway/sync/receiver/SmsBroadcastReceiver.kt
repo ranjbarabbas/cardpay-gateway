@@ -12,6 +12,13 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
 
     companion object {
         private const val TAG = "SmsBroadcastReceiver"
+
+        // Common Persian financial and bank keywords
+        private val FINANCIAL_KEYWORDS = listOf(
+            "مانده", "واریز", "برداشت", "موجود", "حساب", "کارت",
+            "انتقال", "پایا", "ساتنا", "شاپرک", "سپرده", "ریال", "تومان",
+            "bank", "mehr", "meli", "mellat", "saman", "sepah"
+        )
     }
 
     override fun onReceive(context: Context, intent: Intent) {
@@ -37,12 +44,49 @@ class SmsBroadcastReceiver : BroadcastReceiver() {
             }
 
             val body = fullBody.toString()
-            Log.d(TAG, "Received SMS from: $sender (length: ${body.length})")
 
-            // Forward to Foreground Service for network dispatch
+            // Filter on device: Only forward if it matches bank or financial structure
+            if (!isBankOrFinancialSms(sender, body)) {
+                Log.d(TAG, "Ignored non-financial/personal SMS from: $sender")
+                return
+            }
+
+            Log.d(TAG, "Bank-like SMS detected from: $sender. Forwarding to foreground service.")
             SmsSyncForegroundService.sendSms(context, sender, body, timestamp)
         } catch (e: Exception) {
             Log.e(TAG, "Error processing incoming SMS", e)
         }
+    }
+
+    /**
+     * Checks if the SMS exhibits banking or financial characteristics
+     */
+    private fun isBankOrFinancialSms(sender: String, body: String): Boolean {
+        val lowerSender = sender.lowercase()
+        val lowerBody = body.lowercase()
+
+        // 1. Sender contains bank indicators
+        if (lowerSender.contains("bank") || lowerSender.contains("mehr") ||
+            lowerSender.contains("meli") || lowerSender.contains("mellat") ||
+            lowerSender.contains("b.q") || lowerSender.contains("shaparak")) {
+            return true
+        }
+
+        // 2. Deposit or withdrawal indicator (+ or - next to numbers)
+        val hasPlusMinusAmount = Regex("""[0-9,]+(\+|\-)""").containsMatchIn(body) ||
+                                 Regex("""(\+|\-)\s*[0-9,]+""").containsMatchIn(body)
+
+        if (hasPlusMinusAmount) return true
+
+        // 3. Contains Persian bank keywords
+        var matches = 0
+        for (keyword in FINANCIAL_KEYWORDS) {
+            if (lowerBody.contains(keyword)) {
+                matches++
+                if (matches >= 2) return true
+            }
+        }
+
+        return false
     }
 }

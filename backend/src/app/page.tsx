@@ -1,25 +1,51 @@
 import Link from "next/link";
-import { Shield, CreditCard, Smartphone, ArrowRight, CheckCircle, Terminal } from "lucide-react";
+import {
+  Shield,
+  CreditCard,
+  Smartphone,
+  ArrowRight,
+  CheckCircle2,
+  Terminal,
+  Zap,
+  Lock,
+  Code2,
+  BookOpen,
+  Check,
+  Sparkles,
+  ExternalLink,
+} from "lucide-react";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-slate-950 text-slate-100 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
       {/* Navbar */}
-      <header className="border-b border-slate-800/80 bg-slate-900/50 backdrop-blur-md sticky top-0 z-50">
+      <header className="border-b border-slate-800/80 bg-slate-900/60 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-xl flex items-center justify-center">
+            <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/10">
               <Shield className="w-5 h-5" />
             </div>
-            <span className="font-black text-lg text-white tracking-tight">CardPay Gateway</span>
+            <div>
+              <span className="font-black text-lg text-white tracking-tight">CardPay Gateway</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full mr-2">
+                P2P Engine
+              </span>
+            </div>
           </div>
 
           <div className="flex items-center gap-3">
             <Link
-              href="/admin"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold px-4 py-2 rounded-xl transition shadow-lg shadow-emerald-600/20"
+              href="/docs"
+              className="text-xs text-slate-300 hover:text-white font-medium px-3 py-2 rounded-xl transition flex items-center gap-1.5"
             >
-              ورود به پنل مدیریت درگاه
+              <BookOpen className="w-4 h-4 text-teal-400" />
+              <span>مستندات API</span>
+            </Link>
+            <Link
+              href="/admin"
+              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-lg shadow-emerald-600/20"
+            >
+              ورود به پنل مدیریت
             </Link>
           </div>
         </div>
@@ -27,62 +53,69 @@ export default function Home() {
 
       {/* Hero */}
       <main className="max-w-5xl mx-auto px-6 py-20 text-center space-y-8">
-        <div className="inline-flex items-center gap-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs px-3.5 py-1.5 rounded-full font-medium">
-          <CheckCircle className="w-3.5 h-3.5" />
-          <span>سامانه خودکار واسط پرداخت کارت‌به‌کارت با تفکیک هوشمند مبالغ (+۵ تومان)</span>
+        <div className="inline-flex items-center gap-2 bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs px-4 py-1.5 rounded-full font-bold shadow-sm">
+          <Sparkles className="w-3.5 h-3.5" />
+          <span>زیرساخت درگاه پرداخت مستقیم کارت‌به‌کارت برای استارتاپ‌ها و پذیرندگان آنلاین</span>
         </div>
 
-        <h1 className="text-4xl md:text-5xl font-black text-white leading-tight">
-          درگاه اختصاصی پرداخت مستقیم کارت‌به‌کارت
+        <h1 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tight">
+          تسویه آنی و مستقیم بانکی
           <br />
-          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-200">
-            با تایید آنی از طریق پیامک بانکی
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200">
+            بدون واسطه، کارمزد و اینماد
           </span>
         </h1>
 
-        <p className="max-w-2xl mx-auto text-slate-400 text-base leading-relaxed">
-          بدون نیاز به شرکت‌های واسط؛ مبالغ مشتریان به صورت مستقیم و آنی به حساب‌های معرفی‌شده ادمین یا هنرمندان واریز شده و توسط سرویس شنود پیامک اندروید در لحظه تایید می‌شود.
+        <p className="max-w-2xl mx-auto text-slate-400 text-sm md:text-base leading-relaxed">
+          سامانه CardPay وجوه مشتریان را به صورت مستقیم به حساب‌های بانکی شما یا فروشندگان واریز کرده و با تطبیق هوشمند پیامک بانکی، پرداخت را در کسری از ثانیه تایید می‌کند.
         </p>
 
         <div className="flex flex-wrap items-center justify-center gap-4 pt-4">
           <Link
-            href="/admin"
-            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-6 py-3 rounded-2xl transition shadow-xl shadow-emerald-600/25"
+            href="/docs"
+            className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-6 py-3.5 rounded-2xl transition shadow-xl shadow-emerald-600/25"
           >
-            <span>مدیریت کارت‌ها و تراکنش‌ها</span>
+            <Terminal className="w-4 h-4" />
+            <span>مستندات و تست وب‌سرویس REST</span>
             <ArrowRight className="w-4 h-4 rotate-180" />
+          </Link>
+          <Link
+            href="/admin"
+            className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-sm font-bold px-6 py-3.5 rounded-2xl transition"
+          >
+            <span>داشبورد مدیریت کارت‌ها</span>
           </Link>
         </div>
 
-        {/* Features Grid */}
+        {/* Feature Cards Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-16 text-right">
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-3">
-            <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
-              <CreditCard className="w-5 h-5" />
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-3 shadow-lg">
+            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
+              <Zap className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-white text-base">تخصیص یکتای مبلغ (+۵ تومان)</h3>
+            <h3 className="font-bold text-white text-base">الگوریتم تفکیک هوشمند مبالغ</h3>
             <p className="text-slate-400 text-xs leading-relaxed">
-              تراکنش‌های همزمان با مبالغ مشابه با فاصله‌های ۵ تومانی از یکدیگر متمایز می‌شوند و تا ۲۰ دقیقه از تداخل مبالغ جلوگیری می‌شود.
+              تراکنش‌های همزمان با مبالغ مشابه با افست یکتای ۱۱، ۱۲ و ۱۳ تومانی از یکدیگر متمایز شده و کد پیگیری یکتای شمسی PAY صادر می‌شود.
             </p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-3">
-            <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
-              <Smartphone className="w-5 h-5" />
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-3 shadow-lg">
+            <div className="w-12 h-12 bg-teal-500/10 border border-teal-500/20 text-teal-400 rounded-2xl flex items-center justify-center">
+              <Lock className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-white text-base">پل ارتباطی اندروید (SMS Bridge)</h3>
+            <h3 className="font-bold text-white text-base">امنیت دومرحله‌ای و ضد جعل پیامک</h3>
             <p className="text-slate-400 text-xs leading-relaxed">
-              اپلیکیشن نیتیو کاتلین در پس‌زمینه پیامک‌های واریز بانک مهر ایران را رصد کرده و بدون فوت وقت به سرور ارسال می‌کند.
+              پیامک‌های دریافتی با سرشماره‌های تاییدشده اعتبارسنجی می‌شوند و هر سرخط ناشناس قبل از تایید در صف بررسی ادمین قرار می‌گیرد.
             </p>
           </div>
 
-          <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-3">
-            <div className="w-10 h-10 bg-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
-              <Terminal className="w-5 h-5" />
+          <div className="bg-slate-900/80 border border-slate-800 rounded-3xl p-6 space-y-3 shadow-lg">
+            <div className="w-12 h-12 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 rounded-2xl flex items-center justify-center">
+              <Smartphone className="w-6 h-6" />
             </div>
-            <h3 className="font-bold text-white text-base">استاندارد درگاه پرداخت</h3>
+            <h3 className="font-bold text-white text-base">اپلیکیشن اندروید با پوش‌نوتیفیکیشن</h3>
             <p className="text-slate-400 text-xs leading-relaxed">
-              سازگار با استاندارد Rest API درگاه‌های پرداخت با متدهای Request، Verify و بازگشت خودکار به Callback URL فروشگاه.
+              سرویس پایدار پس‌زمینه کاتلین با فیلتر هوشمند پیامک‌های بانکی و قابلیت دریافت اعلان‌های فوری از پنل مدیریت.
             </p>
           </div>
         </div>

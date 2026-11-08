@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import {
   CreditCard,
   Smartphone,
@@ -23,11 +24,17 @@ import {
   Zap,
   Sparkles,
   Info,
-  Radio,
+  Bell,
+  BookOpen,
+  Mail,
+  ShieldAlert,
+  ShieldCheck,
+  CheckCheck,
+  Ban,
 } from "lucide-react";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<"cards" | "devices" | "transactions" | "sms" | "tickets" | "sandbox">("cards");
+  const [activeTab, setActiveTab] = useState<"cards" | "devices" | "trusted_senders" | "pending_senders" | "transactions" | "sms" | "tickets" | "sandbox">("cards");
   const [adminKey, setAdminKey] = useState("super-secret-admin-key-change-me");
 
   // State data
@@ -36,7 +43,8 @@ export default function AdminDashboard() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [smsLogs, setSmsLogs] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
-  const [senders, setSenders] = useState<any[]>([]);
+  const [approvedSenders, setApprovedSenders] = useState<any[]>([]);
+  const [pendingSenders, setPendingSenders] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -56,15 +64,18 @@ export default function AdminDashboard() {
   // New Sender Form
   const [newSender, setNewSender] = useState({ senderId: "", bankSlug: "mehr_iran", description: "" });
 
+  // Push Notification Modal
+  const [notifyDeviceId, setNotifyDeviceId] = useState<string | null>(null);
+  const [notifyTitle, setNotifyTitle] = useState("");
+  const [notifyMessage, setNotifyMessage] = useState("");
+  const [notifyLoading, setNotifyLoading] = useState(false);
+
   // Sandbox State
-  const [testAmount, setTestAmount] = useState(100000); // 100,000 Tomans
+  const [testAmount, setTestAmount] = useState(100000);
   const [testCardId, setTestCardId] = useState("");
   const [createdTestTx, setCreatedTestTx] = useState<any>(null);
   const [simSender, setSimSender] = useState("B.QMEHRIRAN");
-  const [simText, setSimText] = useState(`662179818703777001
-1,000,050+
-1405/8/16-15:46
-مانده:2,420,000`);
+  const [simText, setSimText] = useState(`662179818703777001\n1,000,110+\n1405/8/17-14:20\nمانده:3,500,000`);
   const [simResult, setSimResult] = useState<any>(null);
   const [simLoading, setSimLoading] = useState(false);
 
@@ -100,19 +111,22 @@ export default function AdminDashboard() {
         const res = await fetch("/api/v1/admin/devices", { headers });
         const data = await res.json();
         if (data.success) setDevices(data.data);
+      } else if (activeTab === "trusted_senders") {
+        const res = await fetch("/api/v1/admin/senders?status=APPROVED", { headers });
+        const data = await res.json();
+        if (data.success) setApprovedSenders(data.data);
+      } else if (activeTab === "pending_senders") {
+        const res = await fetch("/api/v1/admin/senders?status=PENDING_REVIEW", { headers });
+        const data = await res.json();
+        if (data.success) setPendingSenders(data.data);
       } else if (activeTab === "transactions") {
         const res = await fetch("/api/v1/admin/transactions?type=transactions", { headers });
         const data = await res.json();
         if (data.success) setTransactions(data.data);
       } else if (activeTab === "sms") {
-        const [smsRes, sndRes] = await Promise.all([
-          fetch("/api/v1/admin/transactions?type=sms_logs", { headers }),
-          fetch("/api/v1/admin/senders", { headers }),
-        ]);
-        const sData = await smsRes.json();
-        const sndData = await sndRes.json();
-        if (sData.success) setSmsLogs(sData.data);
-        if (sndData.success) setSenders(sndData.data);
+        const res = await fetch("/api/v1/admin/transactions?type=sms_logs", { headers });
+        const data = await res.json();
+        if (data.success) setSmsLogs(data.data);
       } else if (activeTab === "tickets") {
         const res = await fetch("/api/v1/admin/transactions?type=tickets", { headers });
         const data = await res.json();
@@ -187,7 +201,7 @@ export default function AdminDashboard() {
     const res = await fetch("/api/v1/admin/senders", {
       method: "POST",
       headers,
-      body: JSON.stringify(newSender),
+      body: JSON.stringify({ ...newSender, status: "APPROVED" }),
     });
     const data = await res.json();
     if (data.success) {
@@ -196,18 +210,41 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleQuickTrustSender = async (senderId: string) => {
-    await fetch("/api/v1/admin/senders", {
-      method: "POST",
+  const handleUpdateSenderStatus = async (senderIdRecord: string, newStatus: "APPROVED" | "REJECTED") => {
+    const res = await fetch(`/api/v1/admin/senders/${senderIdRecord}`, {
+      method: "PATCH",
       headers,
-      body: JSON.stringify({
-        senderId,
-        bankSlug: "mehr_iran",
-        description: "Trusted via quick action in SMS log",
-      }),
+      body: JSON.stringify({ status: newStatus }),
     });
-    alert(`سرخط ${senderId} به لیست سرخط‌های مجاز اضافه شد.`);
-    loadData();
+    const data = await res.json();
+    if (data.success) {
+      alert(newStatus === "APPROVED" ? "سرخط با موفقیت تایید شد." : "سرخط مسدود گردید.");
+      loadData();
+    }
+  };
+
+  const handleSendNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!notifyDeviceId || !notifyTitle || !notifyMessage) return;
+    setNotifyLoading(true);
+    try {
+      const res = await fetch(`/api/v1/admin/devices/${notifyDeviceId}/notify`, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ title: notifyTitle, message: notifyMessage }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("نوتیفیکیشن با موفقیت برای دستگاه ارسال شد.");
+        setNotifyDeviceId(null);
+        setNotifyTitle("");
+        setNotifyMessage("");
+      } else {
+        alert("خطا: " + data.error);
+      }
+    } finally {
+      setNotifyLoading(false);
+    }
   };
 
   const handleManualReconcile = async (transactionId: string) => {
@@ -231,15 +268,15 @@ export default function AdminDashboard() {
           amount: testAmount,
           cardId: testCardId || undefined,
           callbackUrl: window.location.origin + "/admin",
-          description: "Test Transaction from Sandbox",
+          description: "تراکنش آزمایشی درگاه",
         }),
       });
       const data = await res.json();
       if (data.success) {
         setCreatedTestTx(data.data);
-        // Pre-fill the SMS simulator with matching amount and account
-        const account = cards.find((c) => c.id === testCardId)?.accountNumber || "662179818703777001";
-        setSimText(`${account}\n${data.data.payableAmountRial.toLocaleString()}+\n1405/8/16-15:46\nمانده:5,000,000`);
+        const cardObj = cards.find((c) => c.id === testCardId);
+        const account = cardObj?.accountNumber || "662179818703777001";
+        setSimText(`${account}\n${data.data.payableAmountRial.toLocaleString()}+\n1405/8/17-14:20\nمانده:5,000,000`);
       } else {
         alert("خطا در ایجاد پرداخت: " + data.error);
       }
@@ -283,15 +320,23 @@ export default function AdminDashboard() {
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl md:text-2xl font-black text-white">سامانه هوشمند درگاه کارت‌به‌کارت</h1>
-                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full">
-                  نسخه ۱.۰
+                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                  نگارش ۲.۰ (امنیت دو‌مرحله‌ای)
                 </span>
               </div>
-              <p className="text-slate-400 text-xs mt-1">مدیریت کارت‌ها، پایش پیامک‌های بانکی و اعتبارسنجی خودکار واریزی‌ها</p>
+              <p className="text-slate-400 text-xs mt-1">مدیریت کارت‌ها، تایید سرخط‌های مجاز و پایش خودکار پیامک‌های بانکی</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            <Link
+              href="/docs"
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition border border-slate-700/80"
+            >
+              <BookOpen className="w-4 h-4 text-teal-400" />
+              <span>مستندات REST API</span>
+            </Link>
+
             {/* APK Download Button */}
             <a
               href="/api/v1/download/apk"
@@ -299,7 +344,7 @@ export default function AdminDashboard() {
               title="دانلود مستقیم فایل نصب اپلیکیشن اندروید (APK)"
             >
               <Download className="w-4 h-4" />
-              <span>دانلود اپلیکیشن اندروید (APK)</span>
+              <span>دانلود اپ اندروید (APK)</span>
             </a>
 
             {/* Admin Key */}
@@ -328,10 +373,12 @@ export default function AdminDashboard() {
         <div className="flex overflow-x-auto gap-2 border-b border-slate-800/80 pb-3 text-sm no-scrollbar">
           {[
             { id: "cards", label: "کارت‌ها و حساب‌ها", icon: CreditCard, count: cards.length },
-            { id: "devices", label: "دستگاه‌های اندروید", icon: Smartphone, count: devices.length },
+            { id: "devices", label: "دستگاه‌های اندروید و پوش‌نوتیف", icon: Smartphone, count: devices.length },
+            { id: "trusted_senders", label: "سرشماره‌های تایید شده", icon: ShieldCheck, count: approvedSenders.length },
+            { id: "pending_senders", label: "سرشماره‌های در حال بررسی", icon: ShieldAlert, count: pendingSenders.length, alert: pendingSenders.length > 0 },
             { id: "sandbox", label: "لابراتوار تست ریل‌تایم (Sandbox)", icon: FlaskConical, highlight: true },
             { id: "transactions", label: "تراکنش‌ها", icon: Receipt, count: transactions.length },
-            { id: "sms", label: "لاگ پیامک‌ها و سرخط‌ها", icon: MessageSquare, count: smsLogs.length },
+            { id: "sms", label: "لاگ پیامک‌های خام", icon: MessageSquare, count: smsLogs.length },
             { id: "tickets", label: "مغایرت‌ها", icon: AlertCircle, count: tickets.length },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -345,6 +392,8 @@ export default function AdminDashboard() {
                     ? "bg-emerald-600 text-white shadow-lg shadow-emerald-600/25"
                     : tab.highlight
                     ? "bg-teal-950/60 text-teal-300 border border-teal-500/30 hover:bg-teal-900/50"
+                    : tab.alert
+                    ? "bg-amber-950/50 text-amber-300 border border-amber-500/40 hover:bg-amber-900/40 animate-pulse"
                     : "bg-slate-900/60 text-slate-400 hover:text-slate-200 hover:bg-slate-800/60 border border-slate-800/60"
                 }`}
               >
@@ -360,6 +409,267 @@ export default function AdminDashboard() {
           })}
         </div>
 
+        {/* Tab: Trusted Senders */}
+        {activeTab === "trusted_senders" && (
+          <div className="space-y-6">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                  <span>سرشماره‌های تایید شده (Trusted Senders)</span>
+                </h2>
+                <span className="text-xs text-slate-400">تنها پیامک‌های دریافتی از این سرشماره‌ها به صورت خودکار تایید و تسویه می‌شوند.</span>
+              </div>
+
+              <form onSubmit={handleAddSender} className="flex flex-wrap gap-3 items-center text-xs pt-2">
+                <input
+                  type="text"
+                  required
+                  placeholder="سرخط یا نام فرستنده (مثلاً B.QMEHRIRAN)"
+                  value={newSender.senderId}
+                  onChange={(e) => setNewSender({ ...newSender, senderId: e.target.value })}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono"
+                />
+                <input
+                  type="text"
+                  placeholder="توضیحات (مثلاً سرخط اصلی بانک مهر ایران)"
+                  value={newSender.description}
+                  onChange={(e) => setNewSender({ ...newSender, description: e.target.value })}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100"
+                />
+                <button
+                  type="submit"
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl transition"
+                >
+                  افزودن سرخط به لیست تاییدشده‌ها
+                </button>
+              </form>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {approvedSenders.map((snd) => (
+                <div key={snd.id} className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-mono text-emerald-400 font-black text-sm">{snd.senderId}</span>
+                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                      مورد اعتماد
+                    </span>
+                  </div>
+                  {snd.description && <p className="text-xs text-slate-400">{snd.description}</p>}
+                  <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-800/80 flex justify-between">
+                    <span>بانک: {snd.bankSlug}</span>
+                    <button
+                      onClick={() => handleUpdateSenderStatus(snd.id, "REJECTED")}
+                      className="text-red-400 hover:underline"
+                    >
+                      مسدودسازی
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Pending Review Senders (Anti-Fraud) */}
+        {activeTab === "pending_senders" && (
+          <div className="space-y-4">
+            <div className="bg-amber-950/30 border border-amber-500/30 rounded-3xl p-6 space-y-2">
+              <div className="flex items-center gap-3">
+                <ShieldAlert className="w-6 h-6 text-amber-400" />
+                <h2 className="text-base font-bold text-white">سرشماره‌های در حال بررسی (فیلتر ضد تقلب و جعل پیامک)</h2>
+              </div>
+              <p className="text-xs text-slate-300 leading-relaxed">
+                پیامک‌های زیر با ساختار استاندارد بانکی (دارای واریز، مبلغ و شماره حساب) دریافت شده‌اند اما سرخط فرستنده هنوز جزو سرشماره‌های تاییدشده نیست. جهت جلوگیری از کلاهبرداری، پرداخت‌ها تا زمان تایید دستی شما متوقف می‌ماند.
+              </p>
+            </div>
+
+            {pendingSenders.length === 0 ? (
+              <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-sm">
+                هیچ سرخط مشکوک یا تاییدنشده‌ای وجود ندارد. تمام پیامک‌های ورودی با سرخط‌های مجاز منطبق بوده‌اند.
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {pendingSenders.map((snd) => (
+                  <div key={snd.id} className="bg-slate-900 border border-amber-500/30 rounded-2xl p-5 space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-base font-bold text-amber-300">{snd.senderId}</span>
+                          <span className="text-xs bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-md">نیازمند بازبینی</span>
+                        </div>
+                        <span className="text-xs text-slate-400">شناسایی‌شده در: {new Date(snd.createdAt).toLocaleTimeString("fa-IR")}</span>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => handleUpdateSenderStatus(snd.id, "APPROVED")}
+                          className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow-md shadow-emerald-600/20"
+                        >
+                          <CheckCheck className="w-4 h-4" />
+                          <span>تایید و افزودن به سرخط‌های مجاز</span>
+                        </button>
+                        <button
+                          onClick={() => handleUpdateSenderStatus(snd.id, "REJECTED")}
+                          className="bg-red-950/60 hover:bg-red-900 text-red-300 border border-red-500/30 text-xs font-bold px-3 py-2 rounded-xl transition flex items-center gap-1.5"
+                        >
+                          <Ban className="w-4 h-4" />
+                          <span>رد و مسدودسازی</span>
+                        </button>
+                      </div>
+                    </div>
+
+                    {snd.sampleMessage && (
+                      <div className="space-y-1 pt-1">
+                        <span className="text-[11px] text-slate-400">نمونه متن پیامک دریافتی از این سرشماره:</span>
+                        <pre className="bg-slate-950 border border-slate-800 rounded-xl p-3 font-mono text-xs text-slate-300 dir-ltr text-left whitespace-pre-wrap">
+                          {snd.sampleMessage}
+                        </pre>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Tab 2: Devices & Push Notifications */}
+        {activeTab === "devices" && (
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Plus className="w-5 h-5 text-emerald-400" />
+                <span>اتصال گوشی اندروید جدید</span>
+              </h2>
+              <form onSubmit={handleCreateDevice} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">نام گوشی یا دارنده</label>
+                  <input
+                    type="text"
+                    required
+                    value={newDeviceName}
+                    onChange={(e) => setNewDeviceName(e.target.value)}
+                    placeholder="مثال: گوشی ادمین یا موبایل رضا"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition"
+                >
+                  صدور کلید اتصال اختصاصی (API Key)
+                </button>
+              </form>
+
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 text-slate-400">
+                <span className="font-bold text-slate-300 flex items-center gap-1.5">
+                  <Info className="w-4 h-4 text-teal-400" />
+                  راهنمای اتصال به اپلیکیشن:
+                </span>
+                <p className="leading-relaxed">
+                  اپلیکیشن اندروید را دانلود کرده، سپس از آیکون چرخ‌دنده (⚙️) بالای اپ آدرس سرور و توکن هر دستگاه را وارد نمایید.
+                </p>
+              </div>
+            </div>
+
+            <div className="lg:col-span-2 space-y-3">
+              {devices.map((device) => (
+                <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <Smartphone className="w-5 h-5 text-emerald-400" />
+                      <span className="font-bold text-white text-sm">{device.name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => setNotifyDeviceId(device.id)}
+                        className="bg-teal-600/20 hover:bg-teal-600/40 text-teal-300 border border-teal-500/30 text-xs px-3 py-1.5 rounded-xl transition flex items-center gap-1.5"
+                      >
+                        <Bell className="w-3.5 h-3.5" />
+                        <span>ارسال پوش‌نوتیفیکیشن</span>
+                      </button>
+                      <span className="text-xs text-slate-400">
+                        آخرین اتصال: {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleTimeString("fa-IR") : "هنوز متصل نشده"}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <span className="text-xs text-slate-500 block">Device API Key (جهت درج در اپلیکیشن اندروید):</span>
+                      <span className="font-mono text-xs text-emerald-300 select-all">{device.apiKey}</span>
+                    </div>
+                    <button
+                      onClick={() => copyToClipboard(device.apiKey, device.id)}
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
+                      title="کپی توکن"
+                    >
+                      {copiedKey === device.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Send Push Notification */}
+        {notifyDeviceId && (
+          <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-white flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-teal-400" />
+                  <span>ارسال نوتیفیکیشن فوری به اپلیکیشن</span>
+                </h3>
+                <button onClick={() => setNotifyDeviceId(null)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+
+              <form onSubmit={handleSendNotification} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">عنوان اعلان (Title):</label>
+                  <input
+                    type="text"
+                    required
+                    value={notifyTitle}
+                    onChange={(e) => setNotifyTitle(e.target.value)}
+                    placeholder="مثال: واریز جدید دریافت شد"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:border-teal-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">متن پیام (Message):</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={notifyMessage}
+                    onChange={(e) => setNotifyMessage(e.target.value)}
+                    placeholder="پیام دلخواه خود را بنویسید تا روی گوشی نمایش داده شود..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-teal-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setNotifyDeviceId(null)}
+                    className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-xs"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={notifyLoading}
+                    className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition"
+                  >
+                    {notifyLoading ? "در حال ارسال..." : "ارسال نوتیفیکیشن"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Tab: Real-Time Sandbox Testing Lab */}
         {activeTab === "sandbox" && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -371,8 +681,8 @@ export default function AdminDashboard() {
                   <Zap className="w-5 h-5" />
                 </div>
                 <div>
-                  <h2 className="text-base font-bold text-white">گام اول: ایجاد لینک پرداخت تستی</h2>
-                  <p className="text-xs text-slate-400">تولید لینک پرداخت با افست خودکار (+۵ تومانی)</p>
+                  <h2 className="text-base font-bold text-white">گام اول: ایجاد لینک پرداخت با افست (+۱۱، +۱۲، ...)</h2>
+                  <p className="text-xs text-slate-400">تخصیص یکتای مبلغ و تولید کد رهگیری شمسی PAY-1405...</p>
                 </div>
               </div>
 
@@ -386,7 +696,7 @@ export default function AdminDashboard() {
                   >
                     {cards.map((c) => (
                       <option key={c.id} value={c.id}>
-                        {c.ownerName} - {c.bankTitle} ({c.cardNumber})
+                        {c.ownerName} - {c.bankTitle} (حساب: {c.accountNumber || "فاقد شماره حساب"})
                       </option>
                     ))}
                   </select>
@@ -427,9 +737,9 @@ export default function AdminDashboard() {
                   </div>
                   <div className="text-slate-400 space-y-1 font-mono text-[11px]">
                     <div>مبلغ درخواستی: {createdTestTx.originalAmountToman.toLocaleString()} تومان</div>
-                    <div>افست اعمال‌شده: +{createdTestTx.offsetToman} تومان</div>
+                    <div className="text-emerald-400 font-bold">افست اعمال‌شده: +{createdTestTx.offsetToman} تومان</div>
                     <div className="text-white font-bold">مبلغ نهایی پرداختی: {createdTestTx.payableAmountToman.toLocaleString()} تومان ({createdTestTx.payableAmountRial.toLocaleString()} ریال)</div>
-                    <div>شناسه: {createdTestTx.authority}</div>
+                    <div className="text-teal-300 font-bold">کد پیگیری داخلی: {createdTestTx.trackingCode}</div>
                   </div>
                 </div>
               )}
@@ -449,7 +759,7 @@ export default function AdminDashboard() {
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-slate-400 mb-1">سرخط یا فرستنده پیامک:</label>
+                  <label className="block text-slate-400 mb-1">سرخط فرستنده پیامک:</label>
                   <input
                     type="text"
                     value={simSender}
@@ -459,7 +769,7 @@ export default function AdminDashboard() {
                 </div>
 
                 <div>
-                  <label className="block text-slate-400 mb-1">متن کامل پیامک بانکی (دقیقاً مانند بانک مهر ایران):</label>
+                  <label className="block text-slate-400 mb-1">متن کامل پیامک بانکی (خط اول: شماره حساب واریزی):</label>
                   <textarea
                     rows={4}
                     value={simText}
@@ -495,7 +805,7 @@ export default function AdminDashboard() {
                     ) : (
                       <>
                         <AlertCircle className="w-4 h-4 text-amber-400" />
-                        <span>پیامک دریافت شد ولی با تراکنشی تطبیق نیافت:</span>
+                        <span>پیامک ثبت شد ولی تطبیق نیافت:</span>
                       </>
                     )}
                   </div>
@@ -541,7 +851,7 @@ export default function AdminDashboard() {
                   />
                 </div>
                 <div>
-                  <label className="block text-slate-400 mb-1">شماره حساب (مطابق متن پیامک بانک)</label>
+                  <label className="block text-slate-400 mb-1">شماره حساب واریزی (مطابق خط اول پیامک)</label>
                   <input
                     type="text"
                     value={newCard.accountNumber}
@@ -610,7 +920,7 @@ export default function AdminDashboard() {
                     </div>
                     {card.accountNumber && (
                       <div className="text-xs text-slate-400 font-mono">
-                        شماره حساب: {card.accountNumber}
+                        حساب واریزی: {card.accountNumber}
                       </div>
                     )}
                     <div className="text-xs text-slate-500">
@@ -643,77 +953,6 @@ export default function AdminDashboard() {
           </div>
         )}
 
-        {/* Tab 2: Devices */}
-        {activeTab === "devices" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Plus className="w-5 h-5 text-emerald-400" />
-                <span>اتصال گوشی اندروید جدید</span>
-              </h2>
-              <form onSubmit={handleCreateDevice} className="space-y-3 text-xs">
-                <div>
-                  <label className="block text-slate-400 mb-1">نام گوشی یا دارنده</label>
-                  <input
-                    type="text"
-                    required
-                    value={newDeviceName}
-                    onChange={(e) => setNewDeviceName(e.target.value)}
-                    placeholder="مثال: گوشی ادمین یا موبایل رضا"
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
-                  />
-                </div>
-                <button
-                  type="submit"
-                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-medium py-2.5 rounded-xl transition"
-                >
-                  صدور کلید اتصال اختصاصی (API Key)
-                </button>
-              </form>
-
-              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 text-xs space-y-2 text-slate-400">
-                <span className="font-bold text-slate-300 flex items-center gap-1.5">
-                  <Info className="w-4 h-4 text-teal-400" />
-                  راهنمای اتصال به اپلیکیشن:
-                </span>
-                <p className="leading-relaxed">
-                  اپلیکیشن اندروید را دانلود کرده، سپس آدرس سرور (<code className="text-emerald-400">http://IP:3050</code>) و توکن هر دستگاه را در تنظیمات برنامه کپی کنید.
-                </p>
-              </div>
-            </div>
-
-            <div className="lg:col-span-2 space-y-3">
-              {devices.map((device) => (
-                <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <Smartphone className="w-5 h-5 text-emerald-400" />
-                      <span className="font-bold text-white text-sm">{device.name}</span>
-                    </div>
-                    <span className="text-xs text-slate-400">
-                      آخرین اتصال: {device.lastSeenAt ? new Date(device.lastSeenAt).toLocaleTimeString("fa-IR") : "هنوز متصل نشده"}
-                    </span>
-                  </div>
-
-                  <div className="bg-slate-950 border border-slate-800 rounded-xl p-3 flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <span className="text-xs text-slate-500 block">Device API Key (جهت درج در اپلیکیشن اندروید):</span>
-                      <span className="font-mono text-xs text-emerald-300 select-all">{device.apiKey}</span>
-                    </div>
-                    <button
-                      onClick={() => copyToClipboard(device.apiKey, device.id)}
-                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-slate-800 transition"
-                      title="کپی توکن"
-                    >
-                      {copiedKey === device.id ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {/* Tab 3: Transactions */}
         {activeTab === "transactions" && (
           <div className="bg-slate-900 border border-slate-800 rounded-3xl overflow-hidden shadow-xl">
@@ -721,19 +960,21 @@ export default function AdminDashboard() {
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
                   <tr>
+                    <th className="p-3">کد رهگیری شمسی</th>
                     <th className="p-3">شناسه Authority</th>
                     <th className="p-3">مبلغ اصلی</th>
                     <th className="p-3">افست (+تومان)</th>
                     <th className="p-3">مبلغ نهایی پرداختی</th>
                     <th className="p-3">کارت مقصد</th>
                     <th className="p-3">وضعیت</th>
-                    <th className="p-3">زمان ایجاد</th>
+                    <th className="p-3">زمان</th>
                     <th className="p-3">عملیات</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60">
                   {transactions.map((tx) => (
                     <tr key={tx.id} className="hover:bg-slate-800/40 transition">
+                      <td className="p-3 font-mono text-teal-300 font-bold">{tx.internalTrackingCode || "-"}</td>
                       <td className="p-3 font-mono text-emerald-400">
                         <a href={`/pay/${tx.authority}`} target="_blank" className="hover:underline flex items-center gap-1">
                           <span>{tx.authority}</span>
@@ -778,96 +1019,49 @@ export default function AdminDashboard() {
 
         {/* Tab 4: SMS Logs */}
         {activeTab === "sms" && (
-          <div className="space-y-6">
-            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <h2 className="text-base font-bold text-white flex items-center gap-2">
-                <Shield className="w-5 h-5 text-emerald-400" />
-                <span>سرخط‌های پیامکی مجاز (Trusted Senders)</span>
-              </h2>
-              <form onSubmit={handleAddSender} className="flex flex-wrap gap-3 items-center text-xs">
-                <input
-                  type="text"
-                  required
-                  placeholder="سرخط یا نام فرستنده (مثلاً B.QMEHRIRAN)"
-                  value={newSender.senderId}
-                  onChange={(e) => setNewSender({ ...newSender, senderId: e.target.value })}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono"
-                />
-                <input
-                  type="text"
-                  placeholder="توضیحات (اختیاری)"
-                  value={newSender.description}
-                  onChange={(e) => setNewSender({ ...newSender, description: e.target.value })}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100"
-                />
-                <button
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-medium px-4 py-2 rounded-xl transition"
-                >
-                  افزودن به سرخط‌های مورد اعتماد
-                </button>
-              </form>
-
-              <div className="flex flex-wrap gap-2 pt-2">
-                {senders.map((snd) => (
-                  <div key={snd.id} className="bg-slate-950 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex items-center gap-2 text-xs">
-                    <span className="font-mono text-emerald-400 font-bold">{snd.senderId}</span>
-                    <span className="text-slate-400">({snd.bankSlug})</span>
+          <div className="space-y-3">
+            <h2 className="text-base font-bold text-white">آخرین پیامک‌های بانکی دریافتی از اپلیکیشن اندروید</h2>
+            {smsLogs.map((log) => (
+              <div key={log.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2 text-xs">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-mono font-bold text-emerald-400 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
+                      {log.sender}
+                    </span>
+                    <span className={`px-2 py-0.5 rounded-full ${
+                      log.status === "MATCHED"
+                        ? "bg-emerald-500/20 text-emerald-400"
+                        : log.status === "IGNORED"
+                        ? "bg-slate-800 text-slate-400"
+                        : log.status === "UNTRUSTED_SENDER"
+                        ? "bg-amber-500/20 text-amber-300 font-bold"
+                        : "bg-red-500/20 text-red-400"
+                    }`}>
+                      {log.status}
+                    </span>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <h2 className="text-base font-bold text-white">آخرین پیامک‌های بانکی دریافتی از اپلیکیشن اندروید</h2>
-              {smsLogs.map((log) => (
-                <div key={log.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2 text-xs">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono font-bold text-emerald-400 bg-slate-950 px-2 py-0.5 rounded-md border border-slate-800">
-                        {log.sender}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full ${
-                        log.status === "MATCHED"
-                          ? "bg-emerald-500/20 text-emerald-400"
-                          : log.status === "IGNORED"
-                          ? "bg-slate-800 text-slate-400"
-                          : "bg-amber-500/20 text-amber-400"
-                      }`}>
-                        {log.status}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleQuickTrustSender(log.sender)}
-                        className="text-xs text-slate-400 hover:text-emerald-400 transition"
-                      >
-                        + افزودن این سرخط به مجازها
-                      </button>
-                      <span className="text-slate-500">{new Date(log.receivedAt).toLocaleTimeString("fa-IR")}</span>
-                    </div>
-                  </div>
-
-                  <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-slate-300 font-mono text-xs whitespace-pre-wrap dir-ltr text-left">
-                    {log.rawText}
-                  </pre>
-
-                  {log.parsedAmountToman && (
-                    <div className="flex items-center gap-4 text-slate-400">
-                      <span>مبلغ پارس‌شده: <strong className="text-white">{Number(log.parsedAmountToman).toLocaleString()} تومان</strong></span>
-                      {log.parsedAccount && <span>شماره حساب: <strong className="font-mono text-white">{log.parsedAccount}</strong></span>}
-                    </div>
-                  )}
+                  <span className="text-slate-500">{new Date(log.receivedAt).toLocaleTimeString("fa-IR")}</span>
                 </div>
-              ))}
-            </div>
+
+                <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 text-slate-300 font-mono text-xs whitespace-pre-wrap dir-ltr text-left">
+                  {log.rawText}
+                </pre>
+
+                {log.parsedAmountToman && (
+                  <div className="flex items-center gap-4 text-slate-400">
+                    <span>مبلغ: <strong className="text-white">{Number(log.parsedAmountToman).toLocaleString()} تومان</strong></span>
+                    {log.parsedAccount && <span>شماره حساب: <strong className="font-mono text-white">{log.parsedAccount}</strong></span>}
+                  </div>
+                )}
+              </div>
+            ))}
           </div>
         )}
 
         {/* Tab 5: Discrepancy Tickets */}
         {activeTab === "tickets" && (
           <div className="space-y-3">
-            <h2 className="text-base font-bold text-white">لیست مغایرت‌ها و پرداختی‌های نیازمند پیگیری</h2>
+            <h2 className="text-base font-bold text-white">لیست مغایرت‌ها و هشدارهای امنیتی</h2>
             {tickets.length === 0 ? (
               <div className="bg-slate-900 border border-slate-800 rounded-2xl p-8 text-center text-slate-400 text-sm">
                 هیچ مغایرتی ثبت نشده است. تمام پرداخت‌ها به صورت خودکار تطبیق یافته‌اند.
@@ -876,15 +1070,10 @@ export default function AdminDashboard() {
               tickets.map((ticket) => (
                 <div key={ticket.id} className="bg-slate-900 border border-amber-500/30 rounded-2xl p-4 space-y-2 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-amber-300 text-sm">مغایرت پرداخت</span>
+                    <span className="font-bold text-amber-300 text-sm">مغایرت / هشدار امنیتی</span>
                     <span className="text-slate-400">{new Date(ticket.createdAt).toLocaleTimeString("fa-IR")}</span>
                   </div>
                   <p className="text-slate-300">{ticket.reason}</p>
-                  {ticket.smsLog && (
-                    <pre className="bg-slate-950 p-3 rounded-xl border border-slate-800 font-mono text-xs text-slate-400">
-                      {ticket.smsLog.rawText}
-                    </pre>
-                  )}
                 </div>
               ))
             )}

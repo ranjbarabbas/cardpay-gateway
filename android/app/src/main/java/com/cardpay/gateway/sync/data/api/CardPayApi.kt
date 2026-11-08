@@ -1,5 +1,6 @@
 package com.cardpay.gateway.sync.data.api
 
+import com.cardpay.gateway.sync.data.model.DeviceNotificationResponse
 import com.cardpay.gateway.sync.data.model.SmsSyncRequest
 import com.cardpay.gateway.sync.data.model.SmsSyncResponse
 import okhttp3.OkHttpClient
@@ -8,6 +9,7 @@ import retrofit2.Response
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.http.Body
+import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
 import java.util.concurrent.TimeUnit
@@ -19,6 +21,11 @@ interface CardPayApi {
         @Header("Authorization") authHeader: String,
         @Body request: SmsSyncRequest
     ): Response<SmsSyncResponse>
+
+    @GET("api/v1/devices/notifications")
+    suspend fun getNotifications(
+        @Header("Authorization") authHeader: String
+    ): Response<DeviceNotificationResponse>
 
     companion object {
         fun create(baseUrl: String): CardPayApi {

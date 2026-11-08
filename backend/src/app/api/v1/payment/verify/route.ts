@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
       status: tx.status,
       data: {
         authority: tx.authority,
-        trackingCode: tx.trackingCode,
+        trackingCode: tx.internalTrackingCode || tx.trackingCode,
         amountToman: Number(tx.finalAmountToman),
         originalAmountToman: Number(tx.originalAmountToman),
         offsetToman: tx.offsetToman,

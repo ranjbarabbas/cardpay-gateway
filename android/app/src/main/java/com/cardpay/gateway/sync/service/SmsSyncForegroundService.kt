@@ -15,8 +15,11 @@ import com.cardpay.gateway.sync.data.model.SmsSyncRequest
 import com.cardpay.gateway.sync.utils.AppPreferences
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -27,10 +30,12 @@ class SmsSyncForegroundService : Service() {
 
     private val serviceScope = CoroutineScope(Dispatchers.IO + SupervisorJob())
     private lateinit var prefs: AppPreferences
+    private var pollJob: Job? = null
 
     companion object {
         private const val TAG = "SmsSyncService"
-        private const val CHANNEL_ID = "cardpay_sms_sync_channel"
+        private const val SERVICE_CHANNEL_ID = "cardpay_sms_sync_channel"
+        private const val ALERT_CHANNEL_ID = "cardpay_admin_alerts_channel"
         private const val NOTIFICATION_ID = 1001
 
         const val ACTION_START = "ACTION_START"
@@ -70,12 +75,14 @@ class SmsSyncForegroundService : Service() {
     override fun onCreate() {
         super.onCreate()
         prefs = AppPreferences(this)
-        createNotificationChannel()
+        createNotificationChannels()
+        startNotificationPoller()
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         when (intent?.action) {
             ACTION_STOP -> {
+                pollJob?.cancel()
                 stopForeground(STOP_FOREGROUND_REMOVE)
                 stopSelf()
                 return START_NOT_STICKY
@@ -91,7 +98,7 @@ class SmsSyncForegroundService : Service() {
             }
         }
 
-        startForeground(NOTIFICATION_ID, buildNotification("سرویس شنود پیامک بانکی فعال است"))
+        startForeground(NOTIFICATION_ID, buildOngoingNotification("سرویس شنود پیامک‌های بانکی فعال است"))
         return START_STICKY
     }
 
@@ -115,28 +122,71 @@ class SmsSyncForegroundService : Service() {
                 if (response.isSuccessful && response.body()?.success == true) {
                     val result = response.body()?.data
                     val statusText = if (result?.matched == true) {
-                        "پرداخت با موفقیت تطبیق یافت (شناسه: ${result.authority})"
+                        "تراکنش تایید شد (کد: ${result.trackingCode ?: result.authority})"
                     } else {
-                        "پیامک دریافت شد (${result?.reason ?: "ثبت در سیستم"})"
+                        "پیامک ثبت شد: ${result?.reason ?: "در صف بررسی"}"
                     }
                     prefs.lastSyncStatus = statusText
-                    updateNotification(statusText)
-                    Log.i(TAG, "SMS successfully forwarded to backend: $statusText")
+                    updateOngoingNotification(statusText)
+                    Log.i(TAG, "SMS successfully processed: $statusText")
                 } else {
-                    val errorMsg = "خطا در ارسال پیامک: ${response.code()}"
+                    val errorMsg = "پاسخ ناموفق سرور: ${response.code()}"
                     prefs.lastSyncStatus = errorMsg
                     Log.e(TAG, errorMsg)
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Network error during SMS forward", e)
-                prefs.lastSyncStatus = "خطای ارتباط با سرور: ${e.localizedMessage}"
+                prefs.lastSyncStatus = "خطای اتصال: ${e.localizedMessage}"
             }
         }
     }
 
-    private fun buildNotification(statusText: String): Notification {
-        return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setContentTitle("CardPay Sync Service")
+    /**
+     * Polls the server periodically for Push Notifications sent by the Admin Panel
+     */
+    private fun startNotificationPoller() {
+        pollJob?.cancel()
+        pollJob = serviceScope.launch {
+            while (isActive) {
+                if (prefs.isSyncEnabled && prefs.apiKey.isNotBlank() && prefs.serverUrl.isNotBlank()) {
+                    try {
+                        val api = CardPayApi.create(prefs.serverUrl)
+                        val res = api.getNotifications("Bearer ${prefs.apiKey}")
+                        if (res.isSuccessful && res.body()?.success == true) {
+                            val items = res.body()?.data
+                            if (!items.isNullOrEmpty()) {
+                                for (item in items) {
+                                    showAdminNotification(item.title, item.message)
+                                }
+                            }
+                        }
+                    } catch (e: Exception) {
+                        Log.d(TAG, "Notification poll error: ${e.message}")
+                    }
+                }
+                delay(20000) // Poll every 20 seconds
+            }
+        }
+    }
+
+    private fun showAdminNotification(title: String, message: String) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setSmallIcon(android.R.drawable.ic_dialog_info)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setAutoCancel(true)
+            .build()
+
+        val notifId = (System.currentTimeMillis() % 10000).toInt() + 2000
+        manager.notify(notifId, notification)
+    }
+
+    private fun buildOngoingNotification(statusText: String): Notification {
+        return NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
+            .setContentTitle("CardPay SMS Sync Service")
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
             .setOngoing(true)
@@ -144,27 +194,41 @@ class SmsSyncForegroundService : Service() {
             .build()
     }
 
-    private fun updateNotification(statusText: String) {
+    private fun updateOngoingNotification(statusText: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-        manager.notify(NOTIFICATION_ID, buildNotification(statusText))
+        manager.notify(NOTIFICATION_ID, buildOngoingNotification(statusText))
     }
 
-    private fun createNotificationChannel() {
+    private fun createNotificationChannels() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                "CardPay Sync Foreground Service",
+            val manager = getSystemService(NotificationManager::class.java)
+
+            // 1. Service Ongoing Channel
+            val serviceChannel = NotificationChannel(
+                SERVICE_CHANNEL_ID,
+                "CardPay Sync Background Service",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Monitors and forwards incoming bank SMS to CardPay server"
+                description = "Shows the active SMS listener status"
             }
-            val manager = getSystemService(NotificationManager::class.java)
-            manager?.createNotificationChannel(channel)
+            manager?.createNotificationChannel(serviceChannel)
+
+            // 2. Admin Push Notification Channel
+            val alertChannel = NotificationChannel(
+                ALERT_CHANNEL_ID,
+                "CardPay Admin Alerts",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "Push notifications sent from CardPay Admin Dashboard"
+                enableVibration(true)
+            }
+            manager?.createNotificationChannel(alertChannel)
         }
     }
 
     override fun onDestroy() {
         super.onDestroy()
+        pollJob?.cancel()
         serviceScope.cancel()
     }
 

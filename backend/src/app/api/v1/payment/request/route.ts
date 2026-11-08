@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { AmountOffsetService } from "@/lib/services/amount-offset.service";
+import { generateInternalTrackingCode } from "@/lib/services/tracking-code.service";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -55,7 +56,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Resolve unique collision-free amount (+0, +5, +10, etc.)
+    // Resolve unique collision-free amount (+11, +12, +13, ...)
     const resolved = await AmountOffsetService.resolveUniqueAmount(
       targetCard.id,
       BigInt(amount)
@@ -65,10 +66,12 @@ export async function POST(req: NextRequest) {
     const randomSuffix = crypto.randomBytes(4).toString("hex").toUpperCase();
     const timestampPart = Date.now().toString(36).toUpperCase();
     const authority = `CPAY_${timestampPart}_${randomSuffix}`;
+    const internalTrackingCode = generateInternalTrackingCode();
 
     const transaction = await db.transaction.create({
       data: {
         authority,
+        internalTrackingCode,
         cardId: targetCard.id,
         originalAmountToman: resolved.originalAmountToman,
         offsetToman: resolved.offsetToman,
@@ -94,6 +97,7 @@ export async function POST(req: NextRequest) {
       success: true,
       data: {
         authority: transaction.authority,
+        trackingCode: transaction.internalTrackingCode,
         paymentUrl,
         originalAmountToman: Number(transaction.originalAmountToman),
         offsetToman: transaction.offsetToman,
@@ -103,6 +107,7 @@ export async function POST(req: NextRequest) {
         card: {
           ownerName: targetCard.ownerName,
           cardNumber: targetCard.cardNumber,
+          accountNumber: targetCard.accountNumber,
           bankTitle: targetCard.bankTitle,
         },
       },

@@ -19,5 +19,18 @@ data class SmsSyncData(
     @SerializedName("smsLogId") val smsLogId: String?,
     @SerializedName("transactionId") val transactionId: String?,
     @SerializedName("authority") val authority: String?,
+    @SerializedName("trackingCode") val trackingCode: String?,
     @SerializedName("reason") val reason: String?
+)
+
+data class DeviceNotificationItem(
+    @SerializedName("id") val id: String,
+    @SerializedName("title") val title: String,
+    @SerializedName("message") val message: String,
+    @SerializedName("createdAt") val createdAt: String
+)
+
+data class DeviceNotificationResponse(
+    @SerializedName("success") val success: Boolean,
+    @SerializedName("data") val data: List<DeviceNotificationItem>?
 )

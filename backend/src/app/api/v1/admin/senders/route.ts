@@ -7,7 +7,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const status = searchParams.get("status"); // APPROVED | PENDING_REVIEW | REJECTED
+
+  const whereClause = status ? { status } : {};
+
   const senders = await db.trustedSender.findMany({
+    where: whereClause,
     orderBy: { createdAt: "desc" },
   });
 
@@ -21,7 +27,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { senderId, bankSlug = "mehr_iran", description, isTrusted = true } = body;
+    const { senderId, bankSlug = "mehr_iran", description, status = "APPROVED" } = body;
 
     if (!senderId) {
       return NextResponse.json(
@@ -36,12 +42,14 @@ export async function POST(req: NextRequest) {
         senderId: senderId.trim(),
         bankSlug,
         description,
-        isTrusted: Boolean(isTrusted),
+        status,
+        reviewedAt: status === "APPROVED" ? new Date() : null,
       },
       update: {
         bankSlug,
         description,
-        isTrusted: Boolean(isTrusted),
+        status,
+        reviewedAt: new Date(),
       },
     });
 

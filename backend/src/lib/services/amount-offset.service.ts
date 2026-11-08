@@ -10,13 +10,15 @@ export interface ResolvedAmount {
 }
 
 export class AmountOffsetService {
-  private static readonly OFFSET_STEP_TOMAN = 5;
+  // Offset starts at +11 Tomans, then increments by +1 Toman (+11, +12, +13, ...)
+  private static readonly INITIAL_OFFSET_TOMAN = 11;
+  private static readonly OFFSET_INCREMENT_TOMAN = 1;
   private static readonly PAYMENT_VALIDITY_MINUTES = 10;
   private static readonly COLLISION_LOCK_MINUTES = 20;
 
   /**
    * Calculates an available unique payable amount for a card
-   * by finding the smallest collision-free offset (+0, +5, +10, ...)
+   * by finding the smallest collision-free offset (+11, +12, +13, ...)
    * within the 20-minute cooldown window.
    */
   public static async resolveUniqueAmount(
@@ -33,7 +35,7 @@ export class AmountOffsetService {
     const activeTransactions = await db.transaction.findMany({
       where: {
         cardId,
-        status: { in: ["PENDING", "PAID"] },
+        status: { in: ["PENDING", "PAID", "MANUALLY_VERIFIED"] },
         collisionLockUntil: { gt: now },
       },
       select: {
@@ -45,12 +47,12 @@ export class AmountOffsetService {
       activeTransactions.map((tx) => tx.finalAmountToman.toString())
     );
 
-    // Find the smallest offset (0, 5, 10, 15, ...) not currently occupied
-    let currentOffset = 0;
-    let candidateFinalToman = originalAmountToman;
+    // Find the smallest offset (11, 12, 13, ...) not currently occupied
+    let currentOffset = this.INITIAL_OFFSET_TOMAN;
+    let candidateFinalToman = originalAmountToman + BigInt(currentOffset);
 
     while (occupiedAmounts.has(candidateFinalToman.toString())) {
-      currentOffset += this.OFFSET_STEP_TOMAN;
+      currentOffset += this.OFFSET_INCREMENT_TOMAN;
       candidateFinalToman = originalAmountToman + BigInt(currentOffset);
     }
 

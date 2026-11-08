@@ -51,7 +51,7 @@ export async function GET(
         payableAmountRial: Number(tx.finalAmountRial),
         expiresAt: tx.expiresAt.toISOString(),
         paidAt: tx.paidAt ? tx.paidAt.toISOString() : null,
-        trackingCode: tx.trackingCode,
+        trackingCode: tx.internalTrackingCode || tx.trackingCode,
         callbackUrl: tx.callbackUrl,
         card: {
           ownerName: tx.card.ownerName,

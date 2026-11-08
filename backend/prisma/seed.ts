@@ -1,7 +1,7 @@
 import { db } from "../src/lib/db";
 
 async function main() {
-  console.log("Seeding initial data...");
+  console.log("Updating seed data...");
 
   // 1. Create Default Device
   const device = await db.device.upsert({
@@ -19,7 +19,9 @@ async function main() {
   // 2. Create Default Bank Card (Bank Mehr Iran)
   const card = await db.bankCard.upsert({
     where: { cardNumber: "6037991823456789" },
-    update: {},
+    update: {
+      accountNumber: "662179818703777001",
+    },
     create: {
       ownerName: "عباس رنجبر",
       cardNumber: "6037991823456789",
@@ -31,29 +33,22 @@ async function main() {
     },
   });
 
-  // 3. Create Trusted Sender
+  // 3. Create Trusted Sender (APPROVED)
   await db.trustedSender.upsert({
     where: { senderId: "B.QMEHRIRAN" },
-    update: {},
+    update: {
+      status: "APPROVED",
+      description: "سرخط رسمی بانک قرض‌الحسنه مهر ایران",
+    },
     create: {
       senderId: "B.QMEHRIRAN",
       bankSlug: "mehr_iran",
-      description: "سرخط پیامک بانک قرض‌الحسنه مهر ایران",
-      isTrusted: true,
+      description: "سرخط رسمی بانک قرض‌الحسنه مهر ایران",
+      status: "APPROVED",
     },
   });
 
-  console.log("✅ Database successfully seeded!");
-  console.log(`- Card ID: ${card.id} (Owner: ${card.ownerName})`);
-  console.log(`- Account Number: ${card.accountNumber}`);
-  console.log(`- Device Token: ${device.apiKey}`);
+  console.log("✅ Seed completed successfully!");
 }
 
-main()
-  .catch((e) => {
-    console.error(e);
-    process.exit(1);
-  })
-  .finally(async () => {
-    await db.$disconnect();
-  });
+main().catch(console.error).finally(() => db.$disconnect());
