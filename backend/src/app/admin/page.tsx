@@ -182,9 +182,18 @@ export default function AdminDashboard() {
   };
 
   const handleDeleteCard = async (id: string) => {
-    if (!confirm("آیا از حذف این کارت اطمینان دارید؟")) return;
-    await fetch(`/api/v1/admin/cards/${id}`, { method: "DELETE", headers });
-    loadData();
+    if (!confirm("آیا از حذف این کارت و کلیه سوابق آن اطمینان دارید؟")) return;
+    try {
+      const res = await fetch(`/api/v1/admin/cards/${id}`, { method: "DELETE", headers });
+      const data = await res.json();
+      if (!data.success) {
+        alert("خطا در حذف کارت: " + (data.error || "مشکلی رخ داد"));
+      } else {
+        loadData();
+      }
+    } catch (err: any) {
+      alert("خطای ارتباط با سرور: " + err.message);
+    }
   };
 
   const handleCreateDevice = async (e: React.FormEvent) => {

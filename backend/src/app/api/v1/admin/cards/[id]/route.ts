@@ -42,8 +42,30 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+
+    const existing = await db.bankCard.findUnique({ where: { id } });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "کارت مورد نظر یافت نشد" }, { status: 404 });
+    }
+
+    // Cascade delete any transactions and discrepancy tickets linked to this card
+    const txs = await db.transaction.findMany({
+      where: { cardId: id },
+      select: { id: true },
+    });
+    const txIds = txs.map((t) => t.id);
+
+    if (txIds.length > 0) {
+      await db.discrepancyTicket.deleteMany({
+        where: { transactionId: { in: txIds } },
+      });
+      await db.transaction.deleteMany({
+        where: { cardId: id },
+      });
+    }
+
     await db.bankCard.delete({ where: { id } });
-    return NextResponse.json({ success: true, message: "Card deleted" });
+    return NextResponse.json({ success: true, message: "کارت با موفقیت حذف شد" });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Internal server error";
     return NextResponse.json({ success: false, error: message }, { status: 500 });
