@@ -428,6 +428,37 @@ export default function AdminDashboard() {
           })}
         </div>
 
+        {/* Merchant API Key Quick Access Banner */}
+        <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-emerald-950/40 border border-emerald-500/20 rounded-2xl p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 text-xs shadow-inner">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-500/10 border border-emerald-500/20 rounded-xl text-emerald-400">
+              <Key className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="font-bold text-white flex items-center gap-2 flex-wrap">
+                <span>کلید احراز هویت وب‌سرویس پذیرنده (Merchant API Key):</span>
+                <span className="font-mono text-emerald-400 bg-slate-950 px-2 py-0.5 rounded border border-slate-800 dir-ltr text-right select-all">
+                  cp_sec_art_hub_2026_live
+                </span>
+              </div>
+              <p className="text-slate-400 text-[11px] mt-0.5">
+                این کلید را در هدر درخواست‌های سایت هنری یا فروشگاه خود (<code className="text-emerald-400 bg-slate-950 px-1 rounded">x-api-key</code>) قرار دهید.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => {
+              navigator.clipboard.writeText("cp_sec_art_hub_2026_live");
+              setCopiedKey("merchant_api_key");
+              setTimeout(() => setCopiedKey(null), 2000);
+            }}
+            className="flex items-center justify-center gap-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-3.5 py-2 rounded-xl transition shadow shrink-0"
+          >
+            {copiedKey === "merchant_api_key" ? <Check className="w-3.5 h-3.5 text-white" /> : <Copy className="w-3.5 h-3.5" />}
+            <span>{copiedKey === "merchant_api_key" ? "کپی شد!" : "کپی کلید API"}</span>
+          </button>
+        </div>
+
         {/* Tab: Trusted Senders */}
         {activeTab === "trusted_senders" && (
           <div className="space-y-6">

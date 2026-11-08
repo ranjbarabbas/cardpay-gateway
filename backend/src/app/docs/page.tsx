@@ -26,6 +26,7 @@ import {
   Cpu,
   FileCode,
   Sparkles,
+  Key,
 } from "lucide-react";
 
 interface EndpointDoc {
@@ -46,61 +47,63 @@ interface EndpointDoc {
 
 const ENDPOINTS: EndpointDoc[] = [
   {
-    id: "payment-request",
+    id: "card-upsert",
     category: "REST API Reference",
     method: "POST",
-    path: "/api/v1/payment/request",
-    title: "Request Payment Authority",
-    badge: "Core Gateway",
+    path: "/api/v1/admin/cards",
+    title: "Register or Update Bank Card (Upsert)",
+    badge: "Merchant & Artist Cards",
     description:
-      "ایجاد درخواست پرداخت جدید. این متد شناسه یکتای authority، شناسه پیگیری داخلی شمسی (PAY-YYYYMMDDXXXXXXXX) و مبلغ نهایی تفکیک‌شده با الگوریتم افست پویا (+11 تومان به بالا) را تولید کرده و لینک صفحه پرداخت را بازمی‌گرداند.",
-    auth: "None (Public for checkout initiation)",
+      "ثبت یا بروزرسانی یکتای کارت بانکی هنرمندان و کاربران. در صورتی که شماره کارت قبلاً وجود داشته باشد، اطلاعات به صورت امن بروزرسانی شده (Idempotent Upsert) و شناسه کارت (cardId) بازگردانده می‌شود. این شناسه را در دیتابیس سایت خود ذخیره کنید.",
+    auth: "Merchant API Key (Header: x-api-key)",
     headers: [
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
-      { key: "Accept", value: "application/json", desc: "فرمت پاسخ دریافتی" },
+      { key: "x-api-key", value: "cp_sec_art_hub_2026_live", desc: "کلید وب‌سرویس پذیرنده (از فایل .env یا پنل ادمین)" },
     ],
     params: [
       {
-        name: "amount",
-        type: "integer",
-        required: true,
-        desc: "مبلغ پایه فاکتور به تومان (حداقل ۱,۰۰۰ تومان)",
-        example: "150000",
-      },
-      {
-        name: "callbackUrl",
-        type: "string (url)",
-        required: true,
-        desc: "آدرس بازگشت خریدار پس از اتمام یا لغو پرداخت در فروشگاه شما",
-        example: "https://yourstore.ir/checkout/callback",
-      },
-      {
-        name: "description",
+        name: "ownerName",
         type: "string",
-        required: false,
-        desc: "توضیحات سفارش یا نام مشتری جهت نمایش در رسید پرداخت",
-        example: "خرید صنایع دستی کد ۴۸۹۲",
-      },
-      {
-        name: "cardId",
-        type: "string (uuid)",
-        required: false,
-        desc: "شناسه کارت مشخص (قابل کپی از تب کارت‌های بانکی در پنل ادمین)",
-        example: "cly-...",
+        required: true,
+        desc: "نام و نام‌خانوادگی صاحب حساب یا هنرمند",
+        example: "استاد رضا میرزایی",
       },
       {
         name: "cardNumber",
         type: "string (16 digits)",
+        required: true,
+        desc: "شماره ۱۶ رقمی کارت بانکی (فاصله و خط تیره خودکار پاک می‌شوند)",
+        example: "6037991987654321",
+      },
+      {
+        name: "accountNumber",
+        type: "string",
         required: false,
-        desc: "شماره ۱۶ رقمی کارت بانکی، جهت اختصاص مستقیم به یک کارت مشخص",
-        example: "6037990012345678",
+        desc: "شماره حساب واریزی (جهت تطبیق دقیق با پیامک‌های بانکی نظیر مهر ایران)",
+        example: "987654321012345678",
+      },
+      {
+        name: "bankSlug",
+        type: "string",
+        required: false,
+        desc: "شناسه انگلیسی بانک (پیش‌فرض: mehr_iran)",
+        example: "mehr_iran",
+      },
+      {
+        name: "bankTitle",
+        type: "string",
+        required: false,
+        desc: "عنوان نمایشی فارسی بانک در صفحه پرداخت",
+        example: "بانک قرض‌الحسنه مهر ایران",
       },
     ],
     requestSample: JSON.stringify(
       {
-        amount: 150000,
-        callbackUrl: "https://yourstore.ir/checkout/callback",
-        description: "سفارش شماره ۱۰۸۴ - فروشگاه هنر هاب",
+        ownerName: "استاد رضا میرزایی",
+        cardNumber: "6037991987654321",
+        accountNumber: "987654321012345678",
+        bankSlug: "mehr_iran",
+        bankTitle: "بانک قرض‌الحسنه مهر ایران",
       },
       null,
       2
@@ -109,19 +112,99 @@ const ENDPOINTS: EndpointDoc[] = [
       {
         success: true,
         data: {
-          authority: "CP-685b8fae92cf4a66a1a8ecb8",
-          internalTrackingCode: "PAY-1405081748291045",
-          payableAmountToman: 150011,
-          originalAmountToman: 150000,
-          offsetAmountToman: 11,
-          reservationWindowMinutes: 20,
-          expiresAt: "2026-11-08T12:27:00.000Z",
-          paymentUrl: "http://localhost:3050/pay/CP-685b8fae92cf4a66a1a8ecb8",
-          assignedCard: {
-            bankName: "بانک قرض الحسنه مهر ایران",
-            cardNumber: "6037990012345678",
-            accountNumber: "111122223333444455",
-            holderName: "رضا محمدی (پذیرنده)",
+          id: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
+          ownerName: "استاد رضا میرزایی",
+          cardNumber: "6037991987654321",
+          accountNumber: "987654321012345678",
+          bankSlug: "mehr_iran",
+          bankTitle: "بانک قرض‌الحسنه مهر ایران",
+          isActive: true,
+          createdAt: "2026-11-08T14:20:53.183Z",
+        },
+      },
+      null,
+      2
+    ),
+    statusCode: 200,
+  },
+  {
+    id: "payment-request",
+    category: "REST API Reference",
+    method: "POST",
+    path: "/api/v1/payment/request",
+    title: "Request Payment Authority",
+    badge: "Core Gateway",
+    description:
+      "ایجاد درخواست پرداخت جدید. این متد شناسه یکتای authority، شناسه پیگیری داخلی شمسی (PAY-YYYYMMDDXXXXXXXX) و مبلغ تفکیک‌شده با الگوریتم افست پویا (+11 تومان به بالا) را تولید کرده و لینک صفحه پرداخت را بازمی‌گرداند. می‌توانید کارت مشخص هنرمند را با ارسال cartId یا cardNumber تعیین کنید.",
+    auth: "Optional / Merchant API Key (Header: x-api-key)",
+    headers: [
+      { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
+      { key: "x-api-key", value: "cp_sec_art_hub_2026_live", desc: "کلید وب‌سرویس پذیرنده (اختیاری جهت رهگیری اختصاصی)" },
+      { key: "Accept", value: "application/json", desc: "فرمت پاسخ دریافتی" },
+    ],
+    params: [
+      {
+        name: "amount",
+        type: "integer",
+        required: true,
+        desc: "مبلغ پایه فاکتور به تومان (حداقل ۱,۰۰۰ تومان)",
+        example: "350000",
+      },
+      {
+        name: "callbackUrl",
+        type: "string (url)",
+        required: true,
+        desc: "آدرس بازگشت خریدار پس از اتمام پرداخت در سایت شما",
+        example: "https://yourartsite.ir/checkout/callback",
+      },
+      {
+        name: "cartId (یا cardId)",
+        type: "string (uuid)",
+        required: false,
+        desc: "شناسه یکتای کارت هنرمند دریافت شده از مرحله ثبت کارت",
+        example: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
+      },
+      {
+        name: "cardNumber (یا cartNumber)",
+        type: "string (16 digits)",
+        required: false,
+        desc: "شماره ۱۶ رقمی کارت بانکی هنرمند (در صورت تمایل به ارسال مستقیم شماره کارت)",
+        example: "6037991987654321",
+      },
+      {
+        name: "description",
+        type: "string",
+        required: false,
+        desc: "توضیحات سفارش اثر هنری یا نام خریدار",
+        example: "خرید تابلوی نقاشی آبرنگ کد ۱۰۸",
+      },
+    ],
+    requestSample: JSON.stringify(
+      {
+        amount: 350000,
+        cartId: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
+        callbackUrl: "https://yourartsite.ir/checkout/callback",
+        description: "خرید تابلوی نقاشی آبرنگ کد ۱۰۸",
+      },
+      null,
+      2
+    ),
+    responseSample: JSON.stringify(
+      {
+        success: true,
+        data: {
+          authority: "CPAY_MW7X6YBW_71B9364E",
+          trackingCode: "PAY-1405081723763374",
+          payableAmountToman: 350011,
+          originalAmountToman: 350000,
+          offsetToman: 11,
+          expiresAt: "2026-11-08T14:30:59.851Z",
+          paymentUrl: "http://localhost:3050/pay/CPAY_MW7X6YBW_71B9364E",
+          card: {
+            ownerName: "استاد رضا میرزایی",
+            cardNumber: "6037991987654321",
+            accountNumber: "987654321012345678",
+            bankTitle: "بانک قرض‌الحسنه مهر ایران",
           },
         },
       },
@@ -134,37 +217,42 @@ const ENDPOINTS: EndpointDoc[] = [
     id: "payment-status",
     category: "REST API Reference",
     method: "GET",
-    path: "/api/v1/payment/status/{authority}",
-    title: "Check Real-Time Payment Status",
-    badge: "Polling / Realtime",
+    path: "/api/v1/payment/status/{identifier}",
+    title: "Check Real-Time Status or Inquire (By Authority or Tracking Code)",
+    badge: "Polling & Inquiry",
     description:
-      "استعلام لحظه‌ای وضعیت یک تراکنش با استفاده از شناسه authority. این متد توسط صفحه پرداخت خریدار جهت بررسی تطبیق خودکار پیامک بانکی به صورت دوره‌ای صدا زده می‌شود.",
-    auth: "None (Public)",
+      "استعلام لحظه‌ای وضعیت یک تراکنش با ارسال شناسه authority (نظیر CPAY_...) یا کد رهگیری داخلی شمسی (نظیر PAY-14050817-XXXX). مناسب برای شرایط قطعی اینترنت، ابهام در پرداخت یا رهگیری دوره‌ای (Fallback Status Check).",
+    auth: "None / Public",
     headers: [
       { key: "Accept", value: "application/json", desc: "فرمت پاسخ دریافتی" },
     ],
     params: [
       {
-        name: "authority",
+        name: "identifier",
         type: "string (path)",
         required: true,
-        desc: "شناسه یکتای پرداخت دریافت شده از متد request",
-        example: "CP-685b8fae92cf4a66a1a8ecb8",
+        desc: "شناسه پرداخت authority یا کد پیگیری داخلی شمسی (trackingCode)",
+        example: "PAY-1405081723763374",
       },
     ],
-    requestSample: "// متد GET - نیازی به بدنه ندارد\ncurl -X GET http://localhost:3050/api/v1/payment/status/CP-685b8fae92cf4a66a1a8ecb8",
+    requestSample: "// متد GET - استعلام با کد رهگیری داخلی یا شناسه authority\ncurl -X GET http://localhost:3050/api/v1/payment/status/PAY-1405081723763374",
     responseSample: JSON.stringify(
       {
         success: true,
         data: {
-          authority: "CP-685b8fae92cf4a66a1a8ecb8",
-          internalTrackingCode: "PAY-1405081748291045",
-          status: "SUCCESS",
-          isPaid: true,
-          amountToman: 150011,
-          bankTrackingCode: "TRK-9823145",
-          paidAt: "2026-11-08T12:15:32.000Z",
-          callbackUrl: "https://yourstore.ir/checkout/callback?authority=CP-685b8fae92cf4a66a1a8ecb8&status=OK",
+          authority: "CPAY_MW7X6YBW_71B9364E",
+          trackingCode: "PAY-1405081723763374",
+          status: "PAID",
+          payableAmountToman: 350011,
+          originalAmountToman: 350000,
+          offsetToman: 11,
+          paidAt: "2026-11-08T14:21:00.000Z",
+          expiresAt: "2026-11-08T14:30:59.851Z",
+          card: {
+            ownerName: "استاد رضا میرزایی",
+            cardNumber: "6037991987654321",
+            bankTitle: "بانک قرض‌الحسنه مهر ایران",
+          },
         },
       },
       null,
@@ -177,34 +265,41 @@ const ENDPOINTS: EndpointDoc[] = [
     category: "REST API Reference",
     method: "POST",
     path: "/api/v1/payment/verify",
-    title: "Verify & Settle Transaction",
+    title: "Verify & Settle Transaction (By Authority or Tracking Code)",
     badge: "Merchant Settlement",
     description:
-      "تایید نهایی و بررسی وریفای تراکنش در سمت بک‌اند فروشگاه پذیرنده. این متد تضمین می‌کند که تراکنش فقط یک‌بار مصرف شده و وضعیت به SETTLED تغییر می‌کند.",
-    auth: "Optional Merchant Signature / Callback",
+      "تایید نهایی و بررسی وریفای تراکنش در سمت بک‌اند سایت پذیرنده پس از بازگشت کاربر. این متد هم با ارسال authority و هم با ارسال trackingCode کار می‌کند.",
+    auth: "Optional Merchant API Key (Header: x-api-key)",
     headers: [
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
+      { key: "x-api-key", value: "cp_sec_art_hub_2026_live", desc: "کلید وب‌سرویس پذیرنده" },
     ],
     params: [
       {
         name: "authority",
         type: "string",
-        required: true,
-        desc: "شناسه پرداخت بازگشتی از درگاه",
-        example: "CP-685b8fae92cf4a66a1a8ecb8",
+        required: false,
+        desc: "شناسه پرداخت بازگشتی از درگاه (در صورت عدم ارسال trackingCode الزامی است)",
+        example: "CPAY_MW7X6YBW_71B9364E",
+      },
+      {
+        name: "trackingCode",
+        type: "string",
+        required: false,
+        desc: "کد رهگیری داخلی شمسی تراکنش (در صورت عدم ارسال authority الزامی است)",
+        example: "PAY-1405081723763374",
       },
       {
         name: "amount",
         type: "integer",
-        required: true,
-        desc: "مبلغ نهایی پرداخت‌شده (تومان)",
-        example: "150011",
+        required: false,
+        desc: "مبلغ نهایی پرداخت‌شده جهت بررسی تطابق مضاعف (اختیاری)",
+        example: "350011",
       },
     ],
     requestSample: JSON.stringify(
       {
-        authority: "CP-685b8fae92cf4a66a1a8ecb8",
-        amount: 150011,
+        trackingCode: "PAY-1405081723763374",
       },
       null,
       2
@@ -212,14 +307,19 @@ const ENDPOINTS: EndpointDoc[] = [
     responseSample: JSON.stringify(
       {
         success: true,
-        message: "تراکنش با موفقیت وریفای و تسویه شد.",
+        status: "PAID",
         data: {
-          authority: "CP-685b8fae92cf4a66a1a8ecb8",
-          internalTrackingCode: "PAY-1405081748291045",
-          bankTrackingCode: "TRK-9823145",
-          status: "SETTLED",
-          paidAmountToman: 150011,
-          verifiedAt: "2026-11-08T12:16:10.000Z",
+          authority: "CPAY_MW7X6YBW_71B9364E",
+          trackingCode: "PAY-1405081723763374",
+          amountToman: 350011,
+          originalAmountToman: 350000,
+          offsetToman: 11,
+          paidAt: "2026-11-08T14:21:00.000Z",
+          card: {
+            ownerName: "استاد رضا میرزایی",
+            cardNumber: "6037991987654321",
+            bankTitle: "بانک قرض‌الحسنه مهر ایران",
+          },
         },
       },
       null,
@@ -752,6 +852,72 @@ export default function DocsPage() {
           </div>
 
           {/* Deep Architectural Guides & Sections */}
+          <section id="art-marketplace-workflow" className="space-y-6 pt-8 border-t border-slate-800 bg-slate-900/30 -mx-6 px-6 py-6 rounded-3xl border border-emerald-500/20">
+            <div className="flex items-center justify-between flex-wrap gap-2">
+              <h3 className="text-lg font-black text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-emerald-400" />
+                <span>راهنمای ویژه یکپارچه‌سازی وب‌سایت‌های هنری و مارکت‌پلیس‌ها (Art Marketplace Workflow)</span>
+              </h3>
+              <span className="text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full">
+                ویژه Agent های برنامه‌نویس
+              </span>
+            </div>
+
+            <p className="text-xs text-slate-300 leading-relaxed">
+              این معماری ویژه پلتفرم‌هایی است که کارت‌های بانکی متعدد هنرمندان یا فروشندگان را مدیریت می‌کنند. وب‌سایت شما کارت‌ها را از کاربران دریافت کرده، با وب‌سرویس در سامانه ثبت می‌کند، برای هر خرید لینک اختصاصی همان کارت را صادر نموده و پس از واریز، تاییدیه دریافت و در سایت خود ثبت می‌کند.
+            </p>
+
+            {/* Authentication & API Keys */}
+            <div className="bg-slate-950 border border-slate-800/90 rounded-2xl p-5 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-bold text-amber-400">
+                <Key className="w-4 h-4" />
+                <span>احراز هویت و کلید وب‌سرویس (API Key): کجا و کی ساخته می‌شود؟</span>
+              </div>
+              <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
+                <li>
+                  <strong className="text-white">محل ساخت و تعریف:</strong> کلید اختصاصی پذیرنده در فایل پیکربندی محیطی درگاه (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">backend/.env</code>) با متغیر <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">MERCHANT_API_KEY</code> یا <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">ADMIN_API_KEY</code> تعریف می‌شود.
+                </li>
+                <li>
+                  <strong className="text-white">مشاهده در پنل مدیریت:</strong> در تب اول پنل ادمین (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">/admin</code>) کلید با دکمه کپی فوری نمایش داده شده است.
+                </li>
+                <li>
+                  <strong className="text-white">نحوه ارسال در درخواست‌ها:</strong> وب‌سایت شما باید این کلید را در هدر تمام درخواست‌های خود با کلید <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">x-api-key</code> یا <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">Authorization: Bearer YOUR_KEY</code> ارسال نماید.
+                </li>
+              </ul>
+            </div>
+
+            {/* Step-by-Step Flow */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                <span className="font-bold text-emerald-400 text-sm">۱. ثبت کارت هنرمند (Idempotent Upsert)</span>
+                <p className="text-slate-400 leading-relaxed">
+                  هنگامی که هنرمند در پنل سایت شما شماره کارتش را ثبت می‌کند، سایت شما متد <code className="text-white">POST /api/v1/admin/cards</code> را صدا می‌زند. شناسه یکتای <code className="text-emerald-400">id</code> در پاسخ برمی‌گردد که آن را در جدول هنرمندان سایت خود ذخیره کنید.
+                </p>
+              </div>
+
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                <span className="font-bold text-emerald-400 text-sm">۲. درخواست لینک پرداخت</span>
+                <p className="text-slate-400 leading-relaxed">
+                  برای خرید اثر هنری، متد <code className="text-white">POST /api/v1/payment/request</code> را صدا بزنید و فیلد <code className="text-emerald-400">cartId</code> یا <code className="text-emerald-400">cardNumber</code> را ارسال کنید. لینک اختصاصی صفحه پرداخت تولید می‌شود.
+                </p>
+              </div>
+
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                <span className="font-bold text-teal-400 text-sm">۳. تایید نهایی پرداخت (Verify)</span>
+                <p className="text-slate-400 leading-relaxed">
+                  کاربر پس از انتقال وجه به <code className="text-white">callbackUrl</code> با پارامترهای <code className="text-emerald-400">authority</code> و <code className="text-emerald-400">tracking_code</code> بازمی‌گردد. سایت شما با متد <code className="text-white">POST /api/v1/payment/verify</code> پرداخت را تسویه می‌کند.
+                </p>
+              </div>
+
+              <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                <span className="font-bold text-teal-400 text-sm">۴. استعلام در شرایط ابهام یا قطعی (Inquiry)</span>
+                <p className="text-slate-400 leading-relaxed">
+                  اگر کاربر صفحه را ببندد یا پیامک با تاخیر بیاید، با متد <code className="text-white">GET /api/v1/payment/status/{'{identifier}'}</code> (ارسال authority یا trackingCode) می‌توانید در هر لحظه وضعیت سفارش را استعلام کنید.
+                </p>
+              </div>
+            </div>
+          </section>
+
           <section id="architecture" className="space-y-4 pt-8 border-t border-slate-800">
             <h3 className="text-lg font-black text-white flex items-center gap-2">
               <Layers className="w-5 h-5 text-emerald-400" />
