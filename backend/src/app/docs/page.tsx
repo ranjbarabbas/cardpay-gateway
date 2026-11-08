@@ -401,7 +401,7 @@ export default function DocsPage() {
 
   // Playground state for selected endpoint
   const [testPayload, setTestPayload] = useState<string>(ENDPOINTS[0].requestSample);
-  const [playgroundApiKey, setPlaygroundApiKey] = useState<string>("cp_sec_art_hub_2026_live");
+  const [playgroundApiKey, setPlaygroundApiKey] = useState<string>("");
   const [liveResponse, setLiveResponse] = useState<any>(null);
   const [liveStatusCode, setLiveStatusCode] = useState<number | null>(null);
   const [liveLatency, setLiveLatency] = useState<number | null>(null);
@@ -447,11 +447,13 @@ export default function DocsPage() {
         "Content-Type": "application/json",
       };
 
+      const customKey = playgroundApiKey.trim();
       if (selectedEndpoint.id === "sms-receive") {
-        headersObj["x-device-key"] = playgroundApiKey || "dev_sec_99182345";
-      } else if (playgroundApiKey) {
-        headersObj["x-api-key"] = playgroundApiKey.trim();
-        headersObj["Authorization"] = `Bearer ${playgroundApiKey.trim()}`;
+        headersObj["x-device-key"] = customKey || "dev_sec_99182345";
+      } else {
+        const effectiveKey = customKey || "cp_sec_art_hub_2026_live";
+        headersObj["x-api-key"] = effectiveKey;
+        headersObj["Authorization"] = `Bearer ${effectiveKey}`;
       }
 
       let options: RequestInit = {
@@ -484,7 +486,7 @@ export default function DocsPage() {
   // Generate code snippet by language
   const getCodeSnippet = (endpoint: EndpointDoc, lang: "curl" | "node" | "python" | "php") => {
     const url = `http://localhost:3050${endpoint.path}`;
-    const key = playgroundApiKey || "cp_sec_art_hub_2026_live";
+    const key = playgroundApiKey.trim() || "cp_sec_art_hub_2026_live";
     if (lang === "curl") {
       if (endpoint.method === "GET") {
         return `curl -X GET "${url.replace("{identifier}", "PAY-1405081723763374")}" \\\n  -H "Accept: application/json" \\\n  -H "x-api-key: ${key}"`;
@@ -1076,14 +1078,14 @@ export default function DocsPage() {
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-slate-400 flex items-center justify-between">
                 <span>Header x-api-key:</span>
-                <span className="text-[9px] text-emerald-400 font-sans">پیش‌فرض تست پذیرنده</span>
+                <span className="text-[9px] text-emerald-400 font-sans">اختیاری (پیش‌فرض روی دستور فعال است)</span>
               </label>
               <input
                 type="text"
                 value={playgroundApiKey}
                 onChange={(e) => setPlaygroundApiKey(e.target.value)}
-                placeholder="cp_sec_art_hub_2026_live"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 font-mono text-xs text-emerald-300 focus:outline-none focus:border-emerald-500 transition"
+                placeholder="cp_sec_art_hub_2026_live (کلیک برای تایپ کلید دلخواه)"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 font-mono text-xs text-emerald-300 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
                 dir="ltr"
               />
             </div>
