@@ -8,8 +8,13 @@ export async function GET(
   try {
     const { authority } = await params;
 
-    const tx = await db.transaction.findUnique({
-      where: { authority },
+    const tx = await db.transaction.findFirst({
+      where: {
+        OR: [
+          { authority },
+          { internalTrackingCode: authority },
+        ],
+      },
       include: {
         card: true,
       },

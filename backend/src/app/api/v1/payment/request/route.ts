@@ -9,14 +9,15 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const {
       amount,
-      cardId,
-      cardNumber,
-      bankSlug,
       callbackUrl,
       webhookUrl,
       description,
       customerMobile,
     } = body;
+
+    const targetCardId = body.cardId || body.cartId || body.card_id || body.cart_id;
+    const rawCardNumber = body.cardNumber || body.cartNumber || body.card_number || body.cart_number;
+    const targetBankSlug = body.bankSlug || body.bank_slug;
 
     if (!amount || Number(amount) <= 0) {
       return NextResponse.json(
@@ -32,11 +33,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Determine target card: Supports cardId, cardNumber, bankSlug, or auto-select default
+    // Determine target card: Supports cardId/cartId, cardNumber/cartNumber, bankSlug, or auto-select default
     let targetCard = null;
-    if (cardId) {
+    if (targetCardId) {
       targetCard = await db.bankCard.findUnique({
-        where: { id: cardId, isActive: true },
+        where: { id: targetCardId, isActive: true },
       });
       if (!targetCard) {
         return NextResponse.json(
@@ -44,8 +45,8 @@ export async function POST(req: NextRequest) {
           { status: 404 }
         );
       }
-    } else if (cardNumber) {
-      const cleanCard = String(cardNumber).replace(/[^0-9]/g, "");
+    } else if (rawCardNumber) {
+      const cleanCard = String(rawCardNumber).replace(/[^0-9]/g, "");
       targetCard = await db.bankCard.findFirst({
         where: { cardNumber: cleanCard, isActive: true },
       });
@@ -55,14 +56,14 @@ export async function POST(req: NextRequest) {
           { status: 404 }
         );
       }
-    } else if (bankSlug) {
+    } else if (targetBankSlug) {
       targetCard = await db.bankCard.findFirst({
-        where: { bankSlug, isActive: true },
+        where: { bankSlug: targetBankSlug, isActive: true },
         orderBy: { createdAt: "asc" },
       });
       if (!targetCard) {
         return NextResponse.json(
-          { success: false, error: `No active card found for bank slug: ${bankSlug}` },
+          { success: false, error: `No active card found for bank slug: ${targetBankSlug}` },
           { status: 404 }
         );
       }

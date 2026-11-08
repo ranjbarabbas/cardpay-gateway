@@ -4,17 +4,24 @@ import { db } from "@/lib/db";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { authority, amount } = body;
+    const rawAuthority = body.authority;
+    const rawTrackingCode = body.trackingCode || body.internalTrackingCode || body.tracking_code;
+    const { amount } = body;
 
-    if (!authority) {
+    if (!rawAuthority && !rawTrackingCode) {
       return NextResponse.json(
-        { success: false, error: "Authority is required" },
+        { success: false, error: "Either authority or trackingCode is required for verification." },
         { status: 400 }
       );
     }
 
-    const tx = await db.transaction.findUnique({
-      where: { authority },
+    const tx = await db.transaction.findFirst({
+      where: {
+        OR: [
+          ...(rawAuthority ? [{ authority: rawAuthority }] : []),
+          ...(rawTrackingCode ? [{ internalTrackingCode: rawTrackingCode }] : []),
+        ],
+      },
       include: { card: true },
     });
 

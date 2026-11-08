@@ -41,8 +41,18 @@ export async function POST(req: NextRequest) {
 
     const cleanCard = cardNumber.replace(/[^0-9]/g, "");
 
-    const card = await db.bankCard.create({
-      data: {
+    const card = await db.bankCard.upsert({
+      where: { cardNumber: cleanCard },
+      update: {
+        ownerName,
+        accountNumber: accountNumber ? accountNumber.trim() : null,
+        iban: iban ? iban.trim() : null,
+        bankSlug,
+        bankTitle,
+        ...(deviceId ? { deviceId } : {}),
+        isActive: true,
+      },
+      create: {
         ownerName,
         cardNumber: cleanCard,
         accountNumber: accountNumber ? accountNumber.trim() : null,
