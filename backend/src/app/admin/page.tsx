@@ -1035,16 +1035,41 @@ export default function AdminDashboard() {
                         </span>
                       )}
                     </div>
-                    <div className="font-mono text-emerald-400 text-sm tracking-wider dir-ltr text-right">
-                      {card.cardNumber}
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-emerald-400 text-sm tracking-wider dir-ltr text-right">
+                        {card.cardNumber}
+                      </span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(card.cardNumber);
+                          setCopiedKey(card.cardNumber);
+                          setTimeout(() => setCopiedKey(null), 2000);
+                        }}
+                        className="text-slate-400 hover:text-white p-1 rounded hover:bg-slate-800 transition"
+                        title="کپی شماره ۱۶ رقمی کارت"
+                      >
+                        {copiedKey === card.cardNumber ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
                     </div>
                     {card.accountNumber && (
                       <div className="text-xs text-slate-400 font-mono">
                         حساب واریزی: {card.accountNumber}
                       </div>
                     )}
-                    <div className="text-xs text-slate-500">
-                      شناسه اختصاصی: <span className="font-mono text-slate-400">{card.id}</span>
+                    <div className="flex items-center gap-2 text-xs text-slate-500">
+                      <span>شناسه جهت وب‌سرویس (cardId):</span>
+                      <span className="font-mono text-slate-400 text-[11px]">{card.id}</span>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(card.id);
+                          setCopiedKey(card.id);
+                          setTimeout(() => setCopiedKey(null), 2000);
+                        }}
+                        className="text-slate-400 hover:text-white p-0.5 rounded hover:bg-slate-800 transition"
+                        title="کپی شناسه کارت جهت استفاده در وب‌سرویس"
+                      >
+                        {copiedKey === card.id ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                      </button>
                     </div>
                   </div>
 

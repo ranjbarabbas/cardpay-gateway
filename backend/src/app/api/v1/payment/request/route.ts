@@ -10,6 +10,8 @@ export async function POST(req: NextRequest) {
     const {
       amount,
       cardId,
+      cardNumber,
+      bankSlug,
       callbackUrl,
       webhookUrl,
       description,
@@ -30,7 +32,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Determine target card
+    // Determine target card: Supports cardId, cardNumber, bankSlug, or auto-select default
     let targetCard = null;
     if (cardId) {
       targetCard = await db.bankCard.findUnique({
@@ -39,6 +41,28 @@ export async function POST(req: NextRequest) {
       if (!targetCard) {
         return NextResponse.json(
           { success: false, error: "Specified card was not found or is currently inactive." },
+          { status: 404 }
+        );
+      }
+    } else if (cardNumber) {
+      const cleanCard = String(cardNumber).replace(/[^0-9]/g, "");
+      targetCard = await db.bankCard.findFirst({
+        where: { cardNumber: cleanCard, isActive: true },
+      });
+      if (!targetCard) {
+        return NextResponse.json(
+          { success: false, error: `Card with number ${cleanCard} was not found or is currently inactive.` },
+          { status: 404 }
+        );
+      }
+    } else if (bankSlug) {
+      targetCard = await db.bankCard.findFirst({
+        where: { bankSlug, isActive: true },
+        orderBy: { createdAt: "asc" },
+      });
+      if (!targetCard) {
+        return NextResponse.json(
+          { success: false, error: `No active card found for bank slug: ${bankSlug}` },
           { status: 404 }
         );
       }

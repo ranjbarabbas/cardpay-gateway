@@ -85,8 +85,15 @@ const ENDPOINTS: EndpointDoc[] = [
         name: "cardId",
         type: "string (uuid)",
         required: false,
-        desc: "شناسه کارت مشخص (در صورت عدم ارسال، کارت فعال به صورت هوشمند انتخاب می‌شود)",
-        example: "optional",
+        desc: "شناسه کارت مشخص (قابل کپی از تب کارت‌های بانکی در پنل ادمین)",
+        example: "cly-...",
+      },
+      {
+        name: "cardNumber",
+        type: "string (16 digits)",
+        required: false,
+        desc: "شماره ۱۶ رقمی کارت بانکی، جهت اختصاص مستقیم به یک کارت مشخص",
+        example: "6037990012345678",
       },
     ],
     requestSample: JSON.stringify(
