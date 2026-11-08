@@ -1,9 +1,9 @@
 /**
- * Helper to manage admin emails configured via the IMAILS environment variable.
- * Example: IMAILS="admin@honarhub.com,support@domain.ir"
+ * Helper to manage admin emails configured via the EMAILS environment variable.
+ * Example: EMAILS="admin@honarhub.com,support@domain.ir"
  */
 export function getAdminEmails(): string[] {
-  const envVal = process.env.IMAILS || process.env.ADMIN_EMAILS || "";
+  const envVal = process.env.EMAILS || process.env.IMAILS || process.env.ADMIN_EMAILS || "";
   return envVal
     .split(",")
     .map((e) => e.trim().toLowerCase())
