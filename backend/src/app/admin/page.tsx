@@ -45,6 +45,8 @@ export default function AdminDashboard() {
   const [tickets, setTickets] = useState<any[]>([]);
   const [approvedSenders, setApprovedSenders] = useState<any[]>([]);
   const [pendingSenders, setPendingSenders] = useState<any[]>([]);
+  const [blockedSenders, setBlockedSenders] = useState<any[]>([]);
+  const [senderSubTab, setSenderSubTab] = useState<"approved" | "blocked">("approved");
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
@@ -112,9 +114,13 @@ export default function AdminDashboard() {
         const data = await res.json();
         if (data.success) setDevices(data.data);
       } else if (activeTab === "trusted_senders") {
-        const res = await fetch("/api/v1/admin/senders?status=APPROVED", { headers });
-        const data = await res.json();
-        if (data.success) setApprovedSenders(data.data);
+        const [resApproved, resBlocked] = await Promise.all([
+          fetch("/api/v1/admin/senders?status=APPROVED", { headers }),
+          fetch("/api/v1/admin/senders?status=REJECTED", { headers }),
+        ]);
+        const [dataApproved, dataBlocked] = await Promise.all([resApproved.json(), resBlocked.json()]);
+        if (dataApproved.success) setApprovedSenders(dataApproved.data);
+        if (dataBlocked.success) setBlockedSenders(dataBlocked.data);
       } else if (activeTab === "pending_senders") {
         const res = await fetch("/api/v1/admin/senders?status=PENDING_REVIEW", { headers });
         const data = await res.json();
@@ -219,6 +225,19 @@ export default function AdminDashboard() {
     const data = await res.json();
     if (data.success) {
       alert(newStatus === "APPROVED" ? "سرخط با موفقیت تایید شد." : "سرخط مسدود گردید.");
+      loadData();
+    }
+  };
+
+  const handleDeleteSender = async (senderIdRecord: string) => {
+    if (!confirm("آیا از حذف این سرشماره اطمینان دارید؟")) return;
+    const res = await fetch(`/api/v1/admin/senders/${senderIdRecord}`, {
+      method: "DELETE",
+      headers,
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert("سرشماره با موفقیت حذف گردید.");
       loadData();
     }
   };
@@ -413,61 +432,162 @@ export default function AdminDashboard() {
         {activeTab === "trusted_senders" && (
           <div className="space-y-6">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
-              <div className="flex items-center justify-between">
-                <h2 className="text-base font-bold text-white flex items-center gap-2">
-                  <ShieldCheck className="w-5 h-5 text-emerald-400" />
-                  <span>سرشماره‌های تایید شده (Trusted Senders)</span>
-                </h2>
-                <span className="text-xs text-slate-400">تنها پیامک‌های دریافتی از این سرشماره‌ها به صورت خودکار تایید و تسویه می‌شوند.</span>
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-emerald-400" />
+                    <span>مدیریت سرشماره‌های بانکی و اعتبارسنجی پیامک</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    تنها پیامک‌های دریافتی از سرشماره‌های تاییدشده، تراکنش‌ها را به صورت خودکار تایید و تسویه می‌کنند.
+                  </p>
+                </div>
+
+                {/* Sub-Tabs: Approved vs Blocked */}
+                <div className="flex items-center gap-2 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+                  <button
+                    onClick={() => setSenderSubTab("approved")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                      senderSubTab === "approved"
+                        ? "bg-emerald-600 text-white shadow"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>سرشماره‌های تاییدشده</span>
+                    <span className="bg-slate-800 text-[10px] px-1.5 py-0.2 rounded-full">
+                      {approvedSenders.length}
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => setSenderSubTab("blocked")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition flex items-center gap-1.5 ${
+                      senderSubTab === "blocked"
+                        ? "bg-rose-600 text-white shadow"
+                        : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span>سرشماره‌های مسدودشده</span>
+                    <span className="bg-slate-800 text-[10px] px-1.5 py-0.2 rounded-full">
+                      {blockedSenders.length}
+                    </span>
+                  </button>
+                </div>
               </div>
 
-              <form onSubmit={handleAddSender} className="flex flex-wrap gap-3 items-center text-xs pt-2">
-                <input
-                  type="text"
-                  required
-                  placeholder="سرخط یا نام فرستنده (مثلاً B.QMEHRIRAN)"
-                  value={newSender.senderId}
-                  onChange={(e) => setNewSender({ ...newSender, senderId: e.target.value })}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono"
-                />
-                <input
-                  type="text"
-                  placeholder="توضیحات (مثلاً سرخط اصلی بانک مهر ایران)"
-                  value={newSender.description}
-                  onChange={(e) => setNewSender({ ...newSender, description: e.target.value })}
-                  className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100"
-                />
-                <button
-                  type="submit"
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl transition"
-                >
-                  افزودن سرخط به لیست تاییدشده‌ها
-                </button>
-              </form>
+              {senderSubTab === "approved" && (
+                <form onSubmit={handleAddSender} className="flex flex-wrap gap-3 items-center text-xs pt-2 border-t border-slate-800/80">
+                  <input
+                    type="text"
+                    required
+                    placeholder="سرخط یا نام فرستنده (مثلاً B.QMEHRIRAN)"
+                    value={newSender.senderId}
+                    onChange={(e) => setNewSender({ ...newSender, senderId: e.target.value })}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100 font-mono"
+                  />
+                  <input
+                    type="text"
+                    placeholder="توضیحات (مثلاً سرخط رسمی بانک مهر ایران)"
+                    value={newSender.description}
+                    onChange={(e) => setNewSender({ ...newSender, description: e.target.value })}
+                    className="bg-slate-950 border border-slate-800 rounded-xl px-3.5 py-2.5 text-slate-100"
+                  />
+                  <button
+                    type="submit"
+                    className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold px-4 py-2.5 rounded-xl transition"
+                  >
+                    افزودن سرخط به لیست تاییدشده‌ها
+                  </button>
+                </form>
+              )}
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {approvedSenders.map((snd) => (
-                <div key={snd.id} className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
-                  <div className="flex items-center justify-between">
-                    <span className="font-mono text-emerald-400 font-black text-sm">{snd.senderId}</span>
-                    <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-md font-bold">
-                      مورد اعتماد
-                    </span>
+            {/* Approved Senders View */}
+            {senderSubTab === "approved" && (
+              <div>
+                {approvedSenders.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-900/40 border border-slate-800 rounded-3xl text-slate-500 text-xs">
+                    هیچ سرشماره تاییدشده‌ای ثبت نشده است.
                   </div>
-                  {snd.description && <p className="text-xs text-slate-400">{snd.description}</p>}
-                  <div className="text-[11px] text-slate-500 pt-1 border-t border-slate-800/80 flex justify-between">
-                    <span>بانک: {snd.bankSlug}</span>
-                    <button
-                      onClick={() => handleUpdateSenderStatus(snd.id, "REJECTED")}
-                      className="text-red-400 hover:underline"
-                    >
-                      مسدودسازی
-                    </button>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {approvedSenders.map((snd) => (
+                      <div key={snd.id} className="bg-slate-900 border border-emerald-500/30 rounded-2xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-emerald-400 font-black text-sm">{snd.senderId}</span>
+                          <span className="bg-emerald-500/20 text-emerald-300 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                            تاییدشده و معتبر
+                          </span>
+                        </div>
+                        {snd.description && <p className="text-xs text-slate-400">{snd.description}</p>}
+                        <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                          <span>بانک: {snd.bankSlug}</span>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleUpdateSenderStatus(snd.id, "REJECTED")}
+                              className="text-amber-400 hover:text-amber-300 transition"
+                            >
+                              مسدودسازی
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSender(snd.id)}
+                              className="text-rose-400 hover:text-rose-300 transition"
+                            >
+                              حذف
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
+                )}
+              </div>
+            )}
+
+            {/* Blocked Senders View */}
+            {senderSubTab === "blocked" && (
+              <div className="space-y-4">
+                <div className="bg-rose-950/20 border border-rose-500/30 rounded-2xl p-4 text-xs text-rose-300">
+                  سرشماره‌های زیر مسدود هستند و پیامک‌های دریافتی از آن‌ها توسط گیت‌وی رد می‌شود. با کلیک بر روی «خروج از مسدودی»، سرشماره مجدداً به لیست تاییدشده منتقل می‌شود.
                 </div>
-              ))}
-            </div>
+
+                {blockedSenders.length === 0 ? (
+                  <div className="text-center py-12 bg-slate-900/40 border border-slate-800 rounded-3xl text-slate-500 text-xs">
+                    هیچ سرشماره مسدودشده‌ای وجود ندارد.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {blockedSenders.map((snd) => (
+                      <div key={snd.id} className="bg-slate-900 border border-rose-500/40 rounded-2xl p-4 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-mono text-rose-400 font-black text-sm">{snd.senderId}</span>
+                          <span className="bg-rose-500/20 text-rose-300 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                            مسدود شده (BLOCKED)
+                          </span>
+                        </div>
+                        {snd.description && <p className="text-xs text-slate-400">{snd.description}</p>}
+                        <div className="text-[11px] text-slate-500 pt-2 border-t border-slate-800/80 flex items-center justify-between">
+                          <span>بانک: {snd.bankSlug}</span>
+                          <div className="flex items-center gap-3">
+                            <button
+                              onClick={() => handleUpdateSenderStatus(snd.id, "APPROVED")}
+                              className="text-emerald-400 hover:text-emerald-300 font-bold transition"
+                            >
+                              خروج از مسدودی و تایید
+                            </button>
+                            <button
+                              onClick={() => handleDeleteSender(snd.id)}
+                              className="text-rose-400 hover:text-rose-300 transition"
+                            >
+                              حذف قطعی
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

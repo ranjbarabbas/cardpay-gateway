@@ -74,13 +74,11 @@ export default function Home() {
       <header className="border-b border-slate-800/80 bg-[#0B0F17]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/10">
-              <Shield className="w-5 h-5" />
-            </div>
+            <img src="/images/honarhub_logo.png" alt="هنر هاب" className="w-10 h-10 rounded-2xl shadow-lg shadow-emerald-500/10 object-cover" />
             <div className="flex items-center gap-2">
-              <span className="font-black text-lg text-white tracking-tight">CardPay Gateway</span>
+              <span className="font-black text-lg text-white tracking-tight">هنر هاب • CardPay</span>
               <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30">
-                v1.0.0
+                v1.1.0
               </span>
             </div>
           </div>
@@ -101,13 +99,13 @@ export default function Home() {
               <span>مستندات GitBook</span>
             </Link>
             <a
-              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.0.0/cardpay-sync.apk"
+              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.1.0/cardpay-sync.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="hidden sm:flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span>دانلود APK</span>
+              <span>دانلود APK (v1.1.0)</span>
             </a>
             <Link
               href="/admin"
@@ -128,7 +126,7 @@ export default function Home() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span>انتشار رسمی نسخه ۱.۰.۰ • بدون واسطه و بدون کارمزد شاپرک</span>
+            <span>انتشار رسمی نسخه ۱.۱.۰ • با فونت وزیرمتن و لوگوی اختصاصی هنر هاب</span>
           </div>
 
           <h1 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tight">
@@ -140,7 +138,7 @@ export default function Home() {
           </h1>
 
           <p className="text-slate-400 text-sm md:text-base leading-relaxed">
-            زیرساخت فین‌تک برای پذیرندگان، استارتاپ‌ها و هنرمندان. واریز مستقیم وجه به حساب شخصی، تفکیک هوشمند مبالغ هم‌ارز با الگوریتم آفست پویا (+11 تومان) و همگام‌سازی بلادرنگ پیامک بانکی با اپلیکیشن اختصاصی کاتلین.
+            زیرساخت فین‌تک برای پذیرندگان، استارتاپ‌ها و هنرمندان. واریز مستقیم وجه به حساب شخصی، تفکیک هوشمند مبالغ هم‌ارز با الگوریتم آفست پویا (+11 تومان) و رصد خودکار پیامک‌های بانکی با اپلیکیشن اختصاصی کاتلین.
           </p>
 
           <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
@@ -154,13 +152,13 @@ export default function Home() {
             </Link>
 
             <a
-              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.0.0/cardpay-sync.apk"
+              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.1.0/cardpay-sync.apk"
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-sm font-bold px-6 py-3.5 rounded-2xl transition"
             >
               <Download className="w-4 h-4 text-emerald-400" />
-              <span>دانلود APK اپلیکیشن همراه (5.1MB)</span>
+              <span>دانلود APK اپلیکیشن نسخه ۱.۱.۰ (5.5MB)</span>
             </a>
 
             <a
@@ -338,20 +336,20 @@ export default function Home() {
                 <span>نسخه رسمی منتشر شده در گیت‌هاب</span>
               </div>
               <h2 className="text-2xl md:text-3xl font-black text-white">
-                اپلیکیشن همگام‌ساز پیامک CardPay Sync (v1.0.0)
+                اپلیکیشن همگام‌ساز پیامک CardPay Sync (v1.1.0)
               </h2>
               <p className="text-xs md:text-sm text-slate-300 leading-relaxed">
-                این اپلیکیشن کاتلین اختصاصی روی گوشی متصل به حساب بانکی نصب شده و پیامک‌های واریزی را به صورت رمزنگاری‌شده و آنی به درگاه ارسال می‌کند. دارای بخش تنظیمات مستقل ⚙️ جهت تنظیم آدرس درگاه و کلید اختصاصی دستگاه.
+                این اپلیکیشن کاتلین اختصاصی روی گوشی متصل به حساب بانکی نصب شده و پیامک‌های واریزی را به صورت رمزنگاری‌شده و آنی به درگاه ارسال می‌کند. دارای بخش تنظیمات مستقل ⚙️، فونت اصیل وزیرمتن، پشتیبانی کامل از راست‌چین (RTL) و لوگوی رسمی هنر هاب.
               </p>
               <div className="flex flex-wrap items-center gap-3 pt-2">
                 <a
-                  href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.0.0/cardpay-sync.apk"
+                  href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.1.0/cardpay-sync.apk"
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-5 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20"
                 >
                   <Download className="w-4 h-4" />
-                  <span>دانلود فایل APK از GitHub Releases (5.1MB)</span>
+                  <span>دانلود فایل APK نسخه ۱.۱.۰ (5.5MB)</span>
                 </a>
                 <Link
                   href="/api/v1/download/apk"
@@ -366,7 +364,7 @@ export default function Home() {
             <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-6 w-full lg:w-80 space-y-3 font-mono text-xs">
               <div className="flex items-center justify-between text-slate-400">
                 <span>نسخه فایل:</span>
-                <span className="text-white font-bold">v1.0.0</span>
+                <span className="text-white font-bold">v1.1.0</span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>فرمت فایل:</span>
@@ -374,15 +372,15 @@ export default function Home() {
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>حجم باینری:</span>
-                <span className="text-white font-bold">5.2 Megabytes (Signed)</span>
+                <span className="text-white font-bold">5.5 Megabytes (Signed)</span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>الگوریتم رمز:</span>
                 <span className="text-slate-300">SHA-256 Verified</span>
               </div>
               <div className="pt-2 border-t border-slate-800">
-                <span className="text-[10px] text-slate-500 block truncate" title="80e0dbfb35e8c46926ab18d9771876cb0148581abe4553f21f52102e6f872107">
-                  SHA: 80e0dbfb35e8c46926ab...
+                <span className="text-[10px] text-slate-500 block truncate" title="eb444b867339d75adfb1319bdfeed8f3e085f5cc6e6b83042f312fc3135953ef">
+                  SHA: eb444b867339d75adfb...
                 </span>
               </div>
             </div>

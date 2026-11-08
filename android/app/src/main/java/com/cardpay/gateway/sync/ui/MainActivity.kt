@@ -80,7 +80,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateStatusView() {
         if (prefs.isSyncEnabled) {
-            binding.tvStatus.text = "سرویس فعال و در حال شنود است"
+            binding.tvStatus.text = "سرویس فعال و در حال رصد هوشمند است"
             binding.tvStatus.setTextColor(Color.parseColor("#10B981"))
             binding.statusDot.setBackgroundColor(Color.parseColor("#10B981"))
         } else {

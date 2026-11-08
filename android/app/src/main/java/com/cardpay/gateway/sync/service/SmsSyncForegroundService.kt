@@ -98,7 +98,7 @@ class SmsSyncForegroundService : Service() {
             }
         }
 
-        startForeground(NOTIFICATION_ID, buildOngoingNotification("سرویس شنود پیامک‌های بانکی فعال است"))
+        startForeground(NOTIFICATION_ID, buildOngoingNotification("سرویس رصد و همگام‌سازی پیامک‌های بانکی فعال است"))
         return START_STICKY
     }
 
