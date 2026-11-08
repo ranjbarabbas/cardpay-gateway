@@ -18,14 +18,15 @@ async function main() {
 
   // 2. Create Default Bank Card (Bank Mehr Iran)
   const card = await db.bankCard.upsert({
-    where: { cardNumber: "6037991823456789" },
+    where: { cardNumber: "6037990012345678" },
     update: {
-      accountNumber: "662179818703777001",
+      accountNumber: "111122223333444455",
+      ownerName: "رضا محمدی (پذیرنده نمونه)",
     },
     create: {
-      ownerName: "عباس رنجبر",
-      cardNumber: "6037991823456789",
-      accountNumber: "662179818703777001",
+      ownerName: "رضا محمدی (پذیرنده نمونه)",
+      cardNumber: "6037990012345678",
+      accountNumber: "111122223333444455",
       bankSlug: "mehr_iran",
       bankTitle: "بانک قرض‌الحسنه مهر ایران",
       deviceId: device.id,

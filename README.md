@@ -14,7 +14,7 @@ An enterprise-grade, peer-to-peer (P2P) card-to-card automated payment gateway s
 
 | Asset Name | Version | Size | Checksum (SHA-256) | Download Link |
 | :--- | :---: | :---: | :--- | :--- |
-| **`cardpay-sync.apk`** | `v1.0.0` | **5.1 MB** | `d89643c829a294a117ba2bcf2bcdaaff78c6f170da6adf1f32c95c9db4c2ca35` | [**Download from GitHub Releases**](https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.0.0/cardpay-sync.apk) |
+| **`cardpay-sync.apk`** | `v1.0.0` | **5.2 MB** | `80e0dbfb35e8c46926ab18d9771876cb0148581abe4553f21f52102e6f872107` | [**Download from GitHub Releases**](https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.0.0/cardpay-sync.apk) |
 
 > **Direct Server Endpoint:** You can also download the latest APK directly from your gateway instance at `GET /api/v1/download/apk`.
 
@@ -38,7 +38,7 @@ An enterprise-grade, peer-to-peer (P2P) card-to-card automated payment gateway s
         ▼ 3. Customer Transfers Funds via Mobile Banking or ATM
 [Bank Network (Bank Mehr Iran / others)]
         │
-        ▼ 4. Inbound Deposit SMS to Phone ("662179818703777001\n1,500,110+\n...")
+        ▼ 4. Inbound Deposit SMS to Phone ("111122223333444455\n1,500,110+\n...")
 [Android Device (Admin / Artist Phone)]
   - Persistent Foreground Service (Sticky Notification)
   - Isolated Settings Activity (Gear icon ⚙️)
@@ -122,9 +122,9 @@ curl -X POST "http://localhost:3050/api/v1/payment/request" \
     "paymentUrl": "http://localhost:3050/pay/CP-685b8fae92cf4a66a1a8ecb8",
     "assignedCard": {
       "bankName": "بانک قرض الحسنه مهر ایران",
-      "cardNumber": "6037991823456789",
-      "accountNumber": "662179818703777001",
-      "holderName": "عباس رنجبر"
+      "cardNumber": "6037990012345678",
+      "accountNumber": "111122223333444455",
+      "holderName": "رضا محمدی"
     }
   }
 }
@@ -198,10 +198,10 @@ export ANDROID_HOME=/path/to/android-sdk
 export JAVA_HOME=/path/to/jdk-17
 ./gradlew assembleRelease
 ```
-The compiled release binary is located at `android/app/build/outputs/apk/release/app-release-unsigned.apk`.
+The compiled release binary is located at `android/app/build/outputs/apk/release/app-release.apk`.
 
 ---
 
 ## 📄 License
-MIT License. Created by [Abbas Ranjbar](https://github.com/ranjbarabbas).
+MIT License. Open-source CardPay Gateway Project.
 All commits and documentation are maintained strictly in English.

@@ -75,7 +75,7 @@ export default function AdminDashboard() {
   const [testCardId, setTestCardId] = useState("");
   const [createdTestTx, setCreatedTestTx] = useState<any>(null);
   const [simSender, setSimSender] = useState("B.QMEHRIRAN");
-  const [simText, setSimText] = useState(`662179818703777001\n1,000,110+\n1405/8/17-14:20\nمانده:3,500,000`);
+  const [simText, setSimText] = useState(`111122223333444455\n1,000,110+\n1405/8/17-14:20\nمانده:3,500,000`);
   const [simResult, setSimResult] = useState<any>(null);
   const [simLoading, setSimLoading] = useState(false);
 
@@ -275,7 +275,7 @@ export default function AdminDashboard() {
       if (data.success) {
         setCreatedTestTx(data.data);
         const cardObj = cards.find((c) => c.id === testCardId);
-        const account = cardObj?.accountNumber || "662179818703777001";
+        const account = cardObj?.accountNumber || "111122223333444455";
         setSimText(`${account}\n${data.data.payableAmountRial.toLocaleString()}+\n1405/8/17-14:20\nمانده:5,000,000`);
       } else {
         alert("خطا در ایجاد پرداخت: " + data.error);
@@ -835,7 +835,7 @@ export default function AdminDashboard() {
                     required
                     value={newCard.ownerName}
                     onChange={(e) => setNewCard({ ...newCard, ownerName: e.target.value })}
-                    placeholder="مثال: عباس رنجبر"
+                    placeholder="مثال: رضا محمدی"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 focus:border-emerald-500 focus:outline-none"
                   />
                 </div>
@@ -856,7 +856,7 @@ export default function AdminDashboard() {
                     type="text"
                     value={newCard.accountNumber}
                     onChange={(e) => setNewCard({ ...newCard, accountNumber: e.target.value })}
-                    placeholder="مثال: 662179818703777001"
+                    placeholder="مثال: 111122223333444455"
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-100 font-mono focus:border-emerald-500 focus:outline-none"
                   />
                 </div>

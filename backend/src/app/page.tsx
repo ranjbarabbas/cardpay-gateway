@@ -374,15 +374,15 @@ export default function Home() {
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>حجم باینری:</span>
-                <span className="text-white font-bold">5.1 Megabytes</span>
+                <span className="text-white font-bold">5.2 Megabytes (Signed)</span>
               </div>
               <div className="flex items-center justify-between text-slate-400">
                 <span>الگوریتم رمز:</span>
                 <span className="text-slate-300">SHA-256 Verified</span>
               </div>
               <div className="pt-2 border-t border-slate-800">
-                <span className="text-[10px] text-slate-500 block truncate" title="d89643c829a294a117ba2bcf2bcdaaff78c6f170da6adf1f32c95c9db4c2ca35">
-                  SHA: d89643c829a294a117ba...
+                <span className="text-[10px] text-slate-500 block truncate" title="80e0dbfb35e8c46926ab18d9771876cb0148581abe4553f21f52102e6f872107">
+                  SHA: 80e0dbfb35e8c46926ab...
                 </span>
               </div>
             </div>

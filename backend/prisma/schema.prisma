@@ -44,7 +44,7 @@ model BankCard {
   device        Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
   ownerName     String        // Cardholder name e.g. "Abbas Ranjbar"
   cardNumber    String        @unique // 16 digits
-  accountNumber String?       // Deposit account number (e.g. "662179818703777001" for Mehr Iran)
+  accountNumber String?       // Deposit account number (e.g. "111122223333444455" for Mehr Iran)
   iban          String?       // IBAN e.g. "IR..."
   bankSlug      String        @default("mehr_iran")
   bankTitle     String        @default("بانک قرض‌الحسنه مهر ایران")

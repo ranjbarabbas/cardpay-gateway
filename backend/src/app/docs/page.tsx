@@ -112,9 +112,9 @@ const ENDPOINTS: EndpointDoc[] = [
           paymentUrl: "http://localhost:3050/pay/CP-685b8fae92cf4a66a1a8ecb8",
           assignedCard: {
             bankName: "بانک قرض الحسنه مهر ایران",
-            cardNumber: "6037991823456789",
-            accountNumber: "662179818703777001",
-            holderName: "عباس رنجبر",
+            cardNumber: "6037990012345678",
+            accountNumber: "111122223333444455",
+            holderName: "رضا محمدی (پذیرنده)",
           },
         },
       },
@@ -247,7 +247,7 @@ const ENDPOINTS: EndpointDoc[] = [
         type: "string",
         required: true,
         desc: "متن کامل پیامک دریافت شده توسط اندروید",
-        example: "662179818703777001\n1,500,110+\n1405/8/17-15:45\nمانده:1,920,000",
+        example: "111122223333444455\n1,500,110+\n1405/8/17-15:45\nمانده:1,920,000",
       },
       {
         name: "receivedAt",
@@ -260,7 +260,7 @@ const ENDPOINTS: EndpointDoc[] = [
     requestSample: JSON.stringify(
       {
         sender: "B.QMEHRIRAN",
-        body: "662179818703777001\n1,500,110+\n1405/8/17-15:45\nمانده:1,920,000",
+        body: "111122223333444455\n1,500,110+\n1405/8/17-15:45\nمانده:1,920,000",
         receivedAt: new Date().toISOString(),
       },
       null,
@@ -275,7 +275,7 @@ const ENDPOINTS: EndpointDoc[] = [
           authority: "CP-685b8fae92cf4a66a1a8ecb8",
           internalTrackingCode: "PAY-1405081748291045",
           amountToman: 150011,
-          accountNumber: "662179818703777001",
+          accountNumber: "111122223333444455",
         },
       },
       null,

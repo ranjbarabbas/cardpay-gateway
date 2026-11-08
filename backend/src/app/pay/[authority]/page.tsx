@@ -131,7 +131,7 @@ function CheckoutContent({ authority }: { authority: string }) {
     setSimResult(null);
 
     try {
-      const accountNum = details.card.accountNumber || "662179818703777001";
+      const accountNum = details.card.accountNumber || "111122223333444455";
       const sampleText = `${accountNum}
 ${details.payableAmountRial.toLocaleString()}+
 1405/8/16-15:46
