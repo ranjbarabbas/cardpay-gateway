@@ -58,6 +58,7 @@ export default function UserPortalPage() {
   const [testAmount, setTestAmount] = useState("50,000");
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [serverUrl, setServerUrl] = useState("http://localhost:3050");
 
   const fetchUserData = async () => {
     try {
@@ -81,6 +82,9 @@ export default function UserPortalPage() {
 
   useEffect(() => {
     fetchUserData();
+    if (typeof window !== "undefined") {
+      setServerUrl(window.location.origin);
+    }
   }, []);
 
   const handleCopy = (text: string, id: string) => {
@@ -494,49 +498,66 @@ export default function UserPortalPage() {
                 <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
                   <Smartphone className="w-4 h-4" />
                 </div>
-                <h2 className="text-base font-bold text-white">اپلیکیشن همگام‌ساز پیامک</h2>
+                <div>
+                  <h2 className="text-base font-bold text-white">اپلیکیشن همگام‌ساز پیامک</h2>
+                  <span className="text-[10px] text-slate-400">اتصال گوشی اندروید جهت خواندن واریزی‌ها</span>
+                </div>
               </div>
 
-              <p className="text-xs text-slate-400 leading-relaxed">
-                اپلیکیشن اندروید هنرهاب پی روی گوشی دریافت‌کننده پیامک‌های بانکی نصب می‌شود و پیامک‌های واریز را بلادرنگ به درگاه ارسال می‌کند.
-              </p>
-
               {activeDevice ? (
-                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-3 text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="text-slate-400">نام دستگاه:</span>
-                    <span className="font-bold text-white">{activeDevice.name}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-slate-400">وضعیت اتصال:</span>
+                    <span className="text-slate-400">وضعیت اتصال اپلیکیشن:</span>
                     <span className={`font-bold flex items-center gap-1.5 ${
                       activeDevice.lastSeenAt ? "text-emerald-400" : "text-amber-400"
                     }`}>
                       <span className={`w-2 h-2 rounded-full ${
-                        activeDevice.lastSeenAt ? "bg-emerald-400" : "bg-amber-400"
+                        activeDevice.lastSeenAt ? "bg-emerald-400" : "bg-amber-400 animate-pulse"
                       }`} />
-                      {activeDevice.lastSeenAt ? "متصل و فعال" : "در انتظار اتصال"}
+                      {activeDevice.lastSeenAt ? "متصل و فعال" : "در انتظار اتصال اولیه"}
                     </span>
                   </div>
 
+                  {/* Server URL field for Android app */}
                   <div className="pt-2 border-t border-slate-800 space-y-1">
-                    <span className="text-[10px] text-slate-400 block">کلید دستگاه (Device Token):</span>
-                    <div className="flex items-center justify-between gap-2 bg-slate-900 p-2 rounded-xl font-mono text-[11px] text-teal-300">
+                    <span className="text-[10px] text-slate-400 block font-medium">۱. آدرس سرور درگاه (Server URL):</span>
+                    <div className="flex items-center justify-between gap-2 bg-slate-900 p-2 rounded-xl font-mono text-[11px] text-emerald-300 border border-slate-800">
+                      <span className="truncate" dir="ltr">{serverUrl}</span>
+                      <button
+                        onClick={() => handleCopy(serverUrl, "srv-url")}
+                        className="text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800 transition"
+                        title="کپی آدرس سرور"
+                      >
+                        {copiedId === "srv-url" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Device Token field for Android app */}
+                  <div className="space-y-1">
+                    <span className="text-[10px] text-slate-400 block font-medium">۲. کلید اختصاصی دستگاه (Device Token):</span>
+                    <div className="flex items-center justify-between gap-2 bg-slate-900 p-2 rounded-xl font-mono text-[11px] text-teal-300 border border-slate-800">
                       <span className="truncate" dir="ltr">{activeDevice.apiKey}</span>
                       <button
                         onClick={() => handleCopy(activeDevice.apiKey, "dev-key")}
-                        className="text-slate-400 hover:text-white"
-                        title="کپی کلید"
+                        className="text-slate-400 hover:text-white px-1.5 py-0.5 rounded hover:bg-slate-800 transition"
+                        title="کپی کلید دستگاه"
                       >
                         {copiedId === "dev-key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                       </button>
                     </div>
                   </div>
+
+                  {/* Instructions badge */}
+                  <div className="p-2.5 bg-teal-500/10 border border-teal-500/20 rounded-xl text-[11px] text-teal-200/90 leading-relaxed space-y-1">
+                    <p className="font-bold text-teal-300">راهنمای اتصال گوشی به حساب:</p>
+                    <p>۱. اپلیکیشن را دانلود و روی گوشی خود نصب کنید.</p>
+                    <p>۲. وارد بخش تنظیمات برنامه شده و دو فیلد «آدرس سرور» و «کلید دستگاه» بالا را وارد نمایید تا همگام‌سازی پیامک‌ها فعال شود.</p>
+                  </div>
                 </div>
               ) : (
                 <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-center space-y-2">
-                  <span className="text-xs text-slate-400 block">هنوز دستگاهی متصل نشده است.</span>
-                  <span className="text-[11px] text-slate-500 block">پس از دانلود اپلیکیشن، دستگاه شما به صورت خودکار شناسایی می‌شود.</span>
+                  <span className="text-xs text-slate-400 block">در حال ایجاد خودکار دستگاه و کلید اتصال...</span>
                 </div>
               )}
             </div>

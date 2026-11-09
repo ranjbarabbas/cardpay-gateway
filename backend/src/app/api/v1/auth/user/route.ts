@@ -50,6 +50,21 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Ensure companion sync device is automatically provisioned for the user
+    let userDevices = user.devices || [];
+    if (userDevices.length === 0) {
+      const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36).substring(4)}`;
+      const newDevice = await db.device.create({
+        data: {
+          name: `گوشی همراه ${user.name || "کاربر"}`,
+          apiKey: deviceApiKey,
+          userId: user.id,
+          isActive: true,
+        },
+      });
+      userDevices = [newDevice];
+    }
+
     const response = NextResponse.json({
       success: true,
       message: "ورود موفقیت‌آمیز بود.",
@@ -62,7 +77,7 @@ export async function POST(req: NextRequest) {
         role: user.role,
         apiKey: user.apiKey,
         activeCardsCount: user.cards?.length || 0,
-        activeDevicesCount: user.devices?.length || 0,
+        activeDevicesCount: userDevices.length,
       },
     });
 
@@ -104,6 +119,21 @@ export async function GET(req: NextRequest) {
 
     if (!user) {
       return NextResponse.json({ success: false, error: "کاربر یافت نشد" }, { status: 404 });
+    }
+
+    // Automatically provision companion device if user has none
+    let userDevices = user.devices || [];
+    if (userDevices.length === 0) {
+      const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36).substring(4)}`;
+      const newDevice = await db.device.create({
+        data: {
+          name: `گوشی همراه ${user.name || "کاربر"}`,
+          apiKey: deviceApiKey,
+          userId: user.id,
+          isActive: true,
+        },
+      });
+      userDevices = [newDevice];
     }
 
     const todayStart = new Date();
@@ -149,7 +179,7 @@ export async function GET(req: NextRequest) {
         dailyTxCount,
         monthlyTxCount,
         cards: user.cards,
-        devices: user.devices,
+        devices: userDevices,
         transactions: user.transactions.map((tx) => ({
           ...tx,
           originalAmountToman: Number(tx.originalAmountToman),
