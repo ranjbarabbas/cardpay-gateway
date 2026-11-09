@@ -184,7 +184,7 @@ export default function Home() {
         </div>
 
         {/* Section: Business Pricing Plans */}
-        <section id="plans" className="space-y-8 pt-6">
+        <section id="plans" className="space-y-8 pt-6 scroll-mt-28">
           <div className="text-center space-y-2">
             <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-bold bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
               <Star className="w-3.5 h-3.5" />
@@ -417,12 +417,12 @@ export default function Home() {
         </section>
 
         {/* Interactive Live Payment Simulator Widget */}
-        <section id="simulator">
+        <section id="simulator" className="scroll-mt-28">
           <InteractivePaymentSimulator />
         </section>
 
         {/* FAQ Section */}
-        <section id="faq" className="space-y-6 pt-6">
+        <section id="faq" className="space-y-6 pt-6 scroll-mt-28">
           <div className="text-center space-y-2">
             <h2 className="text-2xl font-black text-white">پرسش‌های متداول</h2>
             <p className="text-xs text-slate-400">پاسخ به سوالات پرتکرار در خصوص عملکرد درگاه و امنیت پرداخت‌ها</p>
