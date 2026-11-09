@@ -192,7 +192,7 @@ export default function Home() {
             </div>
             <h2 className="text-2xl md:text-3xl font-black text-white">پلن متناسب با نیاز خود را انتخاب کنید</h2>
             <p className="text-xs text-slate-400 max-w-xl mx-auto leading-relaxed">
-              شروع کاملاً رایگان بدون کارمزد، پلن حرفه‌ای با ظرفیت تا ۵ کارت و ۵۰۰ تراکنش، یا پلن ویژه با ظرفیت نامحدود
+              شروع کاملاً رایگان با سقف ۵۰ تراکنش موفق ماهانه، پلن حرفه‌ای با ۵۰۰ تراکنش موفق ماهانه، یا پلن ویژه بدون هیچ محدودیتی
             </p>
           </div>
 
@@ -233,7 +233,7 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span><strong>سقف ۱۰ تراکنش روزانه</strong> درگاه</span>
+                    <span><strong>سقف ۵۰ تراکنش موفق ماهانه</strong></span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -296,7 +296,7 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                    <span><strong>۱۰۰ تراکنش به ازای هر کارت</strong> (مجموعاً ۵۰۰ ماهانه)</span>
+                    <span><strong>سقف ۵۰۰ تراکنش موفق ماهانه</strong> (تا ۵ کارت بانکی)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
@@ -354,7 +354,7 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span><strong>تراکنش‌های نامحدود</strong> روزانه و ماهیانه</span>
+                    <span><strong>تراکنش‌های موفق نامحدود</strong> (بدون سقف ماهانه)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />

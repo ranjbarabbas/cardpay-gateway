@@ -234,9 +234,9 @@ export default function UserPortalPage() {
   const userPlan = user?.plan || "FREE";
 
   const getPlanName = () => {
-    if (userPlan === "PRO") return "پلن حرفه‌ای (۵ کارت • ۵۰۰ تراکنش)";
+    if (userPlan === "PRO") return "پلن حرفه‌ای (۵ کارت • ۵۰۰ تراکنش موفق ماهانه)";
     if (userPlan === "SPECIAL") return "پلن ویژه (نامحدود)";
-    return "پلن پایه (برای همیشه رایگان)";
+    return "پلن پایه (همیشه رایگان • ۵۰ تراکنش موفق ماهانه)";
   };
 
   const getMaxCards = () => {
@@ -340,9 +340,9 @@ export default function UserPortalPage() {
             </div>
 
             <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-slate-800">
-              <span>تراکنش‌ها:</span>
+              <span>تراکنش‌های موفق:</span>
               <span className="text-emerald-300 font-bold">
-                {userPlan === "FREE" && `${toPersianDigits(user?.dailyTxCount || 0)} / ${toPersianDigits(10)} روزانه`}
+                {userPlan === "FREE" && `${toPersianDigits(user?.monthlyTxCount || 0)} / ${toPersianDigits(50)} ماهانه`}
                 {userPlan === "PRO" && `${toPersianDigits(user?.monthlyTxCount || 0)} / ${toPersianDigits(500)} ماهانه`}
                 {userPlan === "SPECIAL" && `نامحدود`}
               </span>
@@ -943,7 +943,7 @@ export default function UserPortalPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span><strong>۱۰۰ تراکنش به ازای هر کارت</strong> (مجموعاً ۵۰۰ تراکنش ماهیانه)</span>
+                      <span><strong>سقف ۵۰۰ تراکنش موفق ماهانه</strong> (تا ۵ کارت بانکی)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
@@ -998,7 +998,7 @@ export default function UserPortalPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span><strong>تراکنش‌های نامحدود</strong> روزانه و ماهیانه</span>
+                      <span><strong>تراکنش‌های موفق نامحدود</strong> (بدون سقف ماهانه)</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />

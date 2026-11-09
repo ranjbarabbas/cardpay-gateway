@@ -136,35 +136,23 @@ export async function GET(req: NextRequest) {
       userDevices = [newDevice];
     }
 
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-
     const monthStart = new Date();
     monthStart.setDate(1);
     monthStart.setHours(0, 0, 0, 0);
 
     const cardIds = user.cards.map((c) => c.id);
 
-    const [dailyTxCount, monthlyTxCount] = await Promise.all([
-      db.transaction.count({
-        where: {
-          OR: [
-            { userId: user.id },
-            ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
-          ],
-          createdAt: { gte: todayStart },
-        },
-      }),
-      db.transaction.count({
-        where: {
-          OR: [
-            { userId: user.id },
-            ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
-          ],
-          createdAt: { gte: monthStart },
-        },
-      }),
-    ]);
+    // Count only SUCCESSFUL transactions (PAID or MANUALLY_VERIFIED) for quota
+    const monthlySuccessfulTxCount = await db.transaction.count({
+      where: {
+        OR: [
+          { userId: user.id },
+          ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
+        ],
+        status: { in: ["PAID", "MANUALLY_VERIFIED"] },
+        createdAt: { gte: monthStart },
+      },
+    });
 
     return NextResponse.json({
       success: true,
@@ -176,8 +164,9 @@ export async function GET(req: NextRequest) {
         plan: user.plan,
         role: user.role,
         apiKey: user.apiKey,
-        dailyTxCount,
-        monthlyTxCount,
+        dailyTxCount: 0,
+        monthlyTxCount: monthlySuccessfulTxCount,
+        monthlySuccessfulTxCount,
         cards: user.cards,
         devices: userDevices,
         transactions: user.transactions.map((tx) => ({

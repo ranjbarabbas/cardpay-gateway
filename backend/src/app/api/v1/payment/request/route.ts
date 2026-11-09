@@ -83,63 +83,64 @@ export async function POST(req: NextRequest) {
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
-    // Check Plan Limits (10 daily transactions for FREE, 100/card or 500/month for PRO)
+    // Check Plan Limits based on SUCCESSFUL transactions (50 monthly for FREE, 500 monthly for PRO)
     if (targetCard.userId) {
       const cardOwnerUser = await db.user.findUnique({
         where: { id: targetCard.userId },
+        include: { cards: { where: { isArchived: false } } },
       });
 
       if (cardOwnerUser) {
         const plan = cardOwnerUser.plan || "FREE";
+        const monthStart = new Date();
+        monthStart.setDate(1);
+        monthStart.setHours(0, 0, 0, 0);
+
+        const cardIds = (cardOwnerUser.cards || []).map((c) => c.id);
 
         if (plan === "FREE") {
-          const todayStart = new Date();
-          todayStart.setHours(0, 0, 0, 0);
-
-          const dailyCount = await db.transaction.count({
+          const monthlySuccessCount = await db.transaction.count({
             where: {
-              cardId: targetCard.id,
-              createdAt: { gte: todayStart },
+              OR: [
+                { userId: cardOwnerUser.id },
+                { cardId: targetCard.id },
+                ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
+              ],
+              status: { in: ["PAID", "MANUALLY_VERIFIED"] },
+              createdAt: { gte: monthStart },
             },
           });
 
-          if (dailyCount >= 10) {
+          if (monthlySuccessCount >= 50) {
             return NextResponse.json(
               {
                 success: false,
-                error: "DAILY_TRANSACTION_LIMIT_REACHED",
-                message: "سقف ۱۰ تراکنش روزانه برای پلن رایگان تکمیل شده است. لطفاً جهت افزایش ظرفیت و ثبت تراکنش‌های بیشتر، پلن خود را به پلن حرفه‌ای یا ویژه ارتقا دهید.",
+                error: "MONTHLY_SUCCESSFUL_TRANSACTION_LIMIT_REACHED",
+                message: "سقف ۵۰ تراکنش موفق ماهانه برای پلن پایه (همیشه رایگان) تکمیل شده است. لطفاً جهت افزایش ظرفیت و ثبت تراکنش‌های بیشتر، پلن خود را به پلن حرفه‌ای یا ویژه ارتقا دهید.",
                 upgradeUrl: `${baseUrl}/portal#upgrade`,
               },
               { status: 429 }
             );
           }
         } else if (plan === "PRO") {
-          const monthStart = new Date();
-          monthStart.setDate(1);
-          monthStart.setHours(0, 0, 0, 0);
+          const monthlySuccessCount = await db.transaction.count({
+            where: {
+              OR: [
+                { userId: cardOwnerUser.id },
+                { cardId: targetCard.id },
+                ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
+              ],
+              status: { in: ["PAID", "MANUALLY_VERIFIED"] },
+              createdAt: { gte: monthStart },
+            },
+          });
 
-          const [cardMonthlyCount, userMonthlyCount] = await Promise.all([
-            db.transaction.count({
-              where: {
-                cardId: targetCard.id,
-                createdAt: { gte: monthStart },
-              },
-            }),
-            db.transaction.count({
-              where: {
-                userId: cardOwnerUser.id,
-                createdAt: { gte: monthStart },
-              },
-            }),
-          ]);
-
-          if (cardMonthlyCount >= 100 || userMonthlyCount >= 500) {
+          if (monthlySuccessCount >= 500) {
             return NextResponse.json(
               {
                 success: false,
-                error: "MONTHLY_TRANSACTION_LIMIT_REACHED",
-                message: "سقف تراکنش ماهانه پلن حرفه‌ای (۱۰۰ تراکنش برای هر کارت یا مجموع ۵۰۰ تراکنش ماهانه) تکمیل شده است. لطفاً جهت رفع کلیه محدودیت‌ها به پلن ویژه ارتقا دهید.",
+                error: "MONTHLY_SUCCESSFUL_TRANSACTION_LIMIT_REACHED",
+                message: "سقف ۵۰۰ تراکنش موفق ماهانه برای پلن حرفه‌ای تکمیل شده است. لطفاً جهت رفع کلیه محدودیت‌ها به پلن ویژه (VIP) ارتقا دهید.",
                 upgradeUrl: `${baseUrl}/portal#upgrade`,
               },
               { status: 429 }
