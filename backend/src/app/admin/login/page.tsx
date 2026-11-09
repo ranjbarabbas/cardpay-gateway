@@ -40,13 +40,10 @@ export default function AdminLoginPage() {
       {/* Header */}
       <header className="p-6 max-w-6xl mx-auto w-full flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
-          <img src="/images/honarhub_logo.png" alt="هنرهاب پی" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 object-cover" />
-          <div className="flex items-center gap-2">
-            <span className="font-black text-lg text-white">{APP_NAME}</span>
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full">
-              مدیریت {APP_VERSION}
-            </span>
-          </div>
+          <img src="/images/honarhub_pay_logo.png" alt="هنرهاب پی" className="h-8 w-auto object-contain" />
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full font-mono">
+            v{APP_VERSION}
+          </span>
         </Link>
 
         <Link href="/" className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition">

@@ -258,11 +258,8 @@ export default function UserPortalPage() {
         <div className="max-w-7xl mx-auto px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-3 group">
-              <img src="/images/honarhub_logo.png" alt="هنرهاب پی" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 object-cover" />
-              <div className="flex items-center gap-2">
-                <span className="font-black text-base text-white">{APP_NAME}</span>
-                <span className="text-[10px] text-slate-400 font-medium">پنل کاربری</span>
-              </div>
+              <img src="/images/honarhub_pay_logo.png" alt="هنرهاب پی" className="h-8 w-auto object-contain transition group-hover:opacity-95" />
+              <span className="text-[10px] text-slate-400 font-medium">پنل کاربری</span>
             </Link>
             <span className="text-slate-700">|</span>
             <div className="flex items-center gap-2">

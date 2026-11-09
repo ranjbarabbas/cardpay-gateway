@@ -78,13 +78,10 @@ export default function LoginPage() {
       {/* Header */}
       <header className="p-6 max-w-6xl mx-auto w-full flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3 group">
-          <img src="/images/honarhub_logo.png" alt="هنرهاب پی" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 object-cover group-hover:scale-105 transition" />
-          <div className="flex items-center gap-2">
-            <span className="font-black text-lg text-white">{APP_NAME}</span>
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
-              {APP_VERSION}
-            </span>
-          </div>
+          <img src="/images/honarhub_pay_logo.png" alt="هنرهاب پی" className="h-8 w-auto object-contain group-hover:scale-105 transition" />
+          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30 font-mono">
+            v{APP_VERSION}
+          </span>
         </Link>
 
         <Link

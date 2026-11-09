@@ -431,7 +431,7 @@ export default function AdminDashboard() {
         {/* Top Header Card */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800/90 rounded-3xl p-6 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <img src="/images/honarhub_logo.png" alt={APP_NAME} className="w-14 h-14 rounded-2xl shadow-lg shadow-emerald-500/10 object-cover" />
+            <img src="/images/honarhub_pay_logo.png" alt={APP_NAME} className="h-10 w-auto object-contain" />
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl md:text-2xl font-black text-white">{APP_NAME} • پنل مدیریت ارشد</h1>

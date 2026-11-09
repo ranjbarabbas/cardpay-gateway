@@ -593,11 +593,8 @@ export default function DocsPage() {
         <div className="max-w-[1600px] mx-auto px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <img src="/images/honarhub_logo.png" alt={APP_NAME} className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 object-cover group-hover:scale-105 transition" />
-              <div className="flex items-center gap-2">
-                <span className="font-black text-base text-white tracking-tight">{APP_NAME}</span>
-                <span className="text-xs text-slate-400 font-medium">Docs</span>
-              </div>
+              <img src="/images/honarhub_pay_logo.png" alt={APP_NAME} className="h-8 w-auto object-contain group-hover:scale-105 transition" />
+              <span className="text-xs text-slate-400 font-medium">Docs</span>
             </Link>
 
             <span className="text-slate-700">|</span>

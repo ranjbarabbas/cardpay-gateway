@@ -28,6 +28,8 @@ import {
   Send,
   Star,
   Users,
+  Percent,
+  ShieldCheck,
 } from "lucide-react";
 import { APP_NAME, APP_VERSION } from "@/lib/version";
 import InteractivePaymentSimulator from "@/components/InteractivePaymentSimulator";
@@ -106,15 +108,16 @@ export default function Home() {
       {/* Top Navbar */}
       <header className="border-b border-slate-800/80 bg-[#0B0F17]/80 backdrop-blur-md sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <img src="/images/honarhub_logo.png" alt={APP_NAME} className="w-10 h-10 rounded-2xl shadow-lg shadow-emerald-500/10 object-cover" />
-            <div className="flex items-center gap-2">
-              <span className="font-black text-lg text-white tracking-tight">{APP_NAME}</span>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-mono">
-                v{APP_VERSION}
-              </span>
-            </div>
-          </div>
+          <Link href="/" className="flex items-center gap-3 group">
+            <img
+              src="/images/honarhub_pay_logo.png"
+              alt={APP_NAME}
+              className="h-9 w-auto object-contain transition group-hover:opacity-95"
+            />
+            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-mono">
+              v{APP_VERSION}
+            </span>
+          </Link>
 
           <nav className="hidden md:flex items-center gap-6 text-xs text-slate-400 font-medium">
             <a href="#plans" className="text-emerald-400 font-bold hover:text-white transition">پلن‌ها</a>
@@ -142,32 +145,61 @@ export default function Home() {
       </header>
 
       {/* Hero Section */}
-      <main className="max-w-6xl mx-auto px-6 pt-16 pb-24 space-y-16">
+      <main className="max-w-6xl mx-auto px-6 pt-12 md:pt-16 pb-24 space-y-16">
         <div className="text-center space-y-6 max-w-3xl mx-auto">
-          <h1 className="text-4xl md:text-6xl font-black text-white leading-tight tracking-tight">
-            درگاه هوشمند پرداخت
+          {/* Subtle Top Feature Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-gradient-to-r from-emerald-500/10 via-teal-500/10 to-amber-500/10 border border-emerald-500/25 text-emerald-300 text-xs font-bold shadow-lg shadow-emerald-500/5">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span>نسل نوین درگاه پرداخت P2P • بدون بلوکه شدن پول، بدون واسطه و بدون کارمزد شاپرکی</span>
+          </div>
+
+          <h1 className="text-4xl sm:text-5xl md:text-6xl font-black text-white leading-[1.25] tracking-tight">
+            پول مستقیماً در حساب بانکی شما؛
             <br />
-            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-emerald-200">
-              کارت به کارت با تسویه بلادرنگ
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300">
+              بدون اینماد، بدون تاخیر و کاملاً آنی
             </span>
           </h1>
 
-          <p className="text-slate-400 text-sm md:text-base leading-relaxed">
-            زیرساخت فین‌تک برای پذیرندگان، استارتاپ‌ها و پلتفرم‌های هنری. واریز مستقیم وجه به حساب شخصی، تفکیک هوشمند مبالغ هم‌ارز با الگوریتم آفست پویا (+11 تومان) و رصد خودکار پیامک‌های بانکی با اپلیکیشن اختصاصی کاتلین.
+          <p className="text-slate-300 text-sm md:text-base leading-relaxed max-w-2xl mx-auto font-normal">
+            <strong className="text-white font-black">{APP_NAME}</strong> پل ارتباطی مستقیم میان خریداران و کارت‌های بانکی شماست. با بهره‌گیری از الگوریتم اختصاصی آفست پویا (<span className="text-teal-400 font-mono font-bold">+۱۱ تومان</span>) و هوش مصنوعی همگام‌ساز پیامک‌های واریز، هر کارت بانکی را به یک درگاه پرداخت تمام‌خودکار، امن و ۲۴ ساعته تبدیل کنید.
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-4 pt-2">
+          {/* 4 Core Pillars Pills */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-2xl mx-auto pt-1">
+            <div className="flex items-center justify-center gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-sm">
+              <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+              <span>تسویه بلادرنگ بانکی</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-sm">
+              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span>تایید ۱۰۰٪ خودکار با پیامک</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-sm">
+              <Percent className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+              <span>کارمزد ۰ درصد همیشگی</span>
+            </div>
+            <div className="flex items-center justify-center gap-2 bg-slate-900/80 border border-slate-800 rounded-xl px-3 py-2 text-[11px] text-slate-300 shadow-sm">
+              <Lock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
+              <span>عدم انسداد یا بلوکه وجه</span>
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-3">
             <Link
               href="/login"
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-bold px-6 py-3.5 rounded-2xl transition shadow-xl shadow-emerald-600/25"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs md:text-sm font-bold px-6 py-3.5 rounded-2xl transition shadow-xl shadow-emerald-600/25"
             >
-              <span>ورود / ثبت‌نام به پنل کاربری</span>
+              <span>ورود / ثبت‌نام رایگان به پنل</span>
               <ArrowRight className="w-4 h-4 rotate-180" />
             </Link>
 
             <Link
               href="/docs"
-              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-sm font-bold px-6 py-3.5 rounded-2xl transition"
+              className="flex items-center gap-2 bg-slate-900 hover:bg-slate-800 text-slate-200 border border-slate-800 text-xs md:text-sm font-bold px-5 py-3.5 rounded-2xl transition shadow"
             >
               <Terminal className="w-4 h-4 text-emerald-400" />
               <span>مستندات و تست وب‌سرویس REST</span>
@@ -463,8 +495,7 @@ export default function Home() {
       <footer className="border-t border-slate-800/80 bg-[#0B0F17] py-10 text-center text-xs text-slate-500 space-y-4">
         <div className="max-w-7xl mx-auto px-6 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="flex items-center gap-2">
-            <img src="/images/honarhub_logo.png" alt={APP_NAME} className="w-5 h-5 rounded-lg object-cover" />
-            <span className="font-bold text-slate-300">{APP_NAME}</span>
+            <img src="/images/honarhub_pay_logo.png" alt={APP_NAME} className="h-6 w-auto object-contain" />
             <span className="text-slate-600">•</span>
             <span>سامانه درگاه پرداخت کارت‌به‌کارت هوشمند و خودکار</span>
           </div>
