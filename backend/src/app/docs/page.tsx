@@ -67,7 +67,7 @@ const ENDPOINTS: EndpointDoc[] = [
         name: "ownerName",
         type: "string",
         required: true,
-        desc: "نام و نام‌خانوادگی صاحب حساب یا هنرمند",
+        desc: "نام و نام‌خانوادگی صاحب حساب یا کاربر",
         example: "استاد رضا میرزایی",
       },
       {
@@ -163,14 +163,14 @@ const ENDPOINTS: EndpointDoc[] = [
         name: "cartId (یا cardId)",
         type: "string (uuid)",
         required: false,
-        desc: "شناسه یکتای کارت هنرمند دریافت شده از مرحله ثبت کارت",
+        desc: "شناسه یکتای کارت کاربر دریافت شده از مرحله ثبت کارت",
         example: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
       },
       {
         name: "cardNumber (یا cartNumber)",
         type: "string (16 digits)",
         required: false,
-        desc: "شماره ۱۶ رقمی کارت بانکی هنرمند (در صورت تمایل به ارسال مستقیم شماره کارت)",
+        desc: "شماره ۱۶ رقمی کارت بانکی کاربر (در صورت تمایل به ارسال مستقیم شماره کارت)",
         example: "6037991987654321",
       },
       {
@@ -875,7 +875,7 @@ export default function DocsPage() {
             </div>
 
             <p className="text-xs text-slate-300 leading-relaxed">
-              این معماری ویژه پلتفرم‌هایی است که کارت‌های بانکی متعدد هنرمندان یا فروشندگان را مدیریت می‌کنند. وب‌سایت شما کارت‌ها را از کاربران دریافت کرده، با وب‌سرویس در سامانه ثبت می‌کند، برای هر خرید لینک اختصاصی همان کارت را صادر نموده و پس از واریز، تاییدیه دریافت و در سایت خود ثبت می‌کند.
+              این معماری ویژه پلتفرم‌هایی است که کارت‌های بانکی متعدد کاربران یا فروشندگان را مدیریت می‌کنند. وب‌سایت شما کارت‌ها را از کاربران دریافت کرده، با وب‌سرویس در سامانه ثبت می‌کند، برای هر خرید لینک اختصاصی همان کارت را صادر نموده و پس از واریز، تاییدیه دریافت و در سایت خود ثبت می‌کند.
             </p>
 
             {/* Authentication & API Keys */}
@@ -886,10 +886,10 @@ export default function DocsPage() {
               </div>
               <ul className="text-xs text-slate-300 space-y-2 list-disc list-inside leading-relaxed">
                 <li>
-                  <strong className="text-white">معماری کلید (یک کلید برای کل پلتفرم):</strong> وب‌سایت هنری شما به عنوان «پذیرنده اصلی (Platform Merchant)» دارای <strong>یک کلید محرمانه اختصاصی</strong> است. هنرمندان یا کاربران شما هرگز کلید ندارند و نباید هم داشته باشند؛ زیرا ارتباط وب‌سرویسی به صورت مستقیم از بک‌اند سایت شما به درگاه (Server-to-Server) برقرار می‌گردد و کاربران به لایه بک‌اند دسترسی ندارند.
+                  <strong className="text-white">معماری کلید (یک کلید برای کل پلتفرم):</strong> وب‌سایت شما به عنوان «پذیرنده اصلی (Platform Merchant)» دارای <strong>یک کلید محرمانه اختصاصی</strong> است. کاربران شما هرگز کلید ندارند و نباید هم داشته باشند؛ زیرا ارتباط وب‌سرویسی به صورت مستقیم از بک‌اند سایت شما به درگاه (Server-to-Server) برقرار می‌گردد و کاربران به لایه بک‌اند دسترسی ندارند.
                 </li>
                 <li>
-                  <strong className="text-white">تفکیک هنرمندان و کارت‌ها:</strong> تشخیص اینکه تراکنش متعلق به کدام هنرمند است، از طریق فیلدهای بدنه درخواست (<code className="text-emerald-400 font-mono">merchantUserId</code> یا <code className="text-emerald-400 font-mono">cartId</code> یا <code className="text-emerald-400 font-mono">cardNumber</code>) انجام می‌شود، نه با کلیدهای API جداگانه!
+                  <strong className="text-white">تفکیک کاربران و کارت‌ها:</strong> تشخیص اینکه تراکنش متعلق به کدام کاربر است، از طریق فیلدهای بدنه درخواست (<code className="text-emerald-400 font-mono">merchantUserId</code> یا <code className="text-emerald-400 font-mono">cartId</code> یا <code className="text-emerald-400 font-mono">cardNumber</code>) انجام می‌شود، نه با کلیدهای API جداگانه!
                 </li>
                 <li>
                   <strong className="text-white">محل تعریف و ساخت کلید:</strong> این کلید در فایل متغیرهای محیطی درگاه (<code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">backend/.env</code>) با متغیر <code className="text-emerald-400 bg-slate-900 px-1 py-0.5 rounded">MERCHANT_API_KEY</code> مشخص می‌شود (مقدار پیش‌فرض تست: <code className="text-emerald-400 font-mono">cp_sec_art_hub_2026_live</code>).
@@ -909,9 +909,9 @@ export default function DocsPage() {
             {/* Step-by-Step Flow */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
               <div className="bg-slate-950/80 border border-slate-800 rounded-2xl p-4 space-y-2">
-                <span className="font-bold text-emerald-400 text-sm">۱. ثبت کارت هنرمند (Idempotent Upsert)</span>
+                <span className="font-bold text-emerald-400 text-sm">۱. ثبت کارت کاربر (Idempotent Upsert)</span>
                 <p className="text-slate-400 leading-relaxed">
-                  هنگامی که هنرمند در پنل سایت شما شماره کارتش را ثبت می‌کند، سایت شما متد <code className="text-white">POST /api/v1/admin/cards</code> را صدا می‌زند. شناسه یکتای <code className="text-emerald-400">id</code> در پاسخ برمی‌گردد که آن را در جدول هنرمندان سایت خود ذخیره کنید.
+                  هنگامی که کاربر در پنل سایت شما شماره کارتش را ثبت می‌کند، سایت شما متد <code className="text-white">POST /api/v1/admin/cards</code> را صدا می‌زند. شناسه یکتای <code className="text-emerald-400">id</code> در پاسخ برمی‌گردد که آن را در جدول کاربران سایت خود ذخیره کنید.
                 </p>
               </div>
 

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 
 function getAdminEmails(): string[] {
-  const envEmails = process.env.ADMIN_EMAILS || process.env.EMAILS || "admin@honarhub.ir,admin@cardpay.local,merchant@example.com";
+  const envEmails = process.env.ADMIN_EMAILS || process.env.EMAILS || "ranjbar.abbas1988@gmail.com,admin@honarhub.ir,admin@cardpay.local,merchant@example.com";
   return envEmails
     .split(",")
     .map((e) => e.trim().toLowerCase())

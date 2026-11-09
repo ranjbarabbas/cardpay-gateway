@@ -4,7 +4,7 @@ export function verifyAdminAuth(req: NextRequest): boolean {
   // 1. Verify via Google SSO Admin Cookie Session
   const session = req.cookies.get("honarhub_admin_session")?.value;
   const email = req.cookies.get("honarhub_admin_email")?.value?.toLowerCase();
-  const envEmails = (process.env.ADMIN_EMAILS || process.env.EMAILS || "admin@honarhub.ir,admin@cardpay.local,merchant@example.com")
+  const envEmails = (process.env.ADMIN_EMAILS || process.env.EMAILS || "ranjbar.abbas1988@gmail.com,admin@honarhub.ir,admin@cardpay.local,merchant@example.com")
     .split(",")
     .map((e) => e.trim().toLowerCase());
 

@@ -23,6 +23,9 @@ import {
   HelpCircle,
   Clock,
   Layers,
+  Star,
+  Zap,
+  TrendingUp,
 } from "lucide-react";
 import { APP_NAME, APP_VERSION } from "@/lib/version";
 
@@ -34,6 +37,8 @@ export default function UserPortalPage() {
 
   // Card modal state
   const [showCardModal, setShowCardModal] = useState(false);
+  const [isReplaceMode, setIsReplaceMode] = useState(false);
+  const [showCardNoticeModal, setShowCardNoticeModal] = useState(false);
   const [cardForm, setCardForm] = useState({
     ownerName: "",
     cardNumber: "",
@@ -44,8 +49,13 @@ export default function UserPortalPage() {
   const [cardLoading, setCardLoading] = useState(false);
   const [cardMsg, setCardMsg] = useState<string | null>(null);
 
+  // Plan Upgrade state
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeLoading, setUpgradeLoading] = useState(false);
+  const [upgradeMsg, setUpgradeMsg] = useState<string | null>(null);
+
   // Test payment state
-  const [testAmount, setTestAmount] = useState("50000");
+  const [testAmount, setTestAmount] = useState("50,000");
   const [testLoading, setTestLoading] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
 
@@ -85,6 +95,30 @@ export default function UserPortalPage() {
     router.push("/login");
   };
 
+  const handleAmountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const raw = e.target.value.replace(/[^0-9]/g, "");
+    if (!raw) {
+      setTestAmount("");
+      return;
+    }
+    const formatted = Number(raw).toLocaleString("en-US");
+    setTestAmount(formatted);
+  };
+
+  const handleOpenAddCard = () => {
+    const activeCardsCount = user?.cards?.length || 0;
+    const plan = user?.plan || "FREE";
+
+    if (plan === "FREE" && activeCardsCount >= 1) {
+      setShowCardNoticeModal(true);
+    } else if (plan === "PRO" && activeCardsCount >= 5) {
+      setShowCardNoticeModal(true);
+    } else {
+      setIsReplaceMode(false);
+      setShowCardModal(true);
+    }
+  };
+
   const handleSaveCard = async (e: React.FormEvent) => {
     e.preventDefault();
     setCardLoading(true);
@@ -93,13 +127,14 @@ export default function UserPortalPage() {
       const res = await fetch("/api/v1/user/card", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(cardForm),
+        body: JSON.stringify({ ...cardForm, replace: isReplaceMode }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "خطا در ثبت کارت");
+        throw new Error(data.error || data.message || "خطا در ثبت کارت");
       }
       setShowCardModal(false);
+      setIsReplaceMode(false);
       setCardForm({
         ownerName: "",
         cardNumber: "",
@@ -115,6 +150,33 @@ export default function UserPortalPage() {
     }
   };
 
+  const handleUpgradePlan = async (targetPlan: "PRO" | "SPECIAL") => {
+    setUpgradeLoading(true);
+    setUpgradeMsg(null);
+    try {
+      const res = await fetch("/api/v1/user/upgrade", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ targetPlan }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || data.message || "خطا در ثبت درخواست ارتقا");
+      }
+      setUpgradeMsg(data.message);
+      fetchUserData();
+      setTimeout(() => {
+        setShowUpgradeModal(false);
+        setShowCardNoticeModal(false);
+        setUpgradeMsg(null);
+      }, 2500);
+    } catch (err: any) {
+      setUpgradeMsg(err.message);
+    } finally {
+      setUpgradeLoading(false);
+    }
+  };
+
   const handleCreateTestPayment = async () => {
     if (!user?.cards?.[0]) {
       alert("ابتدا یک کارت بانکی ثبت نمایید.");
@@ -123,6 +185,7 @@ export default function UserPortalPage() {
     setTestLoading(true);
     setTestResult(null);
     try {
+      const cleanNumeric = parseInt(testAmount.replace(/,/g, "")) || 50000;
       const res = await fetch("/api/v1/payment/request", {
         method: "POST",
         headers: {
@@ -130,17 +193,17 @@ export default function UserPortalPage() {
           "x-api-key": user.apiKey,
         },
         body: JSON.stringify({
-          amount: parseInt(testAmount) || 50000,
+          amount: cleanNumeric,
           cartId: user.cards[0].id,
           callbackUrl: `${window.location.origin}/portal`,
-          description: `تست پرداخت آزمایشی پرتال کاربری ${user.name || ""}`,
+          description: `تست پرداخت آزمایشی پنل کاربری ${user.name || ""}`,
         }),
       });
       const json = await res.json();
       if (json.success) {
         setTestResult(json.data);
       } else {
-        alert(json.error || "خطا در ایجاد پرداخت تستی");
+        alert(json.message || json.error || "خطا در ایجاد پرداخت تستی");
       }
     } catch (e: any) {
       alert(e.message || "خطا در ارتباط با سرور");
@@ -154,7 +217,7 @@ export default function UserPortalPage() {
       <div className="min-h-screen bg-[#070A0F] text-slate-200 flex items-center justify-center font-sans" dir="rtl">
         <div className="flex items-center gap-3 text-emerald-400 text-sm">
           <RefreshCw className="w-5 h-5 animate-spin" />
-          <span>در حال بارگذاری پرتال کاربری...</span>
+          <span>در حال بارگذاری پنل کاربری...</span>
         </div>
       </div>
     );
@@ -162,6 +225,19 @@ export default function UserPortalPage() {
 
   const activeCard = user?.cards?.[0];
   const activeDevice = user?.devices?.[0];
+  const userPlan = user?.plan || "FREE";
+
+  const getPlanName = () => {
+    if (userPlan === "PRO") return "پلن حرفه‌ای (۵ کارت • ۵۰۰ تراکنش)";
+    if (userPlan === "SPECIAL") return "پلن ویژه (نامحدود)";
+    return "پلن پایه (برای همیشه رایگان)";
+  };
+
+  const getMaxCards = () => {
+    if (userPlan === "PRO") return 5;
+    if (userPlan === "SPECIAL") return "نامحدود";
+    return 1;
+  };
 
   return (
     <div className="min-h-screen bg-[#070A0F] text-slate-100 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
@@ -179,18 +255,32 @@ export default function UserPortalPage() {
               <img src="/images/honarhub_logo.png" alt="هنرهاب پی" className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 object-cover" />
               <div className="flex items-center gap-2">
                 <span className="font-black text-base text-white">{APP_NAME}</span>
-                <span className="text-[10px] text-slate-400 font-medium">پرتال پذیرنده</span>
+                <span className="text-[10px] text-slate-400 font-medium">پنل کاربری</span>
               </div>
             </Link>
             <span className="text-slate-700">|</span>
             <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
-                {user?.plan === "PREMIUM" ? "پلن پرمیوم (نامحدود)" : "پلن پایه (برای همیشه رایگان)"}
+              <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${
+                userPlan === "SPECIAL"
+                  ? "bg-amber-500/10 text-amber-400 border-amber-500/30"
+                  : userPlan === "PRO"
+                  ? "bg-teal-500/10 text-teal-400 border-teal-500/30"
+                  : "bg-emerald-500/10 text-emerald-400 border-emerald-500/20"
+              }`}>
+                {getPlanName()}
               </span>
             </div>
           </div>
 
           <div className="flex items-center gap-3 text-xs">
+            <button
+              onClick={() => setShowUpgradeModal(true)}
+              className="flex items-center gap-1.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black px-3 py-1.5 rounded-lg transition shadow-md shadow-amber-500/20"
+            >
+              <Star className="w-3.5 h-3.5 fill-current" />
+              <span>ارتقای پلن</span>
+            </button>
+
             <Link
               href="/docs"
               className="hidden sm:flex items-center gap-1.5 text-slate-300 hover:text-white px-3 py-1.5 rounded-lg border border-slate-800 hover:border-slate-700 transition"
@@ -216,18 +306,18 @@ export default function UserPortalPage() {
           <div className="space-y-2">
             <div className="flex items-center gap-3">
               <h1 className="text-xl md:text-2xl font-black text-white">
-                خوش‌آمدید، {user?.name || "پذیرنده گرامی"}
+                خوش‌آمدید، {user?.name || "کاربر گرامی"}
               </h1>
               <span className="text-[11px] font-mono text-slate-400 bg-slate-900 px-2 py-0.5 rounded-lg border border-slate-800">
                 {user?.phone || user?.email}
               </span>
             </div>
             <p className="text-xs text-slate-400 leading-relaxed max-w-2xl">
-              این پرتال اختصاصی شما برای مدیریت کارت‌های بانکی، اپلیکیشن همگام‌ساز پیامک‌های واریزی و دریافت کلید امن وب‌سرویس درگاه جهت اتصال به وب‌سایت است.
+              این پنل کاربری برای مدیریت کارت‌های بانکی، نظارت بر پیامک‌های واریزی اپلیکیشن همراه و دسترسی به کلید امن وب‌سرویس درگاه طراحی شده است.
             </p>
           </div>
 
-          <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-xs space-y-2 w-full md:w-auto min-w-[240px]">
+          <div className="bg-slate-950/80 border border-slate-800 p-4 rounded-2xl text-xs space-y-2.5 w-full md:w-auto min-w-[260px]">
             <div className="flex items-center justify-between text-slate-400">
               <span>وضعیت حساب:</span>
               <span className="text-emerald-400 font-bold flex items-center gap-1">
@@ -235,10 +325,20 @@ export default function UserPortalPage() {
                 فعال و متصل
               </span>
             </div>
+
             <div className="flex items-center justify-between text-slate-400">
-              <span>سهمیه کارت و دستگاه:</span>
+              <span>سهمیه کارت‌ها:</span>
               <span className="text-slate-200 font-bold">
-                {user?.cards?.length || 0} / ۱ مجاز (پلن رایگان)
+                {user?.cards?.length || 0} از {getMaxCards()} مجاز
+              </span>
+            </div>
+
+            <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-slate-800">
+              <span>تراکنش‌ها:</span>
+              <span className="text-emerald-300 font-mono font-bold">
+                {userPlan === "FREE" && `${user?.dailyTxCount || 0} / ۱۰ روزانه`}
+                {userPlan === "PRO" && `${user?.monthlyTxCount || 0} / ۵۰۰ ماهانه`}
+                {userPlan === "SPECIAL" && `نامحدود`}
               </span>
             </div>
           </div>
@@ -288,7 +388,7 @@ export default function UserPortalPage() {
               </div>
               <h3 className="font-bold text-sm text-white">۲. نصب اپلیکیشن همراه</h3>
               <p className="text-xs text-slate-400 leading-relaxed">
-                اپلیکیشن اندروید CardPay Sync را دانلود کرده و کلید دستگاه را وارد کنید تا پیامک‌های واریزی در لحظه خوانده شوند.
+                اپلیکیشن اندروید هنرهاب پی را دانلود کرده و کلید دستگاه را وارد کنید تا پیامک‌های واریزی در لحظه خوانده شوند.
               </p>
             </div>
 
@@ -308,7 +408,7 @@ export default function UserPortalPage() {
           </div>
         </div>
 
-        {/* Section 1: Active Bank Card & Action */}
+        {/* Section 1: Bank Cards & Actions */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2 bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-5">
             <div className="flex items-center justify-between">
@@ -316,127 +416,173 @@ export default function UserPortalPage() {
                 <div className="w-8 h-8 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center">
                   <CreditCard className="w-4 h-4" />
                 </div>
-                <h2 className="text-base font-bold text-white">کارت بانکی فعال پذیرنده</h2>
+                <div>
+                  <h2 className="text-base font-bold text-white">کارت‌های بانکی متصل</h2>
+                  <span className="text-[11px] text-slate-400">
+                    {user?.cards?.length || 0} از {getMaxCards()} کارت فعال
+                  </span>
+                </div>
               </div>
 
               <button
-                onClick={() => setShowCardModal(true)}
+                onClick={handleOpenAddCard}
                 className="flex items-center gap-1.5 text-xs font-bold text-emerald-400 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 px-3.5 py-2 rounded-xl transition"
               >
-                {activeCard ? "ویرایش و تغییر کارت" : "ثبت کارت جدید"}
+                <Plus className="w-4 h-4" />
+                <span>افزودن کارت بانکی</span>
               </button>
             </div>
 
-            {activeCard ? (
-              <div className="relative overflow-hidden bg-gradient-to-tr from-slate-900 via-[#132035] to-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-xl space-y-4">
-                <div className="flex items-center justify-between text-xs text-slate-400">
-                  <span className="font-bold text-emerald-400">{activeCard.bankTitle}</span>
-                  <span className="font-mono text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
-                    ID: {activeCard.id.slice(0, 8)}...
-                  </span>
-                </div>
-
-                <div className="pt-2 text-center" dir="ltr">
-                  <span className="text-xl md:text-2xl font-mono font-bold tracking-widest text-white drop-shadow">
-                    {activeCard.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
-                  </span>
-                </div>
-
-                <div className="flex items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-800/80">
-                  <div>
-                    <span className="text-[10px] text-slate-400 block">صاحب کارت:</span>
-                    <span className="font-bold">{activeCard.ownerName}</span>
-                  </div>
-                  {activeCard.accountNumber && (
-                    <div className="text-left font-mono">
-                      <span className="text-[10px] text-slate-400 block">شماره حساب:</span>
-                      <span>{activeCard.accountNumber}</span>
+            {user?.cards && user.cards.length > 0 ? (
+              <div className="grid grid-cols-1 gap-4">
+                {user.cards.map((card: any) => (
+                  <div
+                    key={card.id}
+                    className="relative overflow-hidden bg-gradient-to-tr from-slate-900 via-[#132035] to-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-xl space-y-4"
+                  >
+                    <div className="flex items-center justify-between text-xs text-slate-400">
+                      <span className="font-bold text-emerald-400">{card.bankTitle}</span>
+                      <span className="font-mono text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
+                        ID: {card.id.slice(0, 8)}...
+                      </span>
                     </div>
-                  )}
-                </div>
+
+                    <div className="pt-2 text-center" dir="ltr">
+                      <span className="text-xl md:text-2xl font-mono font-bold tracking-widest text-white drop-shadow">
+                        {card.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
+                      </span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-300 pt-2 border-t border-slate-800/80">
+                      <div>
+                        <span className="text-[10px] text-slate-400 block">صاحب کارت:</span>
+                        <span className="font-bold">{card.ownerName}</span>
+                      </div>
+                      {card.accountNumber && (
+                        <div className="text-left font-mono">
+                          <span className="text-[10px] text-slate-400 block">شماره حساب:</span>
+                          <span>{card.accountNumber}</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                ))}
               </div>
             ) : (
               <div className="border-2 border-dashed border-slate-800 rounded-2xl p-8 text-center space-y-3">
                 <CreditCard className="w-10 h-10 text-slate-600 mx-auto" />
-                <p className="text-xs text-slate-400">هنوز کارت بانکی برای این حساب کاربری ثبت نشده است.</p>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-slate-300">هنوز کارتی ثبت نکرده‌اید</p>
+                  <p className="text-xs text-slate-500">
+                    برای شروع دریافت واریزی‌ها ابتدا کارت بانکی شخصی خود را ثبت نمایید.
+                  </p>
+                </div>
                 <button
-                  onClick={() => setShowCardModal(true)}
-                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-lg shadow-emerald-600/20"
+                  onClick={handleOpenAddCard}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition"
                 >
-                  ثبت کارت بانکی پذیرنده
+                  ثبت اولین کارت بانکی
                 </button>
               </div>
             )}
           </div>
 
-          {/* Section 2: Android Companion Device */}
-          <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-4 flex flex-col justify-between">
+          {/* Section 2: Companion Android App & Device Key */}
+          <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-5 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="flex items-center gap-2.5">
                 <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
                   <Smartphone className="w-4 h-4" />
                 </div>
-                <h2 className="text-base font-bold text-white">اپلیکیشن اندروید</h2>
+                <h2 className="text-base font-bold text-white">اپلیکیشن همگام‌ساز پیامک</h2>
               </div>
 
               <p className="text-xs text-slate-400 leading-relaxed">
-                این اپلیکیشن پیامک‌های واریز بانک مهر ایران یا سایر بانک‌ها را به صورت خودکار خوانده و سفارش را تسویه می‌کند.
+                اپلیکیشن اندروید هنرهاب پی روی گوشی دریافت‌کننده پیامک‌های بانکی نصب می‌شود و پیامک‌های واریز را بلادرنگ به درگاه ارسال می‌کند.
               </p>
 
-              <div className="bg-slate-950 border border-slate-800/90 rounded-2xl p-4 space-y-2 text-xs">
-                <div className="flex items-center justify-between text-slate-400">
-                  <span>کلید اختصاصی دستگاه:</span>
-                  <button
-                    onClick={() => handleCopy(activeDevice?.apiKey || user?.apiKey, "device-key")}
-                    className="text-emerald-400 hover:text-emerald-300 font-bold flex items-center gap-1"
-                  >
-                    {copiedId === "device-key" ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    <span>کپی</span>
-                  </button>
+              {activeDevice ? (
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 space-y-2 text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">نام دستگاه:</span>
+                    <span className="font-bold text-white">{activeDevice.name}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">وضعیت اتصال:</span>
+                    <span className={`font-bold flex items-center gap-1.5 ${
+                      activeDevice.lastSeenAt ? "text-emerald-400" : "text-amber-400"
+                    }`}>
+                      <span className={`w-2 h-2 rounded-full ${
+                        activeDevice.lastSeenAt ? "bg-emerald-400" : "bg-amber-400"
+                      }`} />
+                      {activeDevice.lastSeenAt ? "متصل و فعال" : "در انتظار اتصال"}
+                    </span>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-800 space-y-1">
+                    <span className="text-[10px] text-slate-400 block">کلید دستگاه (Device Token):</span>
+                    <div className="flex items-center justify-between gap-2 bg-slate-900 p-2 rounded-xl font-mono text-[11px] text-teal-300">
+                      <span className="truncate" dir="ltr">{activeDevice.apiKey}</span>
+                      <button
+                        onClick={() => handleCopy(activeDevice.apiKey, "dev-key")}
+                        className="text-slate-400 hover:text-white"
+                        title="کپی کلید"
+                      >
+                        {copiedId === "dev-key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="font-mono text-[11px] text-emerald-300 bg-slate-900 px-2.5 py-1.5 rounded-lg border border-slate-800 overflow-x-auto text-left" dir="ltr">
-                  {activeDevice?.apiKey || user?.apiKey}
+              ) : (
+                <div className="bg-slate-950 p-4 rounded-2xl border border-slate-800 text-center space-y-2">
+                  <span className="text-xs text-slate-400 block">هنوز دستگاهی متصل نشده است.</span>
+                  <span className="text-[11px] text-slate-500 block">پس از دانلود اپلیکیشن، دستگاه شما به صورت خودکار شناسایی می‌شود.</span>
                 </div>
-              </div>
+              )}
             </div>
 
-            <div className="pt-2">
-              <a
-                href="/api/v1/download/apk"
-                className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 text-xs font-bold py-2.5 rounded-xl transition"
-              >
-                <Download className="w-4 h-4 text-emerald-400" />
-                <span>دانلود مستقیم APK همگام‌ساز</span>
-              </a>
-            </div>
+            <a
+              href="/api/v1/download/apk"
+              className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 text-xs font-bold py-3 rounded-2xl transition shadow-lg"
+            >
+              <Download className="w-4 h-4" />
+              <span>دانلود فایل APK نسخه {APP_VERSION}</span>
+            </a>
           </div>
         </div>
 
-        {/* Section 3: API Key & Live Test Payment */}
+        {/* Section 3: REST API Key & Interactive Test Sandbox */}
         <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
-                <Key className="w-5 h-5" />
-              </div>
-              <div>
-                <h2 className="text-base font-bold text-white">کلید وب‌سرویس اختصاصی شما (x-api-key)</h2>
-                <p className="text-xs text-slate-400">
-                  این کلید را در هدر تمام درخواست‌های وب‌سایت هنری یا فروشگاه خود ارسال فرمایید.
-                </p>
-              </div>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <h2 className="text-base font-bold text-white flex items-center gap-2">
+                <Key className="w-4 h-4 text-amber-400" />
+                <span>کلید احراز هویت وب‌سرویس اختصاصی (x-api-key)</span>
+              </h2>
+              <p className="text-xs text-slate-400">
+                این کلید را در هدر درخواست‌های ارسالی از وب‌سایت یا فروشگاه خود به درگاه قرار دهید.
+              </p>
             </div>
 
             <button
               onClick={() => handleCopy(user.apiKey, "api-key")}
-              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs text-slate-200 px-4 py-2 rounded-xl transition font-medium"
+              className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-4 py-2.5 rounded-xl border border-slate-700 transition shrink-0"
             >
-              {copiedId === "api-key" ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4 text-slate-400" />}
-              <span>کپی کلید API</span>
+              {copiedId === "api-key" ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  <span className="text-emerald-400">کپی گردید</span>
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4 text-slate-400" />
+                  <span>کپی کلید API</span>
+                </>
+              )}
             </button>
           </div>
 
-          <div className="bg-slate-950 border border-slate-800 rounded-2xl p-4 font-mono text-xs text-emerald-300 text-left overflow-x-auto" dir="ltr">
+          <div className="bg-slate-950 p-3.5 rounded-2xl font-mono text-xs text-amber-300 border border-slate-800/80 truncate" dir="ltr">
             {user.apiKey}
           </div>
 
@@ -450,14 +596,15 @@ export default function UserPortalPage() {
             <div className="flex flex-col sm:flex-row items-center gap-3">
               <div className="relative w-full sm:w-64">
                 <input
-                  type="number"
+                  type="text"
+                  inputMode="numeric"
                   value={testAmount}
-                  onChange={(e) => setTestAmount(e.target.value)}
-                  placeholder="مبلغ به تومان"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-white font-mono focus:outline-none focus:border-emerald-500"
+                  onChange={handleAmountChange}
+                  placeholder="۵۰,۰۰۰"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-center text-sm text-white font-mono font-bold tracking-wider focus:outline-none focus:border-emerald-500 shadow-inner"
                   dir="ltr"
                 />
-                <span className="absolute left-3 top-3 text-[10px] text-slate-500">تومان</span>
+                <span className="absolute left-3 top-3 text-[10px] text-slate-500 font-sans">تومان</span>
               </div>
 
               <button
@@ -520,30 +667,36 @@ export default function UserPortalPage() {
               <table className="w-full text-right text-xs">
                 <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
                   <tr>
-                    <th className="p-3.5">کد رهگیری شمسی</th>
-                    <th className="p-3.5">مبلغ واریزی</th>
-                    <th className="p-3.5">وضعیت</th>
-                    <th className="p-3.5">تاریخ</th>
+                    <th className="p-3">شناسه پیگیری</th>
+                    <th className="p-3">مبلغ پایه</th>
+                    <th className="p-3">آفست</th>
+                    <th className="p-3">مبلغ نهایی پرداختی</th>
+                    <th className="p-3">وضعیت</th>
+                    <th className="p-3">کارت مقصد</th>
+                    <th className="p-3">تاریخ</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono text-[11px]">
+                <tbody className="divide-y divide-slate-800/60 font-mono">
                   {user?.transactions?.map((tx: any) => (
-                    <tr key={tx.id} className="hover:bg-slate-900/40 transition">
-                      <td className="p-3.5 text-slate-300">{tx.internalTrackingCode || tx.authority}</td>
-                      <td className="p-3.5 text-emerald-400 font-bold">
-                        {tx.finalAmountToman.toLocaleString()} تومان
-                      </td>
-                      <td className="p-3.5 font-sans">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                    <tr key={tx.id} className="hover:bg-slate-900/40">
+                      <td className="p-3 text-slate-300 font-bold">{tx.internalTrackingCode || tx.authority.slice(0, 14)}</td>
+                      <td className="p-3 text-slate-300">{Number(tx.originalAmountToman).toLocaleString("fa-IR")} ت</td>
+                      <td className="p-3 text-teal-400 font-bold">+{tx.offsetToman} ت</td>
+                      <td className="p-3 text-emerald-400 font-bold">{Number(tx.finalAmountToman).toLocaleString("fa-IR")} ت</td>
+                      <td className="p-3">
+                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-sans font-bold ${
                           tx.status === "PAID"
-                            ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
-                            : "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                            : tx.status === "PENDING"
+                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                            : "bg-slate-800 text-slate-400"
                         }`}>
-                          {tx.status === "PAID" ? "پرداخت موفق" : "در انتظار واریز"}
+                          {tx.status === "PAID" ? "پرداخت شده" : tx.status === "PENDING" ? "در انتظار پرداخت" : tx.status}
                         </span>
                       </td>
-                      <td className="p-3.5 text-slate-400 font-sans">
-                        {new Date(tx.createdAt).toLocaleDateString("fa-IR")}
+                      <td className="p-3 text-slate-400 font-sans">{tx.card?.ownerName || "—"}</td>
+                      <td className="p-3 text-slate-500 font-sans text-[11px]">
+                        {new Date(tx.createdAt).toLocaleDateString("fa-IR")} {new Date(tx.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}
                       </td>
                     </tr>
                   ))}
@@ -561,10 +714,13 @@ export default function UserPortalPage() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <CreditCard className="w-5 h-5 text-emerald-400" />
-                <span>ثبت یا جایگزینی کارت بانکی</span>
+                <span>{isReplaceMode ? "جایگزینی کارت بانکی (آرشیو کارت قبل)" : "ثبت کارت بانکی جدید"}</span>
               </h3>
               <button
-                onClick={() => setShowCardModal(false)}
+                onClick={() => {
+                  setShowCardModal(false);
+                  setIsReplaceMode(false);
+                }}
                 className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800"
               >
                 ✕
@@ -626,14 +782,23 @@ export default function UserPortalPage() {
                 />
               </div>
 
-              <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-xl text-[11px] leading-relaxed">
-                در پلن رایگان، حداکثر ۱ کارت فعال مجاز است. در صورت ثبت کارت جدید، کارت قبلی شما به صورت خودکار بدون حذف سوابق تراکنش‌ها بایگانی می‌گردد.
-              </div>
+              {isReplaceMode ? (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-300 p-3 rounded-xl text-[11px] leading-relaxed">
+                  ⚠️ کارت قبلی شما به صورت امن بایگانی خواهد شد و سوابق تراکنش‌های آن دست‌نخورده باقی می‌ماند.
+                </div>
+              ) : (
+                <div className="bg-slate-900 border border-slate-800 text-slate-400 p-3 rounded-xl text-[11px] leading-relaxed">
+                  کارت ثبت‌شده به عنوان حساب مقصد واریز در درگاه پرداخت هوشمند شما فعال خواهد شد.
+                </div>
+              )}
 
               <div className="flex items-center justify-end gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={() => setShowCardModal(false)}
+                  onClick={() => {
+                    setShowCardModal(false);
+                    setIsReplaceMode(false);
+                  }}
                   className="px-4 py-2 text-slate-400 hover:text-white"
                 >
                   انصراف
@@ -643,10 +808,188 @@ export default function UserPortalPage() {
                   disabled={cardLoading}
                   className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold px-6 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20"
                 >
-                  {cardLoading ? "در حال ثبت..." : "ذخیره و فعال‌سازی کارت"}
+                  {cardLoading ? "در حال ثبت..." : isReplaceMode ? "جایگزینی کارت" : "ذخیره و فعال‌سازی کارت"}
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Quota Exceeded & Card Upgrade Notice Modal */}
+      {showCardNoticeModal && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111827] border border-amber-500/40 rounded-3xl w-full max-w-lg shadow-2xl p-6 md:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center">
+                  <AlertCircle className="w-5 h-5" />
+                </div>
+                <h3 className="text-base font-bold text-white">نیاز به ارتقای پلن برای ثبت کارت بیشتر</h3>
+              </div>
+              <button
+                onClick={() => setShowCardNoticeModal(false)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-xs leading-relaxed text-slate-300">
+              <p>
+                در <strong className="text-emerald-400">پلن پایه (رایگان)</strong> شما مجاز به تعریف <strong>۱ کارت بانکی فعال</strong> هستید.
+              </p>
+              <p className="text-slate-400">
+                برای فعال‌سازی همزمان تا ۵ کارت بانکی می‌توانید به <strong className="text-teal-400">«پلن حرفه‌ای»</strong> (۴۹۹ هزار تومان ماهانه) و برای تعداد نامحدود کارت به <strong className="text-amber-400">«پلن ویژه»</strong> ارتقا دهید.
+              </p>
+            </div>
+
+            <div className="space-y-2.5 pt-2 border-t border-slate-800">
+              <button
+                onClick={() => {
+                  setShowCardNoticeModal(false);
+                  setShowUpgradeModal(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-400 hover:to-emerald-500 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-teal-500/20"
+              >
+                <Zap className="w-4 h-4" />
+                <span>مشاهده پلن‌ها و ارتقای حساب کاربری</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setShowCardNoticeModal(false);
+                  setIsReplaceMode(true);
+                  setShowCardModal(true);
+                }}
+                className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-300 py-2.5 rounded-xl transition text-xs font-medium"
+              >
+                <span>فقط جایگزینی کارت قبلی با شماره جدید (رایگان)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Upgrade Plan Modal */}
+      {showUpgradeModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-md flex items-center justify-center p-4 overflow-y-auto">
+          <div className="bg-[#111827] border border-slate-700 rounded-3xl w-full max-w-3xl shadow-2xl p-6 md:p-8 space-y-6 animate-in fade-in zoom-in-95 duration-150 my-8">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2.5">
+                <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
+                <h3 className="text-base font-bold text-white">ارتقای پلن حساب کاربری هنرهاب پی</h3>
+              </div>
+              <button
+                onClick={() => setShowUpgradeModal(false)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            {upgradeMsg && (
+              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs text-center font-bold">
+                {upgradeMsg}
+              </div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Plan 1: Middle Plan (Pro) */}
+              <div className="bg-gradient-to-b from-slate-900 via-[#132035] to-slate-900 border-2 border-teal-500/50 rounded-2xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 px-3 py-1 rounded-full">
+                      پلن پیشنهادی
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">Pro Tier</span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-black text-white">پلن حرفه‌ای (میانی)</h4>
+                    <div className="flex items-baseline gap-1 mt-1">
+                      <span className="text-2xl font-black text-teal-300">۴۹۹,۰۰۰</span>
+                      <span className="text-xs text-slate-400">تومان / ماهانه</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span><strong>تا ۵ کارت بانکی مجزا</strong> به صورت همزمان</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span><strong>۱۰۰ تراکنش به ازای هر کارت</strong> (مجموعاً ۵۰۰ تراکنش ماهیانه)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span>اتصال تا ۵ اپلیکیشن همراه همگام‌ساز پیامک</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span>پشتیبانی چت و تیکت آنلاین</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={() => handleUpgradePlan("PRO")}
+                  disabled={upgradeLoading || userPlan === "PRO"}
+                  className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
+                >
+                  <Zap className="w-4 h-4" />
+                  <span>{userPlan === "PRO" ? "پلن فعال فعلی شما" : "ارتقا به پلن حرفه‌ای (۴۹۹ هزار ت)"}</span>
+                </button>
+              </div>
+
+              {/* Plan 2: Special VIP Plan */}
+              <div className="bg-gradient-to-b from-slate-900 via-[#1e1e2d] to-slate-900 border-2 border-amber-500/50 rounded-2xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
+                <div className="space-y-4">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-3 py-1 rounded-full">
+                      بدون هیچ محدودیت
+                    </span>
+                    <span className="text-xs font-mono text-slate-400">VIP Special</span>
+                  </div>
+
+                  <div>
+                    <h4 className="text-lg font-black text-white">پلن ویژه (VIP)</h4>
+                    <div className="flex items-baseline gap-1 mt-1">
+                      <span className="text-xl font-bold text-amber-300">ظرفیت نامحدود</span>
+                    </div>
+                  </div>
+
+                  <ul className="space-y-2.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span><strong>تعداد کارت‌های نامحدود</strong> (به ازای تمام کاربران)</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span><strong>تراکنش‌های نامحدود</strong> روزانه و ماهیانه</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>دستگاه‌های همراه و پیامک‌خوان نامحدود</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>پشتیبانی VIP مستقیم و مشاوره راه‌اندازی</span>
+                    </li>
+                  </ul>
+                </div>
+
+                <button
+                  onClick={() => handleUpgradePlan("SPECIAL")}
+                  disabled={upgradeLoading || userPlan === "SPECIAL"}
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-black py-3 rounded-xl transition text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+                >
+                  <Star className="w-4 h-4 fill-current" />
+                  <span>{userPlan === "SPECIAL" ? "پلن فعال فعلی شما" : "درخواست ارتقا به پلن ویژه"}</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       )}

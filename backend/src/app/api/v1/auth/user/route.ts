@@ -106,6 +106,36 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "کاربر یافت نشد" }, { status: 404 });
     }
 
+    const todayStart = new Date();
+    todayStart.setHours(0, 0, 0, 0);
+
+    const monthStart = new Date();
+    monthStart.setDate(1);
+    monthStart.setHours(0, 0, 0, 0);
+
+    const cardIds = user.cards.map((c) => c.id);
+
+    const [dailyTxCount, monthlyTxCount] = await Promise.all([
+      db.transaction.count({
+        where: {
+          OR: [
+            { userId: user.id },
+            ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
+          ],
+          createdAt: { gte: todayStart },
+        },
+      }),
+      db.transaction.count({
+        where: {
+          OR: [
+            { userId: user.id },
+            ...(cardIds.length > 0 ? [{ cardId: { in: cardIds } }] : []),
+          ],
+          createdAt: { gte: monthStart },
+        },
+      }),
+    ]);
+
     return NextResponse.json({
       success: true,
       data: {
@@ -116,6 +146,8 @@ export async function GET(req: NextRequest) {
         plan: user.plan,
         role: user.role,
         apiKey: user.apiKey,
+        dailyTxCount,
+        monthlyTxCount,
         cards: user.cards,
         devices: user.devices,
         transactions: user.transactions.map((tx) => ({

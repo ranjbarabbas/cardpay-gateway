@@ -105,7 +105,7 @@ export default function LoginPage() {
             </div>
             <h1 className="text-2xl font-black text-white">ورود و ثبت‌نام در {APP_NAME}</h1>
             <p className="text-xs text-slate-400 leading-relaxed">
-              جهت دسترسی به پرتال، ثبت کارت بانکی و دریافت کلید اختصاصی درگاه پرداخت
+              جهت دسترسی به پنل کاربری، ثبت کارت بانکی و دریافت کلید اختصاصی درگاه پرداخت
             </p>
           </div>
 
@@ -135,12 +135,12 @@ export default function LoginPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-slate-300 font-medium">نام یا عنوان پذیرنده (اختیاری):</label>
+              <label className="text-slate-300 font-medium">نام یا عنوان کاربر (اختیاری):</label>
               <input
                 type="text"
                 value={nameInput}
                 onChange={(e) => setNameInput(e.target.value)}
-                placeholder="مثلاً: گالری استاد رضایی"
+                placeholder="مثلاً: علیرضا محمدی"
                 className="w-full bg-slate-950/80 border border-slate-800 focus:border-emerald-500 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 text-xs focus:outline-none transition"
               />
             </div>
@@ -154,7 +154,7 @@ export default function LoginPage() {
                 <span>در حال بررسی و ورود...</span>
               ) : (
                 <>
-                  <span>ورود به پرتال اختصاصی</span>
+                  <span>ورود به پنل کاربری</span>
                   <ArrowRight className="w-4 h-4 rotate-180" />
                 </>
               )}

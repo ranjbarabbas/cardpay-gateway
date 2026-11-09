@@ -81,6 +81,74 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+
+    // Check Plan Limits (10 daily transactions for FREE, 100/card or 500/month for PRO)
+    if (targetCard.userId) {
+      const cardOwnerUser = await db.user.findUnique({
+        where: { id: targetCard.userId },
+      });
+
+      if (cardOwnerUser) {
+        const plan = cardOwnerUser.plan || "FREE";
+
+        if (plan === "FREE") {
+          const todayStart = new Date();
+          todayStart.setHours(0, 0, 0, 0);
+
+          const dailyCount = await db.transaction.count({
+            where: {
+              cardId: targetCard.id,
+              createdAt: { gte: todayStart },
+            },
+          });
+
+          if (dailyCount >= 10) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: "DAILY_TRANSACTION_LIMIT_REACHED",
+                message: "سقف ۱۰ تراکنش روزانه برای پلن رایگان تکمیل شده است. لطفاً جهت افزایش ظرفیت و ثبت تراکنش‌های بیشتر، پلن خود را به پلن حرفه‌ای یا ویژه ارتقا دهید.",
+                upgradeUrl: `${baseUrl}/portal#upgrade`,
+              },
+              { status: 429 }
+            );
+          }
+        } else if (plan === "PRO") {
+          const monthStart = new Date();
+          monthStart.setDate(1);
+          monthStart.setHours(0, 0, 0, 0);
+
+          const [cardMonthlyCount, userMonthlyCount] = await Promise.all([
+            db.transaction.count({
+              where: {
+                cardId: targetCard.id,
+                createdAt: { gte: monthStart },
+              },
+            }),
+            db.transaction.count({
+              where: {
+                userId: cardOwnerUser.id,
+                createdAt: { gte: monthStart },
+              },
+            }),
+          ]);
+
+          if (cardMonthlyCount >= 100 || userMonthlyCount >= 500) {
+            return NextResponse.json(
+              {
+                success: false,
+                error: "MONTHLY_TRANSACTION_LIMIT_REACHED",
+                message: "سقف تراکنش ماهانه پلن حرفه‌ای (۱۰۰ تراکنش برای هر کارت یا مجموع ۵۰۰ تراکنش ماهانه) تکمیل شده است. لطفاً جهت رفع کلیه محدودیت‌ها به پلن ویژه ارتقا دهید.",
+                upgradeUrl: `${baseUrl}/portal#upgrade`,
+              },
+              { status: 429 }
+            );
+          }
+        }
+      }
+    }
+
     // Resolve unique collision-free amount (+11, +12, +13, ...)
     const resolved = await AmountOffsetService.resolveUniqueAmount(
       targetCard.id,
@@ -97,6 +165,7 @@ export async function POST(req: NextRequest) {
       data: {
         authority,
         internalTrackingCode,
+        userId: targetCard.userId || null,
         cardId: targetCard.id,
         originalAmountToman: resolved.originalAmountToman,
         offsetToman: resolved.offsetToman,
@@ -115,7 +184,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
     const paymentUrl = `${baseUrl}/pay/${authority}`;
 
     return NextResponse.json({

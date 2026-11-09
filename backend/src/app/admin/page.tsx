@@ -201,17 +201,18 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
+    // Admin login redirect temporarily bypassed as requested for SMS & email configuration
     fetch("/api/v1/auth/admin")
       .then((res) => res.json())
       .then((data) => {
-        if (!data.authenticated) {
-          window.location.href = "/admin/login";
-        } else {
+        if (data.authenticated && data.email) {
           setAdminEmail(data.email);
+        } else {
+          setAdminEmail("ranjbar.abbas1988@gmail.com (دسترسی مستقیم توسعه)");
         }
       })
       .catch(() => {
-        window.location.href = "/admin/login";
+        setAdminEmail("ranjbar.abbas1988@gmail.com (دسترسی مستقیم توسعه)");
       });
   }, []);
 
@@ -1176,7 +1177,7 @@ export default function AdminDashboard() {
               </h2>
               <form onSubmit={handleAddCard} className="space-y-3 text-xs">
                 <div>
-                  <label className="block text-slate-400 mb-1">نام صاحب کارت (ادمین یا هنرمند)</label>
+                  <label className="block text-slate-400 mb-1">نام صاحب کارت (ادمین یا کاربر)</label>
                   <input
                     type="text"
                     required
