@@ -863,7 +863,7 @@ export default function UserPortalPage() {
                 در <strong className="text-emerald-400">پلن پایه (رایگان)</strong> شما مجاز به تعریف <strong>۱ کارت بانکی فعال</strong> هستید.
               </p>
               <p className="text-slate-400">
-                برای فعال‌سازی همزمان تا ۵ کارت بانکی می‌توانید به <strong className="text-teal-400">«پلن حرفه‌ای»</strong> (۴۹۹ هزار تومان ماهانه) و برای تعداد نامحدود کارت به <strong className="text-amber-400">«پلن ویژه»</strong> ارتقا دهید.
+                برای فعال‌سازی همزمان تا ۵ کارت بانکی می‌توانید به <strong className="text-teal-400">«پلن حرفه‌ای»</strong> (۲۹۹ هزار تومان ماهانه) و برای تعداد نامحدود کارت به <strong className="text-amber-400">«پلن ویژه»</strong> ارتقا دهید.
               </p>
             </div>
 
@@ -931,7 +931,7 @@ export default function UserPortalPage() {
                   <div>
                     <h4 className="text-lg font-black text-white">پلن حرفه‌ای</h4>
                     <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-2xl font-black text-teal-300">۴۹۹,۰۰۰</span>
+                      <span className="text-2xl font-black text-teal-300">۲۹۹,۰۰۰</span>
                       <span className="text-xs text-slate-400">تومان / ماهانه</span>
                     </div>
                   </div>
@@ -966,7 +966,7 @@ export default function UserPortalPage() {
                   className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
                 >
                   <Zap className="w-4 h-4" />
-                  <span>{userPlan === "PRO" ? "پلن فعال فعلی شما" : "ارتقا به پلن حرفه‌ای (۴۹۹ هزار تومان)"}</span>
+                  <span>{userPlan === "PRO" ? "پلن فعال فعلی شما" : "ارتقا به پلن حرفه‌ای (۲۹۹ هزار تومان)"}</span>
                 </button>
               </div>
 

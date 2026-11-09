@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const planTitle = targetPlan === "PRO" ? "پلن حرفه‌ای (۴۹۹ هزار تومان)" : "پلن ویژه (VIP)";
+    const planTitle = targetPlan === "PRO" ? "پلن حرفه‌ای (۲۹۹ هزار تومان)" : "پلن ویژه (VIP)";
 
     // Record lead / upgrade request in DB
     const lead = await db.leadRequest.create({

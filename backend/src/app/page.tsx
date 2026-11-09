@@ -275,7 +275,7 @@ export default function Home() {
                 </div>
 
                 <div className="h-14 flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-teal-300">۴۹۹,۰۰۰</span>
+                  <span className="text-3xl font-black text-teal-300">۲۹۹,۰۰۰</span>
                   <span className="text-xs text-slate-400">تومان / ماهانه</span>
                 </div>
 
