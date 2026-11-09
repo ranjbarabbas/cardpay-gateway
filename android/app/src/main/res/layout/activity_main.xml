@@ -39,7 +39,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/vazirmatn_bold"
-                    android:text="همگام‌ساز پیامک هنر هاب"
+                    android:text="همگام‌ساز پیامک هنرهاب پی"
                     android:textColor="?attr/appTextPrimary"
                     android:textSize="16sp"
                     android:textStyle="bold" />
@@ -48,7 +48,7 @@
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/vazirmatn_regular"
-                    android:text="CardPay P2P Engine"
+                    android:text="HonarHub Pay Engine"
                     android:textColor="?attr/colorPrimary"
                     android:textSize="11sp" />
             </LinearLayout>
@@ -270,7 +270,7 @@
                     android:fontFamily="@font/vazirmatn_regular"
                     android:lineSpacingExtra="5dp"
                     android:padding="18dp"
-                    android:text="در انتظار دریافت اولین پیامک بانکی...\n(پیامک‌های شخصی نادیده گرفته شده و صرفاً پیامک‌های رسمی بانکی دارای قالب واریز جهت تسویه ارسال می‌گردند)"
+                    android:text="در انتظار دریافت اولین پیامک بانکی...\n(صرفاً پیامک‌های رسمی بانک از سرخط‌های معتبر بانکی)"
                     android:textColor="?attr/appTextSecondary"
                     android:textSize="12sp" />
             </com.google.android.material.card.MaterialCardView>
@@ -295,7 +295,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/vazirmatn_medium"
-            android:text="نسخه ۱.۳.۰ • سامانه هنرهاب پی"
+            android:text="نسخه ۱.۴.۰ • سامانه هنرهاب پی"
             android:textColor="?attr/appTextMuted"
             android:textSize="12sp" />
     </LinearLayout>

@@ -623,13 +623,11 @@ export default function DocsPage() {
             </button>
 
             <a
-              href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.2.0/cardpay-sync.apk"
-              target="_blank"
-              rel="noopener noreferrer"
+              href="/api/v1/download/apk"
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden md:inline">دانلود APK</span>
+              <span className="hidden md:inline">دانلود APK نسخه {APP_VERSION}</span>
             </a>
 
             <Link
@@ -980,25 +978,19 @@ export default function DocsPage() {
           <section id="android-sync" className="space-y-4 pt-6 border-t border-slate-800">
             <h3 className="text-lg font-black text-white flex items-center gap-2">
               <Smartphone className="w-5 h-5 text-emerald-400" />
-              <span>اپلیکیشن کاتلین همگام‌ساز پیامک (CardPay Sync)</span>
+              <span>اپلیکیشن کاتلین همگام‌ساز پیامک (هنرهاب پی Sync)</span>
             </h3>
             <p className="text-xs text-slate-300 leading-relaxed">
-              اپلیکیشن اندروید نیتیو وظیفه همگام‌سازی بلادرنگ پیامک‌های واریزی بدون قطعی پس‌زمینه را بر عهده دارد. دارای صفحه تنظیمات اختصاصی (آیکون ⚙️) و سرویس پیش‌زمینه پایدار است.
+              اپلیکیشن اندروید نیتیو وظیفه همگام‌سازی بلادرنگ پیامک‌های واریزی بدون قطعی پس‌زمینه را بر عهده دارد. دارای صفحه تنظیمات اختصاصی (آیکون ⚙️)، امکان سوییچ تم شب/روز و سرویس پیش‌زمینه پایدار است.
             </p>
             <div className="flex flex-wrap gap-3 pt-2">
               <a
-                href="https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.2.0/cardpay-sync.apk"
+                href="/api/v1/download/apk"
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20"
               >
                 <Download className="w-4 h-4" />
-                <span>دانلود مستقیم فایل APK (نسخه ۱.۲.۰ از گیت‌هاب)</span>
+                <span>دانلود مستقیم فایل APK (نسخه {APP_VERSION})</span>
               </a>
-              <Link
-                href="/api/v1/download/apk"
-                className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-4 py-2.5 rounded-xl transition"
-              >
-                <span>دانلود از سایت هنرهاب پی</span>
-              </Link>
             </div>
           </section>
         </main>

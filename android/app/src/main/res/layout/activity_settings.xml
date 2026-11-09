@@ -33,7 +33,7 @@
             android:layout_centerVertical="true"
             android:layout_marginStart="56dp"
             android:fontFamily="@font/vazirmatn_bold"
-            android:text="تنظیمات درگاه و ظاهر"
+            android:text="تنظیمات درگاه هنرهاب پی"
             android:textColor="?attr/appTextPrimary"
             android:textSize="17sp"
             android:textStyle="bold" />
@@ -51,78 +51,6 @@
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical">
-
-            <!-- Theme Mode Selection Card (Dark / Light / System) -->
-            <com.google.android.material.card.MaterialCardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardBackgroundColor="?attr/appSurfaceColor"
-                app:cardCornerRadius="22dp"
-                app:cardElevation="1dp"
-                app:strokeColor="?attr/appCardStrokeColor"
-                app:strokeWidth="1dp">
-
-                <LinearLayout
-                    android:layout_width="match_parent"
-                    android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="20dp">
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:fontFamily="@font/vazirmatn_bold"
-                        android:text="پوسته و حالت ظاهری (Dark / Light Mode)"
-                        android:textColor="?attr/appTextPrimary"
-                        android:textSize="15sp"
-                        android:textStyle="bold" />
-
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="2dp"
-                        android:fontFamily="@font/vazirmatn_regular"
-                        android:text="حالت تیره، روشن یا هماهنگ با سیستم عامل را انتخاب فرمایید."
-                        android:textColor="?attr/appTextMuted"
-                        android:textSize="11sp" />
-
-                    <RadioGroup
-                        android:id="@+id/rgThemeMode"
-                        android:layout_width="match_parent"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="12dp"
-                        android:orientation="vertical">
-
-                        <com.google.android.material.radiobutton.MaterialRadioButton
-                            android:id="@+id/rbThemeDark"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/vazirmatn_medium"
-                            android:text="🌙 حالت تیره (Dark Mode)"
-                            android:textColor="?attr/appTextPrimary"
-                            android:textSize="13sp" />
-
-                        <com.google.android.material.radiobutton.MaterialRadioButton
-                            android:id="@+id/rbThemeLight"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/vazirmatn_medium"
-                            android:text="☀️ حالت روشن (Light Mode)"
-                            android:textColor="?attr/appTextPrimary"
-                            android:textSize="13sp" />
-
-                        <com.google.android.material.radiobutton.MaterialRadioButton
-                            android:id="@+id/rbThemeSystem"
-                            android:layout_width="match_parent"
-                            android:layout_height="wrap_content"
-                            android:fontFamily="@font/vazirmatn_medium"
-                            android:text="⚙️ هماهنگ با تنظیمات سیستم گوشی"
-                            android:textColor="?attr/appTextPrimary"
-                            android:textSize="13sp" />
-                    </RadioGroup>
-                </LinearLayout>
-            </com.google.android.material.card.MaterialCardView>
 
             <!-- Configuration Card (Server & Token) -->
             <com.google.android.material.card.MaterialCardView
@@ -282,7 +210,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/vazirmatn_medium"
-            android:text="نسخه ۱.۳.۰ • سامانه هنرهاب پی"
+            android:text="نسخه ۱.۴.۰ • سامانه هنرهاب پی"
             android:textColor="?attr/appTextMuted"
             android:textSize="12sp" />
     </LinearLayout>

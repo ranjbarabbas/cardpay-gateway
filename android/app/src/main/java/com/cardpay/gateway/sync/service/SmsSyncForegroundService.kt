@@ -6,10 +6,12 @@ import android.app.NotificationManager
 import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.app.PendingIntent
 import android.os.Build
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.NotificationCompat
+import com.cardpay.gateway.sync.ui.MainActivity
 import com.cardpay.gateway.sync.data.api.CardPayApi
 import com.cardpay.gateway.sync.data.model.SmsSyncRequest
 import com.cardpay.gateway.sync.utils.AppPreferences
@@ -122,9 +124,13 @@ class SmsSyncForegroundService : Service() {
                 if (response.isSuccessful && response.body()?.success == true) {
                     val result = response.body()?.data
                     val statusText = if (result?.matched == true) {
-                        "تراکنش تایید شد (کد: ${result.trackingCode ?: result.authority})"
+                        val tracking = result.trackingCode ?: result.authority ?: ""
+                        showSmsNotification("تایید پرداخت هنرهاب پی", "تراکنش واریز با موفقیت تایید شد (کد: $tracking)")
+                        "تراکنش تایید شد (کد: $tracking)"
                     } else {
-                        "پیامک ثبت شد: ${result?.reason ?: "در صف بررسی"}"
+                        val reason = result?.reason ?: "در صف بررسی"
+                        showSmsNotification("پیامک بانکی جدید", "پیامک بانک دریافت شد: $reason")
+                        "پیامک ثبت شد: $reason"
                     }
                     prefs.lastSyncStatus = statusText
                     updateOngoingNotification(statusText)
@@ -169,26 +175,61 @@ class SmsSyncForegroundService : Service() {
         }
     }
 
+    private fun createActivityPendingIntent(id: Int): PendingIntent {
+        val intent = Intent(this, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+        }
+        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+        } else {
+            PendingIntent.FLAG_UPDATE_CURRENT
+        }
+        return PendingIntent.getActivity(this, id, intent, flags)
+    }
+
     private fun showAdminNotification(title: String, message: String) {
         val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notifId = (System.currentTimeMillis() % 10000).toInt() + 2000
+        val pendingIntent = createActivityPendingIntent(notifId)
+
         val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
             .setContentTitle(title)
             .setContentText(message)
             .setStyle(NotificationCompat.BigTextStyle().bigText(message))
             .setSmallIcon(android.R.drawable.ic_dialog_info)
-            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
             .build()
 
-        val notifId = (System.currentTimeMillis() % 10000).toInt() + 2000
+        manager.notify(notifId, notification)
+    }
+
+    private fun showSmsNotification(title: String, message: String) {
+        val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        val notifId = (System.currentTimeMillis() % 10000).toInt() + 3000
+        val pendingIntent = createActivityPendingIntent(notifId)
+
+        val notification = NotificationCompat.Builder(this, ALERT_CHANNEL_ID)
+            .setContentTitle(title)
+            .setContentText(message)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(message))
+            .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentIntent(pendingIntent)
+            .setAutoCancel(true)
+            .setPriority(NotificationCompat.PRIORITY_HIGH)
+            .build()
+
         manager.notify(notifId, notification)
     }
 
     private fun buildOngoingNotification(statusText: String): Notification {
+        val pendingIntent = createActivityPendingIntent(NOTIFICATION_ID)
         return NotificationCompat.Builder(this, SERVICE_CHANNEL_ID)
-            .setContentTitle("CardPay SMS Sync Service")
+            .setContentTitle("هنرهاب پی (همگام‌ساز پیامک)")
             .setContentText(statusText)
             .setSmallIcon(android.R.drawable.stat_notify_sync)
+            .setContentIntent(pendingIntent)
             .setOngoing(true)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
@@ -206,20 +247,20 @@ class SmsSyncForegroundService : Service() {
             // 1. Service Ongoing Channel
             val serviceChannel = NotificationChannel(
                 SERVICE_CHANNEL_ID,
-                "CardPay Sync Background Service",
+                "سرویس همگام‌ساز هنرهاب پی",
                 NotificationManager.IMPORTANCE_LOW
             ).apply {
-                description = "Shows the active SMS listener status"
+                description = "نمایش وضعیت سرویس فعال رصد پیامک‌های بانکی"
             }
             manager?.createNotificationChannel(serviceChannel)
 
             // 2. Admin Push Notification Channel
             val alertChannel = NotificationChannel(
                 ALERT_CHANNEL_ID,
-                "CardPay Admin Alerts",
+                "پیام‌ها و اعلان‌های هنرهاب پی",
                 NotificationManager.IMPORTANCE_HIGH
             ).apply {
-                description = "Push notifications sent from CardPay Admin Dashboard"
+                description = "پیام‌های سیستم و اعلان‌های ارسالی از پنل مدیریت هنرهاب پی"
                 enableVibration(true)
             }
             manager?.createNotificationChannel(alertChannel)

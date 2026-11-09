@@ -34,23 +34,6 @@ class SettingsActivity : AppCompatActivity() {
         binding.etServerUrl.setText(prefs.serverUrl)
         binding.etApiKey.setText(prefs.apiKey)
 
-        // Setup Theme selection
-        when (prefs.themeMode) {
-            "light" -> binding.rbThemeLight.isChecked = true
-            "dark" -> binding.rbThemeDark.isChecked = true
-            else -> binding.rbThemeSystem.isChecked = true
-        }
-
-        binding.rgThemeMode.setOnCheckedChangeListener { _, checkedId ->
-            val selectedMode = when (checkedId) {
-                com.cardpay.gateway.sync.R.id.rbThemeLight -> "light"
-                com.cardpay.gateway.sync.R.id.rbThemeDark -> "dark"
-                else -> "system"
-            }
-            prefs.themeMode = selectedMode
-            prefs.applyTheme()
-        }
-
         binding.btnBack.setOnClickListener {
             finish()
         }
