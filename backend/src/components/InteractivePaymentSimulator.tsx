@@ -77,31 +77,31 @@ export default function InteractivePaymentSimulator() {
     // مرحله ۲: پرداخت مشتری در درگاه و موبایل‌بانک
     setCurrentStep(2);
     setCurrentScene(2);
-    await sleep(600);
+    await sleep(700);
     setCustomerPhoneShown(true);
-    await sleep(1200);
+    await sleep(2200);
 
     // Click pay in customer phone
     setPhonePayPressed(true);
-    await sleep(150);
+    await sleep(180);
     setPhonePayPressed(false);
     setPhonePaymentSuccess(true);
-    await sleep(1400);
+    await sleep(2400);
 
     // مرحله ۳: دریافت پیامک توسط اپلیکیشن همگام‌ساز و تایید
     setCurrentStep(3);
     setActivePhone("sync");
-    await sleep(60);
+    await sleep(80);
     setSyncPhoneShown(true);
-    await sleep(800);
+    await sleep(1400);
     setSmsNotificationShown(true);
-    await sleep(1200);
+    await sleep(2400);
 
     // Shoot confirmation signal to gateway
     setSignalShooting(true);
-    await sleep(600);
+    await sleep(800);
     setGatewaySuccess(true);
-    await sleep(1800);
+    await sleep(2800);
 
     // مرحله ۴: بازگشت به سایت پذیرنده و ثبت موفق
     setCurrentStep(4);
@@ -431,7 +431,6 @@ export default function InteractivePaymentSimulator() {
                   <span className="text-emerald-400 font-bold">موفق و تایید شده</span>
                 </div>
               </div>
-              <span className="text-[10px] text-slate-400 block">تراکنش در بک‌اند سایت پذیرنده ثبت شد.</span>
             </div>
           </div>
         </div>
