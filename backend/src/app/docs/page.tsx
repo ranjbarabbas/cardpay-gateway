@@ -27,7 +27,9 @@ import {
   FileCode,
   Sparkles,
   Key,
+  X,
 } from "lucide-react";
+import { APP_NAME, APP_VERSION } from "@/lib/version";
 
 interface EndpointDoc {
   id: string;
@@ -51,7 +53,7 @@ const ENDPOINTS: EndpointDoc[] = [
     category: "REST API Reference",
     method: "POST",
     path: "/api/v1/admin/cards",
-    title: "Register or Update Bank Card (Upsert)",
+    title: "ثبت کارت بانکی (Card Upsert)",
     badge: "Merchant & Artist Cards",
     description:
       "ثبت یا بروزرسانی یکتای کارت بانکی هنرمندان و کاربران. در صورتی که شماره کارت قبلاً وجود داشته باشد، اطلاعات به صورت امن بروزرسانی شده (Idempotent Upsert) و شناسه کارت (cardId) بازگردانده می‌شود. این شناسه را در دیتابیس سایت خود ذخیره کنید.",
@@ -132,7 +134,7 @@ const ENDPOINTS: EndpointDoc[] = [
     category: "REST API Reference",
     method: "POST",
     path: "/api/v1/payment/request",
-    title: "Request Payment Authority",
+    title: "درخواست لینک پرداخت (Payment Request)",
     badge: "Core Gateway",
     description:
       "ایجاد درخواست پرداخت جدید. این متد شناسه یکتای authority، شناسه پیگیری داخلی شمسی (PAY-YYYYMMDDXXXXXXXX) و مبلغ تفکیک‌شده با الگوریتم افست پویا (+11 تومان به بالا) را تولید کرده و لینک صفحه پرداخت را بازمی‌گرداند. می‌توانید کارت مشخص هنرمند را با ارسال cartId یا cardNumber تعیین کنید.",
@@ -218,7 +220,7 @@ const ENDPOINTS: EndpointDoc[] = [
     category: "REST API Reference",
     method: "GET",
     path: "/api/v1/payment/status/{identifier}",
-    title: "Check Real-Time Status or Inquire (By Authority or Tracking Code)",
+    title: "استعلام وضعیت تراکنش (Check Status)",
     badge: "Polling & Inquiry",
     description:
       "استعلام لحظه‌ای وضعیت یک تراکنش با ارسال شناسه authority (نظیر CPAY_...) یا کد رهگیری داخلی شمسی (نظیر PAY-14050817-XXXX). مناسب برای شرایط قطعی اینترنت، ابهام در پرداخت یا رهگیری دوره‌ای (Fallback Status Check).",
@@ -265,7 +267,7 @@ const ENDPOINTS: EndpointDoc[] = [
     category: "REST API Reference",
     method: "POST",
     path: "/api/v1/payment/verify",
-    title: "Verify & Settle Transaction (By Authority or Tracking Code)",
+    title: "تایید و تسویه فاکتور (Verify & Settle)",
     badge: "Merchant Settlement",
     description:
       "تایید نهایی و بررسی وریفای تراکنش در سمت بک‌اند سایت پذیرنده پس از بازگشت کاربر. این متد هم با ارسال authority و هم با ارسال trackingCode کار می‌کند.",
@@ -332,7 +334,7 @@ const ENDPOINTS: EndpointDoc[] = [
     category: "REST API Reference",
     method: "POST",
     path: "/api/v1/sms/receive",
-    title: "Ingest Bank SMS (Android Sync)",
+    title: "دریافت مستقیم پیامک بانکی (SMS Ingest)",
     badge: "Internal / Android App",
     description:
       "اندپوینت دریافت مستقیم پیامک بانکی از اپلیکیشن همراه اندروید (CardPay Sync). این اندپوینت متن پیامک را توسط پارسر هوشمند تجزیه کرده و در صورت وجود سرشماره تاییدشده، تراکنش متناظر را خودکار تسویه می‌کند.",
@@ -537,6 +539,13 @@ export default function DocsPage() {
               <kbd className="text-[10px] font-mono bg-slate-800 text-slate-400 px-2 py-1 rounded border border-slate-700">
                 ESC
               </kbd>
+              <button
+                onClick={() => setIsSearchOpen(false)}
+                className="p-1 hover:bg-slate-800 text-slate-400 hover:text-white rounded-lg transition"
+                title="بستن پنجره جستجو"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
             <div className="max-h-80 overflow-y-auto p-2 divide-y divide-slate-800/40">
               {filteredEndpoints.length === 0 ? (
@@ -584,11 +593,9 @@ export default function DocsPage() {
         <div className="max-w-[1600px] mx-auto px-6 h-full flex items-center justify-between">
           <div className="flex items-center gap-4">
             <Link href="/" className="flex items-center gap-2.5 group">
-              <div className="w-9 h-9 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/10 group-hover:scale-105 transition">
-                <Shield className="w-5 h-5" />
-              </div>
+              <img src="/images/honarhub_logo.png" alt={APP_NAME} className="w-9 h-9 rounded-xl shadow-lg shadow-emerald-500/10 object-cover group-hover:scale-105 transition" />
               <div className="flex items-center gap-2">
-                <span className="font-black text-base text-white tracking-tight">CardPay</span>
+                <span className="font-black text-base text-white tracking-tight">{APP_NAME}</span>
                 <span className="text-xs text-slate-400 font-medium">Docs</span>
               </div>
             </Link>
@@ -597,10 +604,10 @@ export default function DocsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
-                v1.2.0
+                v{APP_VERSION}
               </span>
               <span className="text-[11px] text-slate-400 hidden md:inline">
-                GitBook Style Developer Reference
+                مستندات تعاملی وب‌سرویس REST
               </span>
             </div>
           </div>
@@ -693,9 +700,9 @@ export default function DocsPage() {
                         : "text-slate-400 hover:text-white hover:bg-slate-900"
                     }`}
                   >
-                    <span className="truncate">{ep.title}</span>
+                    <span className="text-right leading-relaxed break-words text-[11px]">{ep.title}</span>
                     <span
-                      className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded ml-1 ${
+                      className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded ml-1 shrink-0 ${
                         ep.method === "POST"
                           ? "bg-emerald-500/20 text-emerald-400"
                           : "bg-sky-500/20 text-sky-400"
@@ -707,17 +714,6 @@ export default function DocsPage() {
                 );
               })}
             </div>
-          </div>
-
-          {/* Environment Config Info Card */}
-          <div className="mt-auto p-4 bg-slate-900/60 border border-slate-800 rounded-2xl space-y-2 text-right">
-            <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold">
-              <Lock className="w-3.5 h-3.5" />
-              <span>پیکربندی محیطی (EMAILS)</span>
-            </div>
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              ایمیل‌های مجاز ادمین از متغیر محیطی <code className="text-emerald-300 font-mono">EMAILS</code> خوانده می‌شوند.
-            </p>
           </div>
         </aside>
 
@@ -1004,7 +1000,7 @@ export default function DocsPage() {
                 href="/api/v1/download/apk"
                 className="flex items-center gap-2 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium px-4 py-2.5 rounded-xl transition"
               >
-                <span>دانلود از سرور محلی Gateway</span>
+                <span>دانلود از سایت هنرهاب پی</span>
               </Link>
             </div>
           </section>
@@ -1084,7 +1080,7 @@ export default function DocsPage() {
                 type="text"
                 value={playgroundApiKey}
                 onChange={(e) => setPlaygroundApiKey(e.target.value)}
-                placeholder="cp_sec_art_hub_2026_live (کلیک برای تایپ کلید دلخواه)"
+                placeholder="YOUR_X-API-KEY"
                 className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 font-mono text-xs text-emerald-300 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
                 dir="ltr"
               />

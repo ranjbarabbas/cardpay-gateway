@@ -295,7 +295,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/vazirmatn_medium"
-            android:text="نسخه ۱.۲.۰ • سامانه هنر هاب"
+            android:text="نسخه ۱.۳.۰ • سامانه هنرهاب پی"
             android:textColor="?attr/appTextMuted"
             android:textSize="12sp" />
     </LinearLayout>

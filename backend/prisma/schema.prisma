@@ -1,4 +1,4 @@
-// Prisma Schema for CardPay Automated P2P Gateway
+// Prisma Schema for HonarHub Pay (CardPay) Automated P2P Gateway
 
 generator client {
   provider = "prisma-client-js"
@@ -9,8 +9,42 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           String        @id @default(uuid())
+  phone        String?       @unique
+  email        String?       @unique
+  name         String?
+  role         String        @default("USER") // USER, ADMIN
+  plan         String        @default("FREE") // FREE, PREMIUM
+  apiKey       String        @unique @default(uuid())
+  isActive     Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  cards        BankCard[]
+  devices      Device[]
+  transactions Transaction[]
+
+  @@map("users")
+}
+
+model LeadRequest {
+  id        String   @id @default(uuid())
+  phone     String
+  name      String?
+  plan      String   @default("PREMIUM")
+  status    String   @default("PENDING") // PENDING, CONTACTED, ARCHIVED
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("lead_requests")
+}
+
 model Device {
   id            String               @id @default(uuid())
+  userId        String?
+  user          User?                @relation(fields: [userId], references: [id], onDelete: SetNull)
   name          String               // e.g. "Admin Mobile", "Artist #1 - Reza"
   apiKey        String               @unique // Bearer token for mobile app auth
   phoneModel    String?
@@ -40,6 +74,8 @@ model DeviceNotification {
 
 model BankCard {
   id            String        @id @default(uuid())
+  userId        String?
+  user          User?         @relation(fields: [userId], references: [id], onDelete: SetNull)
   deviceId      String?
   device        Device?       @relation(fields: [deviceId], references: [id], onDelete: SetNull)
   ownerName     String        // Cardholder name e.g. "Abbas Ranjbar"
@@ -79,6 +115,8 @@ model Transaction {
   id                   String             @id @default(uuid())
   authority            String             @unique // Unique payment authority token
   internalTrackingCode String?            @unique // Formatted as PAY-YYYYMMDDXXXXXXXX
+  userId               String?
+  user                 User?              @relation(fields: [userId], references: [id], onDelete: SetNull)
   cardId               String
   card                 BankCard           @relation(fields: [cardId], references: [id])
   originalAmountToman  BigInt             // Base amount requested (Toman)

@@ -33,15 +33,20 @@ import {
   Ban,
   Archive,
   RotateCcw,
+  Users,
+  LogOut,
 } from "lucide-react";
+import { APP_NAME, APP_VERSION } from "@/lib/version";
 
 export default function AdminDashboard() {
-  const [activeTab, setActiveTab] = useState<"cards" | "devices" | "trusted_senders" | "pending_senders" | "transactions" | "sms" | "tickets" | "sandbox">("cards");
+  const [activeTab, setActiveTab] = useState<"cards" | "devices" | "trusted_senders" | "pending_senders" | "transactions" | "sms" | "tickets" | "sandbox" | "users_leads">("cards");
   const [adminKey, setAdminKey] = useState("super-secret-admin-key-change-me");
 
   // State data
   const [cards, setCards] = useState<any[]>([]);
   const [devices, setDevices] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
   const [transactions, setTransactions] = useState<any[]>([]);
   const [smsLogs, setSmsLogs] = useState<any[]>([]);
   const [tickets, setTickets] = useState<any[]>([]);
@@ -52,6 +57,13 @@ export default function AdminDashboard() {
   const [cardSubTab, setCardSubTab] = useState<"active" | "archived">("active");
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
+  const [adminEmail, setAdminEmail] = useState<string | null>(null);
+
+  // Broadcast Notification Modal
+  const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
+  const [broadcastTitle, setBroadcastTitle] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [broadcastLoading, setBroadcastLoading] = useState(false);
 
   // New Card Form
   const [newCard, setNewCard] = useState({
@@ -95,6 +107,37 @@ export default function AdminDashboard() {
     setTimeout(() => setCopiedKey(null), 2000);
   };
 
+  const handleAdminLogout = async () => {
+    await fetch("/api/v1/auth/admin", { method: "DELETE" });
+    window.location.href = "/admin/login";
+  };
+
+  const handleBroadcastNotification = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!broadcastTitle || !broadcastMessage) return;
+    setBroadcastLoading(true);
+    try {
+      const res = await fetch("/api/v1/admin/devices/broadcast", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ title: broadcastTitle, message: broadcastMessage }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert(data.message || "نوتیفیکیشن همگانی با موفقیت ارسال گردید.");
+        setIsBroadcastOpen(false);
+        setBroadcastTitle("");
+        setBroadcastMessage("");
+      } else {
+        alert("خطا: " + (data.error || "مشکلی رخ داد"));
+      }
+    } catch (e: any) {
+      alert("خطای ارتباط با سرور: " + e.message);
+    } finally {
+      setBroadcastLoading(false);
+    }
+  };
+
   const loadData = async () => {
     setLoading(true);
     try {
@@ -116,6 +159,15 @@ export default function AdminDashboard() {
         const res = await fetch("/api/v1/admin/devices", { headers });
         const data = await res.json();
         if (data.success) setDevices(data.data);
+      } else if (activeTab === "users_leads") {
+        const [uRes, lRes] = await Promise.all([
+          fetch("/api/v1/admin/users", { headers }),
+          fetch("/api/v1/leads", { headers }),
+        ]);
+        const uData = await uRes.json();
+        const lData = await lRes.json();
+        if (uData.success) setUsers(uData.data);
+        if (lData.success) setLeads(lData.data);
       } else if (activeTab === "trusted_senders") {
         const [resApproved, resBlocked] = await Promise.all([
           fetch("/api/v1/admin/senders?status=APPROVED", { headers }),
@@ -147,6 +199,21 @@ export default function AdminDashboard() {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetch("/api/v1/auth/admin")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.authenticated) {
+          window.location.href = "/admin/login";
+        } else {
+          setAdminEmail(data.email);
+        }
+      })
+      .catch(() => {
+        window.location.href = "/admin/login";
+      });
+  }, []);
 
   useEffect(() => {
     loadData();
@@ -363,27 +430,43 @@ export default function AdminDashboard() {
         {/* Top Header Card */}
         <div className="bg-gradient-to-r from-slate-900 via-slate-900 to-slate-950 border border-slate-800/90 rounded-3xl p-6 shadow-xl flex flex-col lg:flex-row lg:items-center justify-between gap-6">
           <div className="flex items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-2xl flex items-center justify-center shadow-lg shadow-emerald-500/10">
-              <Shield className="w-7 h-7" />
-            </div>
+            <img src="/images/honarhub_logo.png" alt={APP_NAME} className="w-14 h-14 rounded-2xl shadow-lg shadow-emerald-500/10 object-cover" />
             <div>
               <div className="flex items-center gap-2">
-                <h1 className="text-xl md:text-2xl font-black text-white">سامانه هوشمند درگاه کارت‌به‌کارت</h1>
-                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
-                  نگارش ۲.۰ (امنیت دو‌مرحله‌ای)
+                <h1 className="text-xl md:text-2xl font-black text-white">{APP_NAME} • پنل مدیریت ارشد</h1>
+                <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2.5 py-0.5 rounded-full font-mono">
+                  v{APP_VERSION}
                 </span>
+                {adminEmail && (
+                  <span className="bg-slate-800 text-slate-300 text-[10px] font-mono px-2 py-0.5 rounded-md border border-slate-700">
+                    {adminEmail}
+                  </span>
+                )}
               </div>
-              <p className="text-slate-400 text-xs mt-1">مدیریت کارت‌ها، تایید سرخط‌های مجاز و پایش خودکار پیامک‌های بانکی</p>
+              <p className="text-slate-400 text-xs mt-1">مدیریت کارت‌ها، لیدهای پرمیوم، کاربران، تایید سرخط‌ها و پایش خودکار پیامک‌ها</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
+            {/* GitBook Test API Key Indicator */}
+            <div className="flex items-center gap-2 bg-slate-950 border border-emerald-500/30 rounded-xl px-3 py-2 text-xs">
+              <span className="text-[10px] text-slate-400">کلید تست GitBook:</span>
+              <code className="text-emerald-400 font-mono text-[11px]">cp_sec_art_hub_2026_live</code>
+              <button
+                onClick={() => copyToClipboard("cp_sec_art_hub_2026_live", "gitbook-key")}
+                className="text-slate-400 hover:text-white"
+                title="کپی کلید تست گیت‌بوک"
+              >
+                {copiedKey === "gitbook-key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
             <Link
               href="/docs"
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-bold px-3.5 py-2.5 rounded-xl transition border border-slate-700/80"
             >
               <BookOpen className="w-4 h-4 text-teal-400" />
-              <span>مستندات REST API</span>
+              <span>مستندات API</span>
             </Link>
 
             {/* APK Download Button */}
@@ -393,20 +476,17 @@ export default function AdminDashboard() {
               title="دانلود مستقیم فایل نصب اپلیکیشن اندروید (APK)"
             >
               <Download className="w-4 h-4" />
-              <span>دانلود اپ اندروید (APK)</span>
+              <span>دانلود اپ اندروید</span>
             </a>
 
-            {/* Admin Key */}
-            <div className="flex items-center gap-2 bg-slate-950/80 border border-slate-800 rounded-xl px-3 py-2 text-xs">
-              <Key className="w-3.5 h-3.5 text-emerald-400" />
-              <input
-                type="password"
-                value={adminKey}
-                onChange={(e) => setAdminKey(e.target.value)}
-                placeholder="کلید ادمین"
-                className="bg-transparent border-none text-slate-300 focus:outline-none font-mono text-xs w-32"
-              />
-            </div>
+            <button
+              onClick={handleAdminLogout}
+              className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold px-3 py-2.5 rounded-xl transition"
+              title="خروج از حساب مدیریت"
+            >
+              <LogOut className="w-4 h-4" />
+              <span>خروج</span>
+            </button>
 
             <button
               onClick={loadData}
@@ -422,10 +502,11 @@ export default function AdminDashboard() {
         <div className="flex overflow-x-auto gap-2 border-b border-slate-800/80 pb-3 text-sm no-scrollbar">
           {[
             { id: "cards", label: "کارت‌ها و حساب‌ها", icon: CreditCard, count: cards.length },
+            { id: "users_leads", label: "کاربران و لیدهای پرمیوم", icon: Users, count: users.length + leads.length, highlight: leads.length > 0 },
             { id: "devices", label: "دستگاه‌های اندروید و پوش‌نوتیف", icon: Smartphone, count: devices.length },
             { id: "trusted_senders", label: "سرشماره‌های تایید شده", icon: ShieldCheck, count: approvedSenders.length },
             { id: "pending_senders", label: "سرشماره‌های در حال بررسی", icon: ShieldAlert, count: pendingSenders.length, alert: pendingSenders.length > 0 },
-            { id: "sandbox", label: "لابراتوار تست ریل‌تایم (Sandbox)", icon: FlaskConical, highlight: true },
+            { id: "sandbox", label: "لابراتوار تست ریل‌تایم (Sandbox)", icon: FlaskConical },
             { id: "transactions", label: "تراکنش‌ها", icon: Receipt, count: transactions.length },
             { id: "sms", label: "لاگ پیامک‌های خام", icon: MessageSquare, count: smsLogs.length },
             { id: "tickets", label: "مغایرت‌ها", icon: AlertCircle, count: tickets.length },
@@ -717,7 +798,31 @@ export default function AdminDashboard() {
 
         {/* Tab 2: Devices & Push Notifications */}
         {activeTab === "devices" && (
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="space-y-4">
+            {/* Broadcast Notification Banner */}
+            <div className="bg-gradient-to-r from-teal-950/40 via-slate-900 to-emerald-950/40 border border-teal-500/30 rounded-3xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-400 flex items-center justify-center border border-teal-500/20">
+                  <Bell className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">ارسال اعلان همگانی (Broadcast Push Notification)</h3>
+                  <p className="text-xs text-slate-400">
+                    ارسال همزمان پیام هشدار یا تست به تمامی {devices.length} گوشی همراه متصل به سامانه
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsBroadcastOpen(true)}
+                className="bg-teal-600 hover:bg-teal-500 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition shadow-lg shadow-teal-600/20 flex items-center gap-2"
+              >
+                <Bell className="w-3.5 h-3.5" />
+                <span>ارسال اعلان به تمام دستگاه‌ها</span>
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-1 bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
               <h2 className="text-base font-bold text-white flex items-center gap-2">
                 <Plus className="w-5 h-5 text-emerald-400" />
@@ -793,9 +898,10 @@ export default function AdminDashboard() {
               ))}
             </div>
           </div>
+        </div>
         )}
 
-        {/* Modal: Send Push Notification */}
+        {/* Modal: Send Push Notification (Single Device) */}
         {notifyDeviceId && (
           <div className="fixed inset-0 bg-black/70 backdrop-blur-sm flex items-center justify-center p-4 z-50">
             <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full space-y-4 shadow-2xl">
@@ -844,6 +950,66 @@ export default function AdminDashboard() {
                     className="bg-teal-600 hover:bg-teal-500 text-white font-bold px-4 py-2 rounded-xl text-xs transition"
                   >
                     {notifyLoading ? "در حال ارسال..." : "ارسال نوتیفیکیشن"}
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* Modal: Broadcast Push Notification (All Devices) */}
+        {isBroadcastOpen && (
+          <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+            <div className="bg-slate-900 border border-teal-500/40 rounded-3xl p-6 max-w-lg w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                <div className="flex items-center gap-2">
+                  <Bell className="w-5 h-5 text-teal-400" />
+                  <h3 className="font-bold text-white text-sm">ارسال اعلان همگانی (Broadcast) به تمام دستگاه‌ها</h3>
+                </div>
+                <button onClick={() => setIsBroadcastOpen(false)} className="text-slate-400 hover:text-white">✕</button>
+              </div>
+
+              <div className="bg-teal-950/30 border border-teal-500/20 p-3 rounded-xl text-xs text-teal-300">
+                این پیام به صورت آنی به تمامی {devices.length} دستگاه فعال متصل به سامانه فرستاده می‌شود.
+              </div>
+
+              <form onSubmit={handleBroadcastNotification} className="space-y-3 text-xs">
+                <div>
+                  <label className="block text-slate-400 mb-1">عنوان اعلان عمومی:</label>
+                  <input
+                    type="text"
+                    required
+                    value={broadcastTitle}
+                    onChange={(e) => setBroadcastTitle(e.target.value)}
+                    placeholder="مثال: پیام مهم ادمین / بروزرسانی درگاه"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:border-teal-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-slate-400 mb-1">متن پیام:</label>
+                  <textarea
+                    rows={3}
+                    required
+                    value={broadcastMessage}
+                    onChange={(e) => setBroadcastMessage(e.target.value)}
+                    placeholder="متن پیام برای تمام پذیرندگان..."
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:border-teal-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex justify-end gap-2 pt-2">
+                  <button
+                    type="button"
+                    onClick={() => setIsBroadcastOpen(false)}
+                    className="bg-slate-800 text-slate-300 px-4 py-2 rounded-xl text-xs"
+                  >
+                    انصراف
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={broadcastLoading}
+                    className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold px-6 py-2 rounded-xl text-xs transition shadow-lg shadow-teal-600/25"
+                  >
+                    {broadcastLoading ? "در حال ارسال همگانی..." : "ارسال به تمام دستگاه‌ها"}
                   </button>
                 </div>
               </form>
@@ -1209,6 +1375,137 @@ export default function AdminDashboard() {
                   </div>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {/* Tab: Users & Premium Leads */}
+        {activeTab === "users_leads" && (
+          <div className="space-y-6">
+            {/* Section 1: Incoming Premium Leads */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                    <Sparkles className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white">درخواست‌های تماس پلن پرمیوم (Leads)</h2>
+                    <p className="text-xs text-slate-400">مشتریانی که شماره خود را در صفحه اصلی جهت دریافت پلن نامحدود ثبت کرده‌اند</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30 px-3 py-1 rounded-full">
+                  {leads.length} درخواست ثبت‌شده
+                </span>
+              </div>
+
+              {leads.length === 0 ? (
+                <div className="border border-dashed border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-500">
+                  هنوز درخواست تماسی برای پلن پرمیوم ثبت نشده است.
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {leads.map((lead) => (
+                    <div key={lead.id} className="bg-slate-950 border border-slate-800 hover:border-amber-500/40 rounded-2xl p-4 space-y-3 transition">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-base font-bold text-emerald-400">{lead.phone}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                          {lead.status === "PENDING" ? "در انتظار تماس" : lead.status}
+                        </span>
+                      </div>
+                      <div className="text-xs text-slate-300">
+                        <span>نام / عنوان: </span>
+                        <span className="font-bold text-white">{lead.name || "مشخص نشده"}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800">
+                        <span>{new Date(lead.createdAt).toLocaleDateString("fa-IR")}</span>
+                        <a
+                          href={`tel:${lead.phone}`}
+                          className="text-teal-400 hover:text-teal-300 font-bold"
+                        >
+                          تماس فوری با مشتری
+                        </a>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Section 2: Registered Portal Users */}
+            <div className="bg-slate-900 border border-slate-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between flex-wrap gap-2">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20">
+                    <Users className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-base font-bold text-white">پذیرندگان و کاربران ثبت‌نامی پرتال</h2>
+                    <p className="text-xs text-slate-400">کاربرانی که با شماره موبایل یا ایمیل در سامانه عضو شده‌اند</p>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-3 py-1 rounded-full">
+                  {users.length} کاربر فعال
+                </span>
+              </div>
+
+              {users.length === 0 ? (
+                <div className="border border-dashed border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-500">
+                  هنوز کاربری در پرتال ثبت‌نام نکرده است.
+                </div>
+              ) : (
+                <div className="border border-slate-800 rounded-2xl overflow-x-auto">
+                  <table className="w-full text-right text-xs">
+                    <thead className="bg-slate-950 text-slate-400 border-b border-slate-800">
+                      <tr>
+                        <th className="p-3.5">نام / عنوان پذیرنده</th>
+                        <th className="p-3.5">شماره تماس / ایمیل</th>
+                        <th className="p-3.5">پلن تعرفه</th>
+                        <th className="p-3.5">کارت‌های فعال</th>
+                        <th className="p-3.5">دستگاه‌های متصل</th>
+                        <th className="p-3.5">تعداد تراکنش</th>
+                        <th className="p-3.5">کلید وب‌سرویس اختصاصی (x-api-key)</th>
+                        <th className="p-3.5">تاریخ عضویت</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-800/60">
+                      {users.map((u) => (
+                        <tr key={u.id} className="hover:bg-slate-950/40 transition">
+                          <td className="p-3.5 font-bold text-white">{u.name || "کاربر هنرهاب"}</td>
+                          <td className="p-3.5 font-mono text-slate-300">{u.phone || u.email || "-"}</td>
+                          <td className="p-3.5">
+                            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                              u.plan === "PREMIUM"
+                                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                                : "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                            }`}>
+                              {u.plan === "PREMIUM" ? "پرمیوم نامحدود" : "پلن رایگان"}
+                            </span>
+                          </td>
+                          <td className="p-3.5 font-mono text-slate-300">{u.activeCardsCount} / ۱</td>
+                          <td className="p-3.5 font-mono text-slate-300">{u.devicesCount} / ۱</td>
+                          <td className="p-3.5 font-mono text-teal-400 font-bold">{u.transactionsCount || 0}</td>
+                          <td className="p-3.5">
+                            <div className="flex items-center gap-1.5 font-mono text-[11px] text-emerald-400 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+                              <span className="truncate max-w-[140px]">{u.apiKey}</span>
+                              <button
+                                onClick={() => copyToClipboard(u.apiKey, `u-key-${u.id}`)}
+                                className="text-slate-400 hover:text-white"
+                                title="کپی کلید API کاربر"
+                              >
+                                {copiedKey === `u-key-${u.id}` ? <Check className="w-3 h-3 text-emerald-400" /> : <Copy className="w-3 h-3" />}
+                              </button>
+                            </div>
+                          </td>
+                          <td className="p-3.5 text-slate-400 text-[11px]">
+                            {new Date(u.createdAt).toLocaleDateString("fa-IR")}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
           </div>
         )}
