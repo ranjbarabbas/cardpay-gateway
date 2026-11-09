@@ -1,22 +1,15 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useEffect } from "react";
 import {
-  Play,
   CheckCircle2,
   Smartphone,
   CreditCard,
   Send,
   Sparkles,
-  ArrowRight,
-  ShieldCheck,
-  RefreshCw,
-  Wifi,
-  Lock,
 } from "lucide-react";
 
 export default function InteractivePaymentSimulator() {
-  const [isSimulating, setIsSimulating] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [currentScene, setCurrentScene] = useState(1);
   const [amountText, setAmountText] = useState("");
@@ -30,89 +23,109 @@ export default function InteractivePaymentSimulator() {
   const [smsNotificationShown, setSmsNotificationShown] = useState(false);
   const [signalShooting, setSignalShooting] = useState(false);
   const [gatewaySuccess, setGatewaySuccess] = useState(false);
-  const [btnText, setBtnText] = useState("اجرای شبیه‌سازی زنده");
 
   const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-  const startSimulation = async () => {
-    if (isSimulating) return;
-    setIsSimulating(true);
-    setBtnText("در حال شبیه‌سازی...");
+  useEffect(() => {
+    let isCancelled = false;
 
-    // 0. Reset all states
-    setAmountText("");
-    setSubmitBtnPressed(false);
-    setPanelSuccess(false);
-    setCustomerPhoneShown(false);
-    setPhonePayPressed(false);
-    setPhonePaymentSuccess(false);
-    setActivePhone("customer");
-    setSyncPhoneShown(false);
-    setSmsNotificationShown(false);
-    setSignalShooting(false);
-    setGatewaySuccess(false);
+    const runSimulationLoop = async () => {
+      // Small initial delay on first mount
+      await sleep(400);
 
-    // مرحله ۱: تولید فاکتور با آفست در پنل فروشنده
-    setCurrentStep(1);
-    setCurrentScene(1);
-    await sleep(600);
+      while (!isCancelled) {
+        // 0. Reset all states for new loop iteration
+        setAmountText("");
+        setSubmitBtnPressed(false);
+        setPanelSuccess(false);
+        setCustomerPhoneShown(false);
+        setPhonePayPressed(false);
+        setPhonePaymentSuccess(false);
+        setActivePhone("customer");
+        setSyncPhoneShown(false);
+        setSmsNotificationShown(false);
+        setSignalShooting(false);
+        setGatewaySuccess(false);
 
-    // Typing effect for 100,000 Toman
-    const textToType = "۱۰۰۰۰۰";
-    let typed = "";
-    for (let i = 0; i < textToType.length; i++) {
-      typed += textToType[i];
-      setAmountText(typed);
-      await sleep(120);
-    }
-    await sleep(400);
+        // مرحله ۱: تولید فاکتور با آفست در پنل فروشنده
+        setCurrentStep(1);
+        setCurrentScene(1);
+        await sleep(600);
+        if (isCancelled) break;
 
-    // Simulate clicking submit button
-    setSubmitBtnPressed(true);
-    await sleep(150);
-    setSubmitBtnPressed(false);
-    setPanelSuccess(true);
-    await sleep(1800);
+        // Typing effect for 100,000 Toman
+        const textToType = "۱۰۰۰۰۰";
+        let typed = "";
+        for (let i = 0; i < textToType.length; i++) {
+          if (isCancelled) break;
+          typed += textToType[i];
+          setAmountText(typed);
+          await sleep(120);
+        }
+        await sleep(400);
+        if (isCancelled) break;
 
-    // مرحله ۲: پرداخت مشتری در درگاه و موبایل‌بانک
-    setCurrentStep(2);
-    setCurrentScene(2);
-    await sleep(700);
-    setCustomerPhoneShown(true);
-    await sleep(2200);
+        // Click submit button
+        setSubmitBtnPressed(true);
+        await sleep(180);
+        setSubmitBtnPressed(false);
+        setPanelSuccess(true);
+        await sleep(2000);
+        if (isCancelled) break;
 
-    // Click pay in customer phone
-    setPhonePayPressed(true);
-    await sleep(180);
-    setPhonePayPressed(false);
-    setPhonePaymentSuccess(true);
-    await sleep(2400);
+        // مرحله ۲: پرداخت مشتری در درگاه و موبایل‌بانک
+        setCurrentStep(2);
+        setCurrentScene(2);
+        await sleep(700);
+        setCustomerPhoneShown(true);
+        await sleep(2200);
+        if (isCancelled) break;
 
-    // مرحله ۳: دریافت پیامک توسط اپلیکیشن همگام‌ساز و تایید
-    setCurrentStep(3);
-    setActivePhone("sync");
-    await sleep(80);
-    setSyncPhoneShown(true);
-    await sleep(1400);
-    setSmsNotificationShown(true);
-    await sleep(2400);
+        // Click pay in customer phone
+        setPhonePayPressed(true);
+        await sleep(180);
+        setPhonePayPressed(false);
+        setPhonePaymentSuccess(true);
+        await sleep(2400);
+        if (isCancelled) break;
 
-    // Shoot confirmation signal to gateway
-    setSignalShooting(true);
-    await sleep(800);
-    setGatewaySuccess(true);
-    await sleep(2800);
+        // مرحله ۳: دریافت پیامک توسط اپلیکیشن همگام‌ساز و تایید
+        setCurrentStep(3);
+        setActivePhone("sync");
+        await sleep(80);
+        setSyncPhoneShown(true);
+        await sleep(1400);
+        if (isCancelled) break;
 
-    // مرحله ۴: بازگشت به سایت پذیرنده و ثبت موفق
-    setCurrentStep(4);
-    setSignalShooting(false);
-    setCurrentScene(3);
-    await sleep(2200);
+        setSmsNotificationShown(true);
+        await sleep(2400);
+        if (isCancelled) break;
 
-    // Finish simulation
-    setIsSimulating(false);
-    setBtnText("اجرای مجدد شبیه‌سازی");
-  };
+        // Shoot confirmation signal to gateway
+        setSignalShooting(true);
+        await sleep(800);
+        setGatewaySuccess(true);
+        await sleep(2800);
+        if (isCancelled) break;
+
+        // مرحله ۴: بازگشت به سایت پذیرنده و نمایش وضعیت موفق
+        setCurrentStep(4);
+        setSignalShooting(false);
+        setCurrentScene(3);
+        await sleep(3500);
+        if (isCancelled) break;
+
+        // Small pause before repeating
+        await sleep(1000);
+      }
+    };
+
+    runSimulationLoop();
+
+    return () => {
+      isCancelled = true;
+    };
+  }, []);
 
   return (
     <div className="w-full bg-[#0B0F17]/95 border border-slate-800 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-xl relative overflow-hidden font-sans">
@@ -144,23 +157,14 @@ export default function InteractivePaymentSimulator() {
           </h2>
         </div>
 
-        <button
-          onClick={startSimulation}
-          disabled={isSimulating}
-          className="flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-400 hover:to-emerald-400 disabled:opacity-50 text-slate-950 text-xs font-black px-6 py-3 rounded-xl transition shadow-lg shadow-teal-500/20 shrink-0"
-        >
-          {isSimulating ? (
-            <>
-              <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
-              <span>{btnText}</span>
-            </>
-          ) : (
-            <>
-              <Play className="w-4 h-4 fill-current text-slate-950" />
-              <span>{btnText}</span>
-            </>
-          )}
-        </button>
+        {/* Live Automatic Indicator */}
+        <div className="flex items-center gap-2.5 bg-emerald-500/10 border border-emerald-500/20 px-4 py-2.5 rounded-2xl text-emerald-300 text-xs font-bold shrink-0 shadow-lg shadow-emerald-500/10">
+          <span className="relative flex h-2.5 w-2.5">
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+            <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+          </span>
+          <span>شبیه‌ساز خودکار و پیوسته</span>
+        </div>
       </div>
 
       {/* Main Grid: Steps on right, Stage on left */}
