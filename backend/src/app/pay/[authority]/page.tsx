@@ -16,6 +16,7 @@ import {
   CheckCircle2,
   Lock,
 } from "lucide-react";
+import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
 
 export const dynamic = "force-dynamic";
 
@@ -114,14 +115,11 @@ function CheckoutContent({ authority }: { authority: string }) {
     }
   };
 
-  const formatCardNumber = (num: string) => {
-    return num.replace(/(\d{4})/g, "$1 ").trim();
-  };
-
   const formatTime = (secs: number) => {
     const m = Math.floor(secs / 60);
     const s = secs % 60;
-    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    const formatted = `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+    return toPersianDigits(formatted);
   };
 
   // Simulate deposit directly for testing
@@ -224,12 +222,12 @@ ${details.payableAmountRial.toLocaleString()}+
             {details.trackingCode && (
               <div className="flex justify-between items-center text-slate-400">
                 <span>کد پیگیری بانکی:</span>
-                <span className="font-mono text-emerald-400 font-bold">{details.trackingCode}</span>
+                <span className="font-mono text-emerald-400 font-bold">{toPersianDigits(details.trackingCode)}</span>
               </div>
             )}
             <div className="flex justify-between items-center text-slate-400 border-t border-slate-800/80 pt-2">
               <span>مبلغ تایید شده:</span>
-              <span className="font-black text-white text-sm">{details.payableAmountToman.toLocaleString()} تومان</span>
+              <span className="font-black text-white text-sm">{formatPersianNumber(details.payableAmountToman)} تومان</span>
             </div>
           </div>
 
@@ -260,9 +258,9 @@ ${details.payableAmountRial.toLocaleString()}+
             <Clock className="w-10 h-10" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-amber-300">مهلت ۱۰ دقیقه‌ای به پایان رسید</h1>
+            <h1 className="text-xl font-bold text-amber-300">مهلت {toPersianDigits(10)} دقیقه‌ای به پایان رسید</h1>
             <p className="text-slate-400 text-xs mt-2 leading-relaxed">
-              جهت حفظ امنیت و تخصیص دقیق مبالغ، لینک‌های پرداخت ۱۰ دقیقه اعتبار دارند. در صورتی که وجهی واریز نکرده‌اید لطفاً مجدداً از سبد خرید اقدام فرمایید.
+              جهت حفظ امنیت و تخصیص دقیق مبالغ، لینک‌های پرداخت {toPersianDigits(10)} دقیقه اعتبار دارند. در صورتی که وجهی واریز نکرده‌اید لطفاً مجدداً از سبد خرید اقدام فرمایید.
             </p>
           </div>
           <a
@@ -279,6 +277,9 @@ ${details.payableAmountRial.toLocaleString()}+
 
   // 3. Active Checkout State
   const timerPercentage = Math.max(0, Math.min(100, (secondsLeft / 600) * 100));
+
+  // Extract clean 4-digit groups of card number
+  const cardChunks = details.card.cardNumber.replace(/[^0-9]/g, "").match(/.{1,4}/g) || [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
@@ -325,34 +326,41 @@ ${details.payableAmountRial.toLocaleString()}+
               <span>مبلغ دقیق پرداختی با شناسه یکتا</span>
               {details.offsetToman > 0 && (
                 <span className="bg-emerald-600 text-white px-1.5 py-0.2 rounded-full font-mono text-[10px]">
-                  +{details.offsetToman} ت
+                  +{toPersianDigits(details.offsetToman)} ت
                 </span>
               )}
             </div>
 
-            <div className="flex items-baseline justify-center gap-2">
+            <div className="flex items-center justify-center gap-2">
               <span className="text-3xl font-black text-white tracking-tight">
-                {details.payableAmountToman.toLocaleString()}
+                {formatPersianNumber(details.payableAmountToman)}
               </span>
               <span className="text-sm font-bold text-emerald-400">تومان</span>
+
+              {/* Copy Rial Amount Button directly beside the amount */}
+              <button
+                onClick={() => copyToClipboard(details.payableAmountRial.toString(), "amount")}
+                className="p-1.5 bg-emerald-900/40 hover:bg-emerald-800/70 border border-emerald-700/50 text-emerald-300 hover:text-white rounded-xl transition duration-200 shadow-sm mr-1"
+                title="کپی مبلغ دقیق به ریال"
+              >
+                {copiedAmount ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+              </button>
             </div>
 
-            <div className="text-xs text-slate-400 font-mono">
-              معادل <strong className="text-slate-200">{details.payableAmountRial.toLocaleString()}</strong> ریال
+            <div className="text-xs text-slate-400">
+              معادل <strong className="text-slate-200 font-bold">{formatPersianNumber(details.payableAmountRial)}</strong> ریال
             </div>
 
-            <button
-              onClick={() => copyToClipboard(details.payableAmountToman.toString(), "amount")}
-              className="mt-1 inline-flex items-center gap-1.5 text-xs text-emerald-300 hover:text-white bg-emerald-900/40 hover:bg-emerald-900/80 border border-emerald-700/50 px-3.5 py-1.5 rounded-xl transition duration-200 shadow-sm"
-            >
-              {copiedAmount ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              <span>{copiedAmount ? "مبلغ کپی شد" : "کپی دقیق مبلغ"}</span>
-            </button>
+            {copiedAmount && (
+              <p className="text-[11px] text-emerald-400 font-medium animate-in fade-in duration-150">
+                مبلغ به ریال ({formatPersianNumber(details.payableAmountRial)} ریال) کپی گردید
+              </p>
+            )}
           </div>
 
-          {/* Critical Warning Callout */}
-          <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3.5 flex gap-3 text-xs text-amber-200/90 leading-relaxed">
-            <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+          {/* Critical Warning Callout - RED Alert as requested */}
+          <div className="bg-rose-500/10 border border-rose-500/30 rounded-2xl p-3.5 flex gap-3 text-xs text-rose-200/90 leading-relaxed">
+            <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
             <p>
               <strong>توجه بسیار مهم:</strong> لطفاً <u>دقیقاً مبلغ فوق</u> را واریز نمایید. هرگونه تغییر در مبلغ مانع از تایید اتوماتیک پرداخت توسط سامانه هوشمند پیامکی خواهد شد.
             </p>
@@ -379,19 +387,25 @@ ${details.payableAmountRial.toLocaleString()}+
                 <div className="w-7 h-5 border border-amber-800/40 rounded-sm"></div>
               </div>
 
-              {/* Card Number */}
+              {/* Card Number - Right Aligned with accurate Persian Digits and LTR block progression */}
               <div className="space-y-1 relative z-10">
                 <div className="flex items-center justify-between bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3">
-                  <span className="font-mono text-base md:text-lg font-bold tracking-widest text-emerald-300 dir-ltr select-all">
-                    {formatCardNumber(details.card.cardNumber)}
-                  </span>
                   <button
                     onClick={() => copyToClipboard(details.card.cardNumber, "card")}
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition"
-                    title="کپی شماره کارت"
+                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition shrink-0"
+                    title="کپی شماره ۱۶ رقمی کارت"
                   >
                     {copiedCard ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
                   </button>
+
+                  {/* Render 4 groups from left-to-right in Persian digits with right alignment */}
+                  <div dir="ltr" className="flex items-center gap-2 md:gap-3 text-base md:text-lg font-bold tracking-wider text-emerald-300 font-mono">
+                    {cardChunks.map((chunk, idx) => (
+                      <span key={idx} className="select-all">
+                        {toPersianDigits(chunk)}
+                      </span>
+                    ))}
+                  </div>
                 </div>
               </div>
 
@@ -403,10 +417,15 @@ ${details.payableAmountRial.toLocaleString()}+
             </div>
           </div>
 
-          {/* Live Polling Status Indicator */}
-          <div className="bg-slate-950/60 border border-slate-800/60 rounded-2xl p-3 flex items-center justify-center gap-2.5 text-xs text-slate-400">
-            <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
-            <span>سیستم در انتظار دریافت تاییدیه واریز از بانک است...</span>
+          {/* Live Polling Status Indicator with confirmation note */}
+          <div className="bg-slate-950/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 text-xs text-slate-400 text-center">
+            <div className="flex items-center gap-2 text-slate-300 font-medium">
+              <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></div>
+              <span>سیستم در انتظار دریافت تاییدیه واریز از بانک است...</span>
+            </div>
+            <p className="text-[11px] text-emerald-400 font-medium">
+              بعد از پرداخت به صورت خودکار تراکنش تایید خواهد شد.
+            </p>
           </div>
         </div>
 

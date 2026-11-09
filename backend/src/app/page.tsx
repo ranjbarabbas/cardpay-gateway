@@ -130,10 +130,8 @@ export default function Home() {
           </div>
 
           <nav className="hidden md:flex items-center gap-6 text-xs text-slate-400 font-medium">
-            <a href="#plans" className="text-emerald-400 font-bold hover:text-white transition">پلن‌های تعرفه</a>
-            <a href="#features" className="hover:text-white transition">ویژگی‌ها</a>
-            <a href="#simulator" className="hover:text-white transition">شبیه‌ساز پرداخت</a>
-            <a href="#android" className="hover:text-white transition">دانلود اپلیکیشن</a>
+            <a href="#plans" className="text-emerald-400 font-bold hover:text-white transition">پلن‌ها</a>
+            <a href="#simulator" className="hover:text-white transition">نحوه کار سامانه</a>
             <a href="#faq" className="hover:text-white transition">پرسش‌های متداول</a>
           </nav>
 
@@ -211,45 +209,44 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
             {/* Plan 1: Free Forever */}
-            <div className="bg-[#0F172A]/90 border border-slate-800 hover:border-emerald-500/40 rounded-3xl p-6 md:p-8 space-y-6 flex flex-col justify-between transition shadow-xl relative overflow-hidden group">
+            <div className="bg-[#0F172A]/90 border border-slate-800 hover:border-emerald-500/40 rounded-3xl p-6 md:p-8 flex flex-col justify-between transition shadow-xl relative overflow-hidden group">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="h-8 flex items-center justify-between">
                   <span className="text-xs font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1 rounded-full">
                     شروع سریع
                   </span>
                   <span className="text-xs font-mono text-slate-500">Free Tier</span>
                 </div>
 
-                <div>
-                  <h3 className="text-xl font-black text-white">پلن پایه (همیشگی رایگان)</h3>
-                  <div className="flex items-baseline gap-1 mt-2">
-                    <span className="text-3xl font-black text-white">۰</span>
-                    <span className="text-xs text-slate-400">تومان / همیشگی</span>
-                  </div>
+                <div className="h-10 flex items-center">
+                  <h3 className="text-xl font-black text-white">پلن پایه (همیشه رایگان)</h3>
                 </div>
 
-                <p className="text-xs text-slate-400 leading-relaxed">
-                  ایده‌آل برای فریلنسرها، استارتاپ‌ها، کانال‌های فروشگاهی و کاربران با تراکنش‌های روزمره.
-                </p>
+                <div className="h-14 flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-white">۰</span>
+                  <span className="text-xs text-slate-400">تومان / همیشگی</span>
+                </div>
 
-                <ul className="space-y-3 text-xs text-slate-300 pt-2 border-t border-slate-800">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>دسترسی به پنل کاربری اختصاصی با کاربری آسان</span>
-                  </li>
+                <div className="h-12 flex items-center">
+                  <p className="text-xs text-slate-400 leading-relaxed">
+                    ایده‌آل برای فریلنسرها، استارتاپ‌ها، کانال‌های فروشگاهی و کاربران با تراکنش‌های روزمره.
+                  </p>
+                </div>
+
+                <ul className="space-y-3 text-xs text-slate-300 pt-3 border-t border-slate-800 min-h-[210px] flex flex-col justify-between">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
                     <span><strong>۱ کارت بانکی فعال</strong> (واریز مستقیم و آنی)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span><strong>سقف ۱۰ تراکنش روزانه</strong> درگاه</span>
+                    <span>امکان اتصال ۱ دستگاه تلفن همراه به سامانه</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                    <span>۱ دستگاه گوشی همراه متصل به اپلیکیشن همگام‌ساز</span>
+                    <span><strong>سقف ۱۰ تراکنش روزانه</strong> درگاه</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -262,97 +259,111 @@ export default function Home() {
                 </ul>
               </div>
 
-              <Link
-                href="/login"
-                className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition text-center text-xs shadow-lg shadow-emerald-600/20 block"
-              >
-                شروع رایگان و ورود به پنل
-              </Link>
+              <div className="pt-6">
+                <Link
+                  href="/login"
+                  className="w-full bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3.5 rounded-xl transition text-center text-xs shadow-lg shadow-emerald-600/20 block"
+                >
+                  شروع رایگان و ورود به پنل
+                </Link>
+              </div>
             </div>
 
-            {/* Plan 2: Middle Pro Plan */}
-            <div className="bg-gradient-to-b from-[#132035] via-[#0F172A] to-[#0F172A] border-2 border-teal-500/50 hover:border-teal-400 rounded-3xl p-6 md:p-8 space-y-6 flex flex-col justify-between transition shadow-2xl relative overflow-hidden group">
+            {/* Plan 2: Pro Plan */}
+            <div className="bg-gradient-to-b from-[#132035] via-[#0F172A] to-[#0F172A] border-2 border-teal-500/50 hover:border-teal-400 rounded-3xl p-6 md:p-8 flex flex-col justify-between transition shadow-2xl relative overflow-hidden group">
               <div className="absolute top-0 left-0 bg-gradient-to-r from-teal-400 to-emerald-400 text-slate-950 text-[10px] font-black px-3.5 py-1 rounded-br-2xl shadow">
                 محبوب‌ترین انتخاب
               </div>
 
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="h-8 flex items-center justify-between">
                   <span className="text-xs font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 px-3 py-1 rounded-full">
                     کسب‌وکارهای فعال
                   </span>
                   <span className="text-xs font-mono text-slate-400">Pro Tier</span>
                 </div>
 
-                <div>
-                  <h3 className="text-xl font-black text-white">پلن حرفه‌ای (میانی)</h3>
-                  <div className="flex items-baseline gap-1 mt-2">
-                    <span className="text-3xl font-black text-teal-300">۴۹۹,۰۰۰</span>
-                    <span className="text-xs text-slate-400">تومان / ماهانه</span>
-                  </div>
+                <div className="h-10 flex items-center">
+                  <h3 className="text-xl font-black text-white">پلن حرفه‌ای</h3>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  طراحی شده برای فروشگاه‌های در حال رشد، مارکت‌های آنلاین و مدیرانی که نیازمند چند کارت بانکی همزمان هستند.
-                </p>
+                <div className="h-14 flex items-baseline gap-1">
+                  <span className="text-3xl font-black text-teal-300">۴۹۹,۰۰۰</span>
+                  <span className="text-xs text-slate-400">تومان / ماهانه</span>
+                </div>
 
-                <ul className="space-y-3 text-xs text-slate-200 pt-2 border-t border-slate-800">
+                <div className="h-12 flex items-center">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    طراحی شده برای فروشگاه‌های در حال رشد، مارکت‌های آنلاین و مدیرانی که نیازمند چند کارت هستند.
+                  </p>
+                </div>
+
+                <ul className="space-y-3 text-xs text-slate-200 pt-3 border-t border-slate-800 min-h-[210px] flex flex-col justify-between">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
                     <span><strong>تا ۵ کارت بانکی مجزا</strong> به صورت همزمان</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                    <span><strong>۱۰۰ تراکنش به ازای هر کارت</strong> (مجموعاً ۵۰۰ تراکنش ماهانه)</span>
+                    <span>امکان اتصال ۵ دستگاه تلفن همراه به سامانه</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                    <span>اتصال تا ۵ گوشی همراه همگام‌ساز پیامک</span>
+                    <span><strong>۱۰۰ تراکنش به ازای هر کارت</strong> (مجموعاً ۵۰۰ ماهانه)</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
                     <span>وب‌هوک‌های تسویه آنی و وب‌سرویس بدون وقفه</span>
                   </li>
-                  <li className="flex items-center gap-2">
+                  <li className="flex items-center gap-2 text-teal-300 font-bold">
                     <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                    <span>پشتیبانی اولویت‌دار تیکت و آنلاین</span>
+                    <span>کارمزد تراکنش: ۰ درصد (کاملاً رایگان)</span>
                   </li>
                 </ul>
               </div>
 
-              <Link
-                href="/login"
-                className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3.5 rounded-xl transition text-center text-xs shadow-lg shadow-teal-600/20 block"
-              >
-                انتخاب پلن حرفه‌ای
-              </Link>
+              <div className="pt-6">
+                <Link
+                  href="/login"
+                  className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3.5 rounded-xl transition text-center text-xs shadow-lg shadow-teal-600/20 block"
+                >
+                  انتخاب پلن حرفه‌ای
+                </Link>
+              </div>
             </div>
 
             {/* Plan 3: Special Plan */}
-            <div className="bg-gradient-to-b from-[#1a1c29] to-[#0F172A] border-2 border-amber-500/40 rounded-3xl p-6 md:p-8 space-y-6 flex flex-col justify-between shadow-2xl relative overflow-hidden">
+            <div className="bg-gradient-to-b from-[#1a1c29] to-[#0F172A] border-2 border-amber-500/40 rounded-3xl p-6 md:p-8 flex flex-col justify-between shadow-2xl relative overflow-hidden">
               <div className="space-y-4">
-                <div className="flex items-center justify-between">
+                <div className="h-8 flex items-center justify-between">
                   <span className="text-xs font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-3 py-1 rounded-full">
                     ظرفیت نامحدود
                   </span>
                   <span className="text-xs font-mono text-slate-400">VIP Special</span>
                 </div>
 
-                <div>
+                <div className="h-10 flex items-center">
                   <h3 className="text-xl font-black text-white">پلن ویژه (VIP)</h3>
-                  <div className="flex items-baseline gap-1 mt-2">
-                    <span className="text-xl font-bold text-amber-300">بدون محدودیت تعداد کارت</span>
-                  </div>
                 </div>
 
-                <p className="text-xs text-slate-300 leading-relaxed">
-                  ویژه پلتفرم‌های با ترافیک بالا، مارکت‌پلیس‌ها و مجموعه‌هایی که نیاز به اتصال نامحدود حساب‌ها دارند.
-                </p>
+                <div className="h-14 flex items-center">
+                  <span className="text-2xl font-black text-amber-300">بدون هیچ محدودیتی</span>
+                </div>
 
-                <ul className="space-y-3 text-xs text-slate-200 pt-2 border-t border-slate-700/60">
+                <div className="h-12 flex items-center">
+                  <p className="text-xs text-slate-300 leading-relaxed">
+                    ویژه پلتفرم‌های با ترافیک بالا، مارکت‌پلیس‌ها و مجموعه‌هایی که نیاز به اتصال نامحدود دارند.
+                  </p>
+                </div>
+
+                <ul className="space-y-3 text-xs text-slate-200 pt-3 border-t border-slate-700/60 min-h-[210px] flex flex-col justify-between">
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
                     <span><strong>تعداد کارت‌های نامحدود</strong> (به ازای تمام کاربران)</span>
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                    <span>اتصال نامحدود دستگاه‌ها و تلفن‌های همراه به سامانه</span>
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
@@ -360,16 +371,18 @@ export default function Home() {
                   </li>
                   <li className="flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>اتصال نامحدود دستگاه‌ها و گوشی‌های همراه همگام‌ساز</span>
+                    <span>پشتیبانی VIP فنی و راه‌اندازی اختصاصی</span>
                   </li>
-                  <li className="flex items-center gap-2">
+                  <li className="flex items-center gap-2 text-amber-300 font-bold">
                     <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                    <span>پشتیبانی VIP فنی و راه‌اندازی اختصاصی روی سرور شما</span>
+                    <span>کارمزد تراکنش: ۰ درصد (کاملاً رایگان)</span>
                   </li>
                 </ul>
+              </div>
 
-                {/* Lead Contact Form */}
-                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3 pt-3">
+              {/* Lead Contact Form */}
+              <div className="pt-6">
+                <div className="bg-slate-950/90 border border-slate-800 rounded-2xl p-4 space-y-3">
                   <span className="text-[11px] font-bold text-slate-300 block">
                     ثبت شماره تماس جهت مشاوره و فعال‌سازی پلن ویژه:
                   </span>

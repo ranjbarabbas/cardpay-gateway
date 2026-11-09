@@ -28,6 +28,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { APP_NAME, APP_VERSION } from "@/lib/version";
+import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
 
 export default function UserPortalPage() {
   const router = useRouter();
@@ -206,6 +207,7 @@ export default function UserPortalPage() {
       const json = await res.json();
       if (json.success) {
         setTestResult(json.data);
+        await fetchUserData(); // Auto refresh transactions and counter immediately!
       } else {
         alert(json.message || json.error || "خطا در ایجاد پرداخت تستی");
       }
@@ -333,15 +335,15 @@ export default function UserPortalPage() {
             <div className="flex items-center justify-between text-slate-400">
               <span>سهمیه کارت‌ها:</span>
               <span className="text-slate-200 font-bold">
-                {user?.cards?.length || 0} از {getMaxCards()} مجاز
+                {toPersianDigits(user?.cards?.length || 0)} از {typeof getMaxCards() === "number" ? toPersianDigits(getMaxCards()) : getMaxCards()} مجاز
               </span>
             </div>
 
             <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-slate-800">
               <span>تراکنش‌ها:</span>
-              <span className="text-emerald-300 font-mono font-bold">
-                {userPlan === "FREE" && `${user?.dailyTxCount || 0} / ۱۰ روزانه`}
-                {userPlan === "PRO" && `${user?.monthlyTxCount || 0} / ۵۰۰ ماهانه`}
+              <span className="text-emerald-300 font-bold">
+                {userPlan === "FREE" && `${toPersianDigits(user?.dailyTxCount || 0)} / ${toPersianDigits(10)} روزانه`}
+                {userPlan === "PRO" && `${toPersianDigits(user?.monthlyTxCount || 0)} / ${toPersianDigits(500)} ماهانه`}
                 {userPlan === "SPECIAL" && `نامحدود`}
               </span>
             </div>
@@ -423,7 +425,7 @@ export default function UserPortalPage() {
                 <div>
                   <h2 className="text-base font-bold text-white">کارت‌های بانکی متصل</h2>
                   <span className="text-[11px] text-slate-400">
-                    {user?.cards?.length || 0} از {getMaxCards()} کارت فعال
+                    {toPersianDigits(user?.cards?.length || 0)} از {typeof getMaxCards() === "number" ? toPersianDigits(getMaxCards()) : getMaxCards()} کارت فعال
                   </span>
                 </div>
               </div>
@@ -453,7 +455,7 @@ export default function UserPortalPage() {
 
                     <div className="pt-2 text-center" dir="ltr">
                       <span className="text-xl md:text-2xl font-mono font-bold tracking-widest text-white drop-shadow">
-                        {card.cardNumber.replace(/(\d{4})/g, "$1 ").trim()}
+                        {toPersianDigits(card.cardNumber.replace(/(\d{4})/g, "$1 ").trim())}
                       </span>
                     </div>
 
@@ -465,7 +467,7 @@ export default function UserPortalPage() {
                       {card.accountNumber && (
                         <div className="text-left font-mono">
                           <span className="text-[10px] text-slate-400 block">شماره حساب:</span>
-                          <span>{card.accountNumber}</span>
+                          <span>{toPersianDigits(card.accountNumber)}</span>
                         </div>
                       )}
                     </div>
@@ -676,7 +678,7 @@ export default function UserPortalPage() {
               <Clock className="w-4 h-4 text-emerald-400" />
               <span>آخرین تراکنش‌های ثبت‌شده</span>
             </h2>
-            <span className="text-xs text-slate-500">۱۰ تراکنش اخیر</span>
+            <span className="text-xs text-slate-500">{toPersianDigits(10)} تراکنش اخیر</span>
           </div>
 
           {user?.transactions?.length === 0 ? (
@@ -700,10 +702,10 @@ export default function UserPortalPage() {
                 <tbody className="divide-y divide-slate-800/60 font-mono">
                   {user?.transactions?.map((tx: any) => (
                     <tr key={tx.id} className="hover:bg-slate-900/40">
-                      <td className="p-3 text-slate-300 font-bold">{tx.internalTrackingCode || tx.authority.slice(0, 14)}</td>
-                      <td className="p-3 text-slate-300">{Number(tx.originalAmountToman).toLocaleString("fa-IR")} ت</td>
-                      <td className="p-3 text-teal-400 font-bold">+{tx.offsetToman} ت</td>
-                      <td className="p-3 text-emerald-400 font-bold">{Number(tx.finalAmountToman).toLocaleString("fa-IR")} ت</td>
+                      <td className="p-3 text-slate-300 font-bold">{toPersianDigits(tx.internalTrackingCode || tx.authority.slice(0, 14))}</td>
+                      <td className="p-3 text-slate-300">{formatPersianNumber(tx.originalAmountToman)} ت</td>
+                      <td className="p-3 text-teal-400 font-bold">+{toPersianDigits(tx.offsetToman)} ت</td>
+                      <td className="p-3 text-emerald-400 font-bold">{formatPersianNumber(tx.finalAmountToman)} ت</td>
                       <td className="p-3">
                         <span className={`px-2 py-0.5 rounded-full text-[11px] font-sans font-bold ${
                           tx.status === "PAID"
@@ -717,7 +719,7 @@ export default function UserPortalPage() {
                       </td>
                       <td className="p-3 text-slate-400 font-sans">{tx.card?.ownerName || "—"}</td>
                       <td className="p-3 text-slate-500 font-sans text-[11px]">
-                        {new Date(tx.createdAt).toLocaleDateString("fa-IR")} {new Date(tx.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" })}
+                        {toPersianDigits(new Date(tx.createdAt).toLocaleDateString("fa-IR"))} {toPersianDigits(new Date(tx.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }))}
                       </td>
                     </tr>
                   ))}
@@ -927,7 +929,7 @@ export default function UserPortalPage() {
                   </div>
 
                   <div>
-                    <h4 className="text-lg font-black text-white">پلن حرفه‌ای (میانی)</h4>
+                    <h4 className="text-lg font-black text-white">پلن حرفه‌ای</h4>
                     <div className="flex items-baseline gap-1 mt-1">
                       <span className="text-2xl font-black text-teal-300">۴۹۹,۰۰۰</span>
                       <span className="text-xs text-slate-400">تومان / ماهانه</span>
@@ -945,11 +947,15 @@ export default function UserPortalPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>اتصال تا ۵ اپلیکیشن همراه همگام‌ساز پیامک</span>
+                      <span>امکان اتصال ۵ دستگاه تلفن همراه به سامانه</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>پشتیبانی چت و تیکت آنلاین</span>
+                      <span>وب‌هوک‌های تسویه آنی و وب‌سرویس بدون وقفه</span>
+                    </li>
+                    <li className="flex items-center gap-2 text-teal-300 font-bold">
+                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
+                      <span>کارمزد تراکنش: ۰ درصد (کاملاً رایگان)</span>
                     </li>
                   </ul>
                 </div>
@@ -960,7 +966,7 @@ export default function UserPortalPage() {
                   className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
                 >
                   <Zap className="w-4 h-4" />
-                  <span>{userPlan === "PRO" ? "پلن فعال فعلی شما" : "ارتقا به پلن حرفه‌ای (۴۹۹ هزار ت)"}</span>
+                  <span>{userPlan === "PRO" ? "پلن فعال فعلی شما" : "ارتقا به پلن حرفه‌ای (۴۹۹ هزار تومان)"}</span>
                 </button>
               </div>
 
@@ -969,7 +975,7 @@ export default function UserPortalPage() {
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-3 py-1 rounded-full">
-                      بدون هیچ محدودیت
+                      ظرفیت نامحدود
                     </span>
                     <span className="text-xs font-mono text-slate-400">VIP Special</span>
                   </div>
@@ -977,7 +983,7 @@ export default function UserPortalPage() {
                   <div>
                     <h4 className="text-lg font-black text-white">پلن ویژه (VIP)</h4>
                     <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-xl font-bold text-amber-300">ظرفیت نامحدود</span>
+                      <span className="text-xl font-bold text-amber-300">بدون هیچ محدودیتی</span>
                     </div>
                   </div>
 
@@ -988,15 +994,19 @@ export default function UserPortalPage() {
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
+                      <span>اتصال نامحدود دستگاه‌ها و تلفن‌های همراه به سامانه</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
                       <span><strong>تراکنش‌های نامحدود</strong> روزانه و ماهیانه</span>
                     </li>
                     <li className="flex items-center gap-2">
                       <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>دستگاه‌های همراه و پیامک‌خوان نامحدود</span>
+                      <span>پشتیبانی VIP فنی و راه‌اندازی اختصاصی روی سرور شما</span>
                     </li>
-                    <li className="flex items-center gap-2">
+                    <li className="flex items-center gap-2 text-amber-300 font-bold">
                       <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>پشتیبانی VIP مستقیم و مشاوره راه‌اندازی</span>
+                      <span>کارمزد تراکنش: ۰ درصد (کاملاً رایگان)</span>
                     </li>
                   </ul>
                 </div>
