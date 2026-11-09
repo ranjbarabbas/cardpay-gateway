@@ -30,10 +30,9 @@ import {
   Users,
 } from "lucide-react";
 import { APP_NAME, APP_VERSION } from "@/lib/version";
+import InteractivePaymentSimulator from "@/components/InteractivePaymentSimulator";
 
 export default function Home() {
-  const [simStep, setSimStep] = useState<number>(1);
-  const [isSimulating, setIsSimulating] = useState<boolean>(false);
   const [openFaq, setOpenFaq] = useState<number | null>(null);
 
   // Premium Lead Form state
@@ -42,18 +41,6 @@ export default function Home() {
   const [leadLoading, setLeadLoading] = useState(false);
   const [leadSuccess, setLeadSuccess] = useState(false);
   const [leadError, setLeadError] = useState<string | null>(null);
-
-  // Interactive Live Simulation Handler
-  const handleStartSim = () => {
-    setIsSimulating(true);
-    setSimStep(1);
-    setTimeout(() => setSimStep(2), 1200);
-    setTimeout(() => setSimStep(3), 2600);
-    setTimeout(() => {
-      setSimStep(4);
-      setIsSimulating(false);
-    }, 4200);
-  };
 
   const handleLeadSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -430,88 +417,8 @@ export default function Home() {
         </section>
 
         {/* Interactive Live Payment Simulator Widget */}
-        <section id="simulator" className="bg-[#0F172A]/70 border border-slate-800/80 rounded-3xl p-6 md:p-8 shadow-2xl backdrop-blur-md relative overflow-hidden">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-6 border-b border-slate-800/80">
-            <div>
-              <div className="flex items-center gap-2 text-emerald-400 text-xs font-bold uppercase tracking-wider mb-1">
-                <Sparkles className="w-4 h-4" />
-                <span>شبیه‌ساز تعاملی چرخه واریز و تطبیق پیامک</span>
-              </div>
-              <h2 className="text-xl font-black text-white">نحوه پردازش و تایید خودکار سفارش در چند ثانیه</h2>
-            </div>
-
-            <button
-              onClick={handleStartSim}
-              disabled={isSimulating}
-              className="flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold px-5 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20"
-            >
-              {isSimulating ? (
-                <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>در حال شبیه‌سازی مراحل...</span>
-                </>
-              ) : (
-                <>
-                  <Zap className="w-3.5 h-3.5" />
-                  <span>اجرای شبیه‌سازی زنده پرداخت</span>
-                </>
-              )}
-            </button>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 pt-6">
-            <div className={`p-4 rounded-2xl border transition-all ${
-              simStep === 1
-                ? "bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/5 scale-102"
-                : "bg-slate-950/40 border-slate-800/60 opacity-60"
-            }`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">مرحله ۱</span>
-                <CreditCard className="w-4 h-4 text-emerald-400" />
-              </div>
-              <h4 className="text-xs font-bold text-white mb-1">تولید فاکتور با آفست</h4>
-              <p className="text-[11px] text-slate-400">سفارش ۱۰۰,۰۰۰ تومانی با مبلغ ۱۰۰,۰۱۱ تومان و شناسه PAY-XXXX صادر می‌شود.</p>
-            </div>
-
-            <div className={`p-4 rounded-2xl border transition-all ${
-              simStep === 2
-                ? "bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/5 scale-102"
-                : "bg-slate-950/40 border-slate-800/60 opacity-60"
-            }`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-teal-400 font-bold bg-teal-500/10 px-2 py-0.5 rounded">مرحله ۲</span>
-                <Send className="w-4 h-4 text-teal-400" />
-              </div>
-              <h4 className="text-xs font-bold text-white mb-1">انتقال وجه کارت به کارت</h4>
-              <p className="text-[11px] text-slate-400">خریدار با همراه بانک یا اپلیکیشن بانکی مبلغ دقیق ۱۰۰,۰۱۱ تومان را انتقال می‌دهد.</p>
-            </div>
-
-            <div className={`p-4 rounded-2xl border transition-all ${
-              simStep === 3
-                ? "bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/5 scale-102"
-                : "bg-slate-950/40 border-slate-800/60 opacity-60"
-            }`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-amber-400 font-bold bg-amber-500/10 px-2 py-0.5 rounded">مرحله ۳</span>
-                <Smartphone className="w-4 h-4 text-amber-400" />
-              </div>
-              <h4 className="text-xs font-bold text-white mb-1">دریافت و پارس پیامک</h4>
-              <p className="text-[11px] text-slate-400">اپلیکیشن اندروید پیامک واریز را دریافت کرده و در ۰.۳ ثانیه به سرور ارسال می‌کند.</p>
-            </div>
-
-            <div className={`p-4 rounded-2xl border transition-all ${
-              simStep === 4
-                ? "bg-emerald-500/10 border-emerald-500/50 shadow-lg shadow-emerald-500/5 scale-102"
-                : "bg-slate-950/40 border-slate-800/60 opacity-60"
-            }`}>
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-[10px] font-mono text-emerald-400 font-bold bg-emerald-500/10 px-2 py-0.5 rounded">مرحله ۴</span>
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-              </div>
-              <h4 className="text-xs font-bold text-white mb-1">تسویه و تایید خودکار</h4>
-              <p className="text-[11px] text-slate-400">سرور تطابق را تایید نموده و وب‌هوک موفقیت به سایت فروشگاه مخابره می‌شود.</p>
-            </div>
-          </div>
+        <section id="simulator">
+          <InteractivePaymentSimulator />
         </section>
 
         {/* FAQ Section */}
