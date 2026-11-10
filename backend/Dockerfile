@@ -1,28 +1,46 @@
 FROM node:20-alpine AS base
 
-# 1. Dependencies stage
+# -------------------------------------------------------------
+# Stage 1: Dependencies
+# -------------------------------------------------------------
 FROM base AS deps
 RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
-COPY package*.json ./
-RUN npm ci --include=dev || npm install --include=dev
+# Ensure devDependencies are installed even if Coolify sets NODE_ENV=production at build time
+ENV NODE_ENV=development
 
-# 2. Builder stage
+# Universal context handler: works whether build context is repo root or /backend
+COPY . .
+RUN if [ -f "./backend/package.json" ]; then \
+      cp ./backend/package*.json ./ && \
+      if [ -d "./backend/prisma" ]; then cp -r ./backend/prisma ./; fi; \
+    fi && \
+    npm ci --include=dev || npm install --include=dev
+
+# -------------------------------------------------------------
+# Stage 2: Builder
+# -------------------------------------------------------------
 FROM base AS builder
 WORKDIR /app
+
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Generate Prisma Client
-RUN npx prisma generate
+# Universal context handler for build
+RUN if [ -d "./backend" ] && [ -f "./backend/package.json" ]; then \
+      cp -r ./backend/* ./; \
+    fi && \
+    npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
 
 RUN npm run build
 
-# 3. Production runner stage
+# -------------------------------------------------------------
+# Stage 3: Runner
+# -------------------------------------------------------------
 FROM base AS runner
 WORKDIR /app
 
