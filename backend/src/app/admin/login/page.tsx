@@ -51,6 +51,17 @@ export default function AdminLoginPage() {
   const [timerSeconds, setTimerSeconds] = useState(120);
   const [canResend, setCanResend] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const otpInputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-clear and focus OTP input when entering verification step
+  useEffect(() => {
+    if (mode === "RESET_VERIFY") {
+      setOtpCode("");
+      setTimeout(() => {
+        otpInputRef.current?.focus();
+      }, 50);
+    }
+  }, [mode]);
 
   const startOtpTimer = () => {
     setTimerSeconds(120);
@@ -173,6 +184,8 @@ export default function AdminLoginPage() {
       }
 
       setSuccessMsg(`کد تایید ۵ رقمی به آدرس ایمیل ${adminEmail} ارسال شد.`);
+      setOtpCode("");
+      setNewPassword("");
       setMode("RESET_VERIFY");
       startOtpTimer();
     } catch (err: any) {
@@ -381,6 +394,8 @@ export default function AdminLoginPage() {
                   <div className="relative">
                     <input
                       type="email"
+                      name="username"
+                      autoComplete="username"
                       required
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
@@ -400,6 +415,8 @@ export default function AdminLoginPage() {
                       onClick={() => {
                         setError(null);
                         setSuccessMsg(null);
+                        setOtpCode("");
+                        setNewPassword("");
                         setMode("RESET_REQUEST");
                       }}
                       className="text-[11px] text-amber-400 hover:text-amber-300 transition"
@@ -410,6 +427,8 @@ export default function AdminLoginPage() {
                   <div className="relative">
                     <input
                       type={showPassword ? "text" : "password"}
+                      name="password"
+                      autoComplete="current-password"
                       required
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -493,6 +512,18 @@ export default function AdminLoginPage() {
           {/* MODE 3: Verify OTP and Set New Password */}
           {mode === "RESET_VERIFY" && (
             <form onSubmit={handleVerifyOtpAndReset} className="space-y-4">
+              {/* Explicit username field for browser password managers to bind password to admin email */}
+              <input
+                type="text"
+                name="username"
+                autoComplete="username"
+                value={adminEmail}
+                readOnly
+                tabIndex={-1}
+                className="sr-only"
+                aria-hidden="true"
+              />
+
               <div className="text-center space-y-1 pb-1">
                 <h2 className="text-sm font-bold text-white flex items-center justify-center gap-1.5">
                   <KeyRound className="w-4 h-4 text-emerald-400" />
@@ -507,13 +538,20 @@ export default function AdminLoginPage() {
               <div className="space-y-1.5">
                 <label className="text-slate-300 font-medium block text-xs">کد تایید ۵ رقمی ایمیل:</label>
                 <input
+                  ref={otpInputRef}
                   type="text"
+                  name="one-time-code"
+                  id="admin-otp-input"
+                  autoComplete="one-time-code"
+                  inputMode="numeric"
+                  pattern="[0-9]*"
                   maxLength={5}
                   required
+                  autoFocus
                   value={otpCode}
                   onChange={(e) => setOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
                   placeholder="•••••"
-                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-700 text-center text-lg font-mono tracking-widest focus:outline-none transition"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-700 text-center text-xl font-mono tracking-[0.3em] focus:outline-none transition"
                   dir="ltr"
                 />
               </div>
@@ -524,6 +562,8 @@ export default function AdminLoginPage() {
                 <div className="relative">
                   <input
                     type={showNewPassword ? "text" : "password"}
+                    name="new-password"
+                    autoComplete="new-password"
                     required
                     minLength={6}
                     value={newPassword}
