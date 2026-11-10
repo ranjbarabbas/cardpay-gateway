@@ -46,32 +46,28 @@ function emailLayout(title: string, contentHtml: string): string {
         <!-- Main Card Container -->
         <table role="presentation" width="100%" style="max-width: 580px; background-color: #0F172A; border: 1px solid #1E293B; border-radius: 20px; overflow: hidden; box-shadow: 0 20px 40px rgba(0, 0, 0, 0.45);">
           
-          <!-- Header Banner -->
+          <!-- Header Banner (Brand Logo Top-Right like Main Site) -->
           <tr>
-            <td style="padding: 28px 32px 20px 32px; background: linear-gradient(135deg, #0F172A 0%, #132238 100%); border-bottom: 1px solid #1E293B; text-align: center;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+            <td style="padding: 22px 28px; background: linear-gradient(135deg, #0F172A 0%, #132238 100%); border-bottom: 1px solid #1E293B;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" dir="rtl">
                 <tr>
-                  <td align="center">
-                    <!-- Brand Pill Logo -->
-                    <table role="presentation" cellpadding="0" cellspacing="0" style="margin: 0 auto;">
-                      <tr>
-                        <td style="background-color: #020617; border: 1px solid #334155; border-radius: 12px; padding: 8px 16px;">
-                          <table role="presentation" cellpadding="0" cellspacing="0">
-                            <tr>
-                              <td style="font-size: 20px; font-weight: 900; color: #FFFFFF; font-family: Tahoma, sans-serif; letter-spacing: -0.5px;">
-                                هنر<span style="background-color: #F59E0B; color: #020617; padding: 2px 8px; border-radius: 6px; margin-right: 4px; font-size: 16px;">هاب</span>
-                              </td>
-                              <td style="padding-right: 8px; font-size: 14px; font-weight: 800; color: #10B981; font-family: Tahoma, sans-serif;">
-                                پی
-                              </td>
-                            </tr>
-                          </table>
-                        </td>
-                      </tr>
-                    </table>
-                    <div style="font-size: 11px; color: #94A3B8; margin-top: 8px; font-weight: normal;">
-                      سامانه هوشمند و امن درگاه پرداخت کارت‌به‌کارت
-                    </div>
+                  <!-- Brand Logo (Right Aligned) -->
+                  <td align="right" style="vertical-align: middle;">
+                    <a href="https://pay.honarhub.com" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <table role="presentation" cellpadding="0" cellspacing="0">
+                        <tr>
+                          <td style="background-color: #020617; border: 1px solid #334155; border-radius: 12px; padding: 6px 14px; vertical-align: middle;">
+                            <span style="font-size: 19px; font-weight: 900; color: #FFFFFF; font-family: Tahoma, 'Segoe UI', sans-serif; letter-spacing: -0.5px;">هنر</span><span style="background-color: #F59E0B; color: #020617; padding: 2px 7px; border-radius: 6px; margin-right: 4px; font-size: 15px; font-weight: 900;">هاب</span><span style="padding-right: 6px; font-size: 14px; font-weight: 800; color: #10B981; font-family: Tahoma, 'Segoe UI', sans-serif;">پی</span>
+                          </td>
+                        </tr>
+                      </table>
+                    </a>
+                  </td>
+                  <!-- Tagline Badge (Left Aligned) -->
+                  <td align="left" style="vertical-align: middle;">
+                    <span style="display: inline-block; font-size: 11px; color: #10B981; background-color: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.25); border-radius: 20px; padding: 4px 12px; font-family: Tahoma, sans-serif; font-weight: 600;">
+                      درگاه پرداخت امن
+                    </span>
                   </td>
                 </tr>
               </table>
