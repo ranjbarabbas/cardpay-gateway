@@ -8,13 +8,11 @@ import crypto from "crypto";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const {
-      amount,
-      callbackUrl,
-      webhookUrl,
-      description,
-      customerMobile,
-    } = body;
+    const amount = body.amount;
+    const callbackUrl = body.callbackUrl || body.callback_url;
+    const webhookUrl = body.webhookUrl || body.webhook_url;
+    const description = body.description;
+    const customerMobile = body.customerMobile || body.customer_mobile || body.mobile;
 
     const targetCardId = body.cardId || body.cartId || body.card_id || body.cart_id;
     const rawCardNumber = body.cardNumber || body.cartNumber || body.card_number || body.cart_number;
