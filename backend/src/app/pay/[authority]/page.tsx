@@ -46,6 +46,7 @@ function CheckoutContent({ authority }: { authority: string }) {
   const [copiedCard, setCopiedCard] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(600);
+  const [redirectCountdown, setRedirectCountdown] = useState<number>(10);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simResult, setSimResult] = useState<string | null>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
@@ -103,21 +104,33 @@ function CheckoutContent({ authority }: { authority: string }) {
     return () => clearInterval(timer);
   }, [secondsLeft, details?.status]);
 
-  // Auto redirect on success
+  // Auto redirect on success with 10-second countdown
   useEffect(() => {
     if (details?.status === "PAID" || details?.status === "MANUALLY_VERIFIED") {
-      const timeout = setTimeout(() => {
-        if (details.callbackUrl) {
-          const url = new URL(details.callbackUrl);
-          url.searchParams.set("authority", authority);
-          url.searchParams.set("status", "success");
-          url.searchParams.set("tracking_code", details.trackingCode || "");
-          window.location.href = url.toString();
-        }
-      }, 3500);
-      return () => clearTimeout(timeout);
+      setRedirectCountdown(10);
+      const timer = setInterval(() => {
+        setRedirectCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            if (details.callbackUrl) {
+              try {
+                const url = new URL(details.callbackUrl);
+                url.searchParams.set("authority", authority);
+                url.searchParams.set("status", "success");
+                url.searchParams.set("tracking_code", details.trackingCode || "");
+                window.location.href = url.toString();
+              } catch {
+                window.location.href = details.callbackUrl;
+              }
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
     }
-  }, [details, authority]);
+  }, [details?.status, details?.callbackUrl, authority]);
 
   const copyToClipboard = (text: string, type: "card" | "amount") => {
     navigator.clipboard.writeText(text);
@@ -236,7 +249,7 @@ ${details.payableAmountRial.toLocaleString()}+
             </div>
             {details.trackingCode && (
               <div className="flex justify-between items-center text-slate-400">
-                <span>کد پیگیری بانکی:</span>
+                <span>کد پیگیری سامانه:</span>
                 <span className="font-mono text-emerald-400 font-bold">{toPersianDigits(details.trackingCode)}</span>
               </div>
             )}
@@ -249,13 +262,19 @@ ${details.payableAmountRial.toLocaleString()}+
           <div className="space-y-3 pt-2">
             <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
               <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
-              <span>در حال انتقال خودکار به وب‌سایت مقصد...</span>
+              <span>
+                در حال انتقال خودکار به وب‌سایت مقصد تا{" "}
+                <span className="font-mono font-bold text-emerald-400 px-1 text-sm">
+                  {toPersianDigits(redirectCountdown)}
+                </span>{" "}
+                ثانیه دیگر...
+              </span>
             </div>
             <a
               href={details.callbackUrl}
               className="inline-flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold py-3.5 rounded-2xl transition shadow-lg shadow-emerald-600/25"
             >
-              <span>بازگشت فوری به فروشگاه</span>
+              <span>بازگشت فوری به وب‌سایت مقصد</span>
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>

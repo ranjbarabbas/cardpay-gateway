@@ -72,7 +72,9 @@ export async function dispatchDepositNotifications(params: DepositNotificationPa
     const userPhone = user.phone || (user as any).phoneNumber || "";
 
     // 1. Send SMS Deposit Alert if enabled in settings
-    if (settings.sms.depositAlertProEnabled && userPhone) {
+    // 1. Send SMS Deposit Alert if user is on SPECIAL plan and has enabled smsNotifyDeposit
+    const canSendSms = user.plan === "SPECIAL" && user.smsNotifyDeposit && userPhone;
+    if (canSendSms) {
       try {
         const smsRes = await sendDepositAlertSms(userPhone, amountStr, trackCode);
         results.smsSent = smsRes.success;

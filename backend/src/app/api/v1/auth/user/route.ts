@@ -39,6 +39,7 @@ async function buildUserAuthResponse(user: any, message: string = "ورود مو
       email: user.email,
       isEmailVerified: user.isEmailVerified,
       emailNotifyDeposit: user.emailNotifyDeposit,
+      smsNotifyDeposit: Boolean(user.smsNotifyDeposit),
       hasPassword: Boolean(user.password),
       plan: user.plan,
       role: user.role,

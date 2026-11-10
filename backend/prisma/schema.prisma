@@ -15,6 +15,7 @@ model User {
   email               String?            @unique
   isEmailVerified     Boolean            @default(false)
   emailNotifyDeposit  Boolean            @default(true) // Toggle for deposit email notification
+  smsNotifyDeposit    Boolean            @default(false) // Toggle for deposit SMS notification (VIP/SPECIAL exclusive)
   password            String?            // Optional password hash
   name                String?
   role                String             @default("USER") // USER, ADMIN

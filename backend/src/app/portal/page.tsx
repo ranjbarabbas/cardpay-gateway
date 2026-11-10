@@ -343,6 +343,39 @@ export default function UserPortalPage() {
     }
   };
 
+  const handleToggleSmsDepositAlert = async () => {
+    if (user?.plan !== "SPECIAL") {
+      setUpgradeTargetPlan("SPECIAL");
+      setShowUpgradeModal(true);
+      return;
+    }
+    const nextVal = !user.smsNotifyDeposit;
+    try {
+      const res = await fetch("/api/v1/user/notifications/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          smsNotifyDeposit: nextVal,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setUser((prev: any) => ({ ...prev, smsNotifyDeposit: nextVal }));
+        setEmailFeedback({
+          type: "success",
+          message: nextVal
+            ? "اطلاع‌رسانی پیامکی واریزها فعال شد. پیامک تایید به شماره شما ارسال می‌شود."
+            : "اطلاع‌رسانی پیامکی واریزها غیرفعال گردید.",
+        });
+      } else {
+        setEmailFeedback({ type: "error", message: json.error || "خطا در تغییر وضعیت اطلاع‌رسانی پیامکی" });
+      }
+    } catch (err: any) {
+      setEmailFeedback({ type: "error", message: "خطا در برقراری ارتباط: " + err.message });
+    }
+  };
+
   const handleSendPasswordResetOtp = async () => {
     const targetEmail = user?.email || emailInput;
     if (!targetEmail || !targetEmail.includes("@")) {
@@ -1127,12 +1160,50 @@ export default function UserPortalPage() {
               )}
             </div>
 
-            {/* Box 2: Deposit Email Alert for PRO / SPECIAL */}
+            {/* Box 2: Phone Verification Status */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300">وضعیت شماره موبایل:</span>
+                {user?.phone ? (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    تایید شده و فعال
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    ثبت نشده
+                  </span>
+                )}
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-emerald-400" />
+                    <span className="font-mono text-xs text-white" dir="ltr">
+                      {user?.phone || "شماره موبایل ثبت نشده است"}
+                    </span>
+                  </div>
+                  <span className="text-[10px] text-emerald-400/90 font-medium bg-emerald-500/10 px-2.5 py-0.5 rounded-full border border-emerald-500/20">
+                    احراز پیامکی
+                  </span>
+                </div>
+                <p className="text-[11px] text-slate-500 leading-relaxed">
+                  این شماره برای ورود دومرحله‌ای OTP و دریافت هشدارهای تراکنش از طریق سرویس پیامکی فراز اس‌ام‌اس استفاده می‌شود.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Row 2: Deposit Alerts (Email & SMS) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Box 3: Deposit Email Alert for PRO / SPECIAL */}
             <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Bell className="w-4 h-4 text-emerald-400" />
+                    <Mail className="w-4 h-4 text-emerald-400" />
                     <span className="text-xs font-bold text-white">ارسال رسید ایمیلی به ازای واریزی‌ها</span>
                   </div>
                   {user?.plan === "FREE" ? (
@@ -1184,6 +1255,69 @@ export default function UserPortalPage() {
                       checked={Boolean(user?.emailNotifyDeposit)}
                       onChange={handleToggleEmailDepositAlert}
                       className="accent-emerald-500 w-5 h-5 rounded cursor-pointer"
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
+
+            {/* Box 4: Deposit SMS Alert (SPECIAL / VIP Exclusive) */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Smartphone className="w-4 h-4 text-amber-400" />
+                    <span className="text-xs font-bold text-white">ارسال پیامک به ازای واریزی‌ها</span>
+                  </div>
+                  {user?.plan === "SPECIAL" ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                      پلن ویژه VIP
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                      مختص پلن ویژه VIP
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  ارسال پیامک آنی با سرشماره خدماتی به محض ثبت واریز موفق کارت‌به‌کارت شامل مبلغ دقیق و کد پیگیری سامانه به شماره موبایل شما.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800/80">
+                {user?.plan !== "SPECIAL" ? (
+                  <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <span className="text-[11px] text-slate-400">
+                      این قابلیت مختص کاربران پلن ویژه (VIP) است.
+                    </span>
+                    <button
+                      onClick={() => {
+                        setUpgradeTargetPlan("SPECIAL");
+                        setShowUpgradeModal(true);
+                      }}
+                      className="bg-amber-600 hover:bg-amber-500 text-white text-[11px] font-bold px-3 py-1.5 rounded-lg transition shrink-0 shadow-sm"
+                    >
+                      ارتقا به پلن ویژه
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-slate-200 block">
+                        دریافت پیامک به ازای هر واریز موفق
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {user?.smsNotifyDeposit
+                          ? "فعال است — پیامک به " + (user?.phone || "موبایل") + " ارسال می‌شود"
+                          : "غیرفعال است — پیامک واریز ارسال نمی‌شود"}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(user?.smsNotifyDeposit)}
+                      onChange={handleToggleSmsDepositAlert}
+                      className="accent-amber-500 w-5 h-5 rounded cursor-pointer"
                     />
                   </label>
                 )}
