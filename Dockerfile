@@ -31,6 +31,15 @@ COPY . .
 RUN if [ -d "./backend" ] && [ -f "./backend/package.json" ]; then \
       cp -r ./backend/* ./; \
     fi && \
+    if [ ! -f /app/system_settings.json ]; then \
+      echo "{}" > /app/system_settings.json; \
+    fi && \
+    if [ ! -f /app/docker-entrypoint.sh ]; then \
+      if [ -f /app/backend/docker-entrypoint.sh ]; then \
+        cp /app/backend/docker-entrypoint.sh /app/docker-entrypoint.sh; \
+      fi; \
+    fi && \
+    chmod +x /app/docker-entrypoint.sh 2>/dev/null || true && \
     npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
