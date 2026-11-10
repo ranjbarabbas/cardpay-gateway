@@ -1,5 +1,6 @@
 import { db } from "../db";
 import { bankParserRegistry } from "./parsers";
+import { dispatchDepositNotifications } from "../notifications";
 
 export interface SmsIngestInput {
   sender: string;
@@ -222,6 +223,15 @@ export class SmsMatcherService {
           paidAt: now.toISOString(),
         }).catch((err) => console.error("Webhook dispatch failed:", err));
       }
+
+      // Dispatch SMS & Email deposit notifications (for PRO/SPECIAL users)
+      dispatchDepositNotifications({
+        transactionId: matchedTx.id,
+        trackingCode: matchedTx.internalTrackingCode || matchedTx.authority,
+        amountToman: matchedTx.finalAmountToman,
+        cardId: matchedTx.cardId,
+        userId: matchedTx.userId || undefined,
+      }).catch((err) => console.error("Deposit notification dispatch failed:", err));
 
       return {
         matched: true,

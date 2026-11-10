@@ -117,6 +117,7 @@ export default function AdminDashboard() {
       senderNumber: "+983000505",
       patternOtp: "hnr_otp_v1",
       patternDeposit: "hnr_deposit_alert",
+      depositAlertProEnabled: true,
       patternWelcome: "hnr_welcome_user",
     },
     email: {
@@ -2408,11 +2409,36 @@ export default function AdminDashboard() {
                         />
                       </div>
 
-                      <div className="pt-2 border-t border-slate-800 space-y-2">
-                        <span className="font-bold text-slate-300 block">کدهای پترن الگو (Pattern Code):</span>
+                      <div className="pt-2 border-t border-slate-800 space-y-3">
+                        <span className="font-bold text-slate-300 block text-xs">پترن‌های پیامکی سامانه (Faraz SMS Patterns):</span>
 
-                        <div>
-                          <label className="text-slate-400 block mb-1 text-[11px]">پترن پیامک تایید واریز و تسویه تراکنش:</label>
+                        {/* Pattern 1: OTP */}
+                        <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <label className="text-slate-300 font-bold block text-[11px]">۱. پترن رمز یکبار مصرف (OTP):</label>
+                            <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded font-mono">متغیر: code</span>
+                          </div>
+                          <input
+                            type="text"
+                            value={systemSettings.sms.patternOtp || ""}
+                            onChange={(e) =>
+                              setSystemSettings({
+                                ...systemSettings,
+                                sms: { ...systemSettings.sms, patternOtp: e.target.value },
+                              })
+                            }
+                            placeholder="hnr_otp_v1"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
+                          />
+                          <p className="text-[10px] text-slate-500">برای ارسال کد تایید یکبار مصرف، تغییر رمز عبور و ورود امن با متغیر %code%.</p>
+                        </div>
+
+                        {/* Pattern 2: Deposit notification for PRO/SPECIAL with toggle */}
+                        <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                          <div className="flex items-center justify-between">
+                            <label className="text-slate-300 font-bold block text-[11px]">۲. پترن اطلاع‌رسانی واریزی‌ها (پلن حرفه‌ای/ویژه):</label>
+                            <span className="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded font-mono">متغیرها: amount , track</span>
+                          </div>
                           <input
                             type="text"
                             value={systemSettings.sms.patternDeposit}
@@ -2423,24 +2449,26 @@ export default function AdminDashboard() {
                               })
                             }
                             placeholder="hnr_deposit_alert"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
                           />
-                        </div>
-
-                        <div>
-                          <label className="text-slate-400 block mb-1 text-[11px]">پترن پیامک خوش‌آمدگویی و فعال‌سازی کاربر:</label>
-                          <input
-                            type="text"
-                            value={systemSettings.sms.patternWelcome}
-                            onChange={(e) =>
-                              setSystemSettings({
-                                ...systemSettings,
-                                sms: { ...systemSettings.sms, patternWelcome: e.target.value },
-                              })
-                            }
-                            placeholder="hnr_welcome_user"
-                            className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
-                          />
+                          
+                          {/* Toggle for PRO Deposit Alerts */}
+                          <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-800/80">
+                            <input
+                              type="checkbox"
+                              checked={systemSettings.sms.depositAlertProEnabled ?? true}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  sms: { ...systemSettings.sms, depositAlertProEnabled: e.target.checked },
+                                })
+                              }
+                              className="accent-emerald-500 w-4 h-4 rounded"
+                            />
+                            <span className="text-slate-300 text-[11px]">
+                              فعال‌سازی ارسال پیامک واریزی به صاحب درگاه (پلن‌های حرفه‌ای و ویژه)
+                            </span>
+                          </label>
                         </div>
                       </div>
                     </div>

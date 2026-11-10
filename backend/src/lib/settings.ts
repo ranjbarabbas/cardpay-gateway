@@ -24,8 +24,9 @@ export interface SystemSettings {
     username: string;
     password?: string;
     senderNumber: string;
-    patternOtp: string;
-    patternDeposit: string;
+    patternOtp: string; // با متغیر code
+    patternDeposit: string; // با متغیرهای amount و track
+    depositAlertProEnabled: boolean; // فعال/غیرفعال سازی اطلاع‌رسانی پیامک واریز برای پلن حرفه‌ای/ویژه
     patternWelcome: string;
   };
   email: {
@@ -73,6 +74,7 @@ const defaultSettings: SystemSettings = {
     senderNumber: process.env.FARAZ_SMS_SENDER || "+983000505",
     patternOtp: "hnr_otp_v1",
     patternDeposit: "hnr_deposit_alert",
+    depositAlertProEnabled: true,
     patternWelcome: "hnr_welcome_user",
   },
   email: {

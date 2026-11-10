@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
+import { dispatchDepositNotifications } from "@/lib/notifications";
 
 export async function POST(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
@@ -67,6 +68,15 @@ export async function POST(req: NextRequest) {
         });
       }
     });
+
+    // Asynchronously dispatch deposit notifications
+    dispatchDepositNotifications({
+      transactionId: tx.id,
+      trackingCode: trackingCode || tx.internalTrackingCode || tx.authority,
+      amountToman: tx.finalAmountToman,
+      cardId: tx.cardId,
+      userId: tx.userId || undefined,
+    }).catch((err) => console.error("Manual reconcile deposit notification failed:", err));
 
     return NextResponse.json({
       success: true,

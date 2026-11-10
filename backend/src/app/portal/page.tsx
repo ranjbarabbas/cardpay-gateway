@@ -28,6 +28,10 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  Mail,
+  Lock,
+  Bell,
+  MailCheck,
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
@@ -69,6 +73,22 @@ export default function UserPortalPage() {
   const [testResult, setTestResult] = useState<any>(null);
   const [serverUrl, setServerUrl] = useState("http://localhost:3050");
 
+  // Email Verification & Notification Settings State
+  const [emailInput, setEmailInput] = useState("");
+  const [emailOtpCode, setEmailOtpCode] = useState("");
+  const [emailOtpSent, setEmailOtpSent] = useState(false);
+  const [emailLoading, setEmailLoading] = useState(false);
+  const [emailFeedback, setEmailFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+  const [isChangingEmail, setIsChangingEmail] = useState(false);
+
+  // Password Reset / Set via Email OTP State
+  const [showPasswordModal, setShowPasswordModal] = useState(false);
+  const [newPasswordInput, setNewPasswordInput] = useState("");
+  const [passwordOtpCode, setPasswordOtpCode] = useState("");
+  const [passwordOtpSent, setPasswordOtpSent] = useState(false);
+  const [passwordLoading, setPasswordLoading] = useState(false);
+  const [passwordFeedback, setPasswordFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
   const fetchUserData = async () => {
     try {
       const res = await fetch("/api/v1/auth/user");
@@ -79,6 +99,9 @@ export default function UserPortalPage() {
       const json = await res.json();
       if (json.success) {
         setUser(json.data);
+        if (json.data?.email) {
+          setEmailInput(json.data.email);
+        }
       } else {
         router.push("/login");
       }
@@ -220,6 +243,193 @@ export default function UserPortalPage() {
       setUpgradeMsg(err.message);
     } finally {
       setUpgradeLoading(false);
+    }
+  };
+
+  const handleSendVerificationOtp = async () => {
+    if (!emailInput || !emailInput.includes("@")) {
+      setEmailFeedback({ type: "error", message: "لطفاً یک آدرس ایمیل معتبر وارد فرمایید." });
+      return;
+    }
+    setEmailLoading(true);
+    setEmailFeedback(null);
+    try {
+      const res = await fetch("/api/v1/auth/email/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailInput,
+          userId: user?.id,
+          type: "EMAIL_VERIFICATION",
+          recipientName: user?.name,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setEmailOtpSent(true);
+        setEmailFeedback({
+          type: "success",
+          message: "کد تایید ۵ رقمی به آدرس ایمیل شما ارسال شد. لطفاً صندوق ورودی و هرزنامه خود را بررسی فرمایید.",
+        });
+      } else {
+        setEmailFeedback({ type: "error", message: json.error || "خطا در ارسال کد تایید" });
+      }
+    } catch (err: any) {
+      setEmailFeedback({ type: "error", message: "خطا در ارتباط با سرور: " + err.message });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    if (!emailOtpCode || emailOtpCode.trim().length < 4) {
+      setEmailFeedback({ type: "error", message: "لطفاً کد تایید ۵ رقمی را کامل وارد نمایید." });
+      return;
+    }
+    setEmailLoading(true);
+    setEmailFeedback(null);
+    try {
+      const res = await fetch("/api/v1/auth/email/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: emailInput,
+          code: emailOtpCode.trim(),
+          userId: user?.id,
+          type: "EMAIL_VERIFICATION",
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setEmailOtpSent(false);
+        setEmailOtpCode("");
+        setIsChangingEmail(false);
+        setUser((prev: any) => ({
+          ...prev,
+          email: emailInput,
+          isEmailVerified: true,
+        }));
+        setEmailFeedback({ type: "success", message: "آدرس ایمیل شما با موفقیت تایید و در سامانه فعال گردید." });
+      } else {
+        setEmailFeedback({ type: "error", message: json.error || "کد وارد شده نامعتبر یا منقضی شده است." });
+      }
+    } catch (err: any) {
+      setEmailFeedback({ type: "error", message: "خطا در تایید کد: " + err.message });
+    } finally {
+      setEmailLoading(false);
+    }
+  };
+
+  const handleToggleEmailDepositAlert = async () => {
+    if (user?.plan === "FREE") {
+      setShowUpgradeModal(true);
+      return;
+    }
+    if (!user?.isEmailVerified) {
+      setEmailFeedback({ type: "error", message: "ابتدا باید آدرس ایمیل خود را تایید نمایید." });
+      return;
+    }
+    const nextVal = !user.emailNotifyDeposit;
+    try {
+      const res = await fetch("/api/v1/user/notifications/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: user.id,
+          emailNotifyDeposit: nextVal,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setUser((prev: any) => ({ ...prev, emailNotifyDeposit: nextVal }));
+        setEmailFeedback({
+          type: "success",
+          message: nextVal
+            ? "اطلاع‌رسانی ایمیل واریزها فعال شد. رسید پرداخت‌ها به ایمیل شما ارسال می‌شود."
+            : "اطلاع‌رسانی ایمیل واریزها غیرفعال گردید.",
+        });
+      } else {
+        setEmailFeedback({ type: "error", message: json.error || "خطا در تغییر وضعیت اطلاع‌رسانی" });
+      }
+    } catch (err: any) {
+      setEmailFeedback({ type: "error", message: "خطا در برقراری ارتباط: " + err.message });
+    }
+  };
+
+  const handleSendPasswordResetOtp = async () => {
+    const targetEmail = user?.email || emailInput;
+    if (!targetEmail || !targetEmail.includes("@")) {
+      setPasswordFeedback({ type: "error", message: "آدرس ایمیل معتبری برای دریافت کد یافت نشد." });
+      return;
+    }
+    setPasswordLoading(true);
+    setPasswordFeedback(null);
+    try {
+      const res = await fetch("/api/v1/auth/email/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail,
+          userId: user?.id,
+          type: "PASSWORD_RESET",
+          recipientName: user?.name,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPasswordOtpSent(true);
+        setPasswordFeedback({ type: "success", message: "کد تایید جهت تعیین کلمه عبور به ایمیل شما ارسال شد." });
+      } else {
+        setPasswordFeedback({ type: "error", message: json.error || "خطا در ارسال کد" });
+      }
+    } catch (err: any) {
+      setPasswordFeedback({ type: "error", message: err.message });
+    } finally {
+      setPasswordLoading(false);
+    }
+  };
+
+  const handleConfirmPasswordReset = async () => {
+    const targetEmail = user?.email || emailInput;
+    if (!passwordOtpCode || !newPasswordInput) {
+      setPasswordFeedback({ type: "error", message: "کد تایید و کلمه عبور جدید الزامی هستند." });
+      return;
+    }
+    if (newPasswordInput.length < 6) {
+      setPasswordFeedback({ type: "error", message: "کلمه عبور جدید باید حداقل ۶ کاراکتر باشد." });
+      return;
+    }
+    setPasswordLoading(true);
+    setPasswordFeedback(null);
+    try {
+      const res = await fetch("/api/v1/auth/email/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: targetEmail,
+          code: passwordOtpCode.trim(),
+          userId: user?.id,
+          type: "PASSWORD_RESET",
+          newPassword: newPasswordInput,
+        }),
+      });
+      const json = await res.json();
+      if (json.success) {
+        setPasswordFeedback({ type: "success", message: "کلمه عبور حساب کاربری شما با موفقیت ثبت گردید." });
+        setTimeout(() => {
+          setShowPasswordModal(false);
+          setPasswordOtpSent(false);
+          setPasswordOtpCode("");
+          setNewPasswordInput("");
+          setPasswordFeedback(null);
+        }, 2000);
+      } else {
+        setPasswordFeedback({ type: "error", message: json.error || "کد وارد شده نامعتبر است." });
+      }
+    } catch (err: any) {
+      setPasswordFeedback({ type: "error", message: err.message });
+    } finally {
+      setPasswordLoading(false);
     }
   };
 
@@ -750,6 +960,227 @@ export default function UserPortalPage() {
                 </div>
               </div>
             )}
+          </div>
+        </div>
+
+        {/* Section 4: Email Notifications & Security Settings */}
+        <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-teal-500/10 text-teal-400 flex items-center justify-center">
+                  <Mail className="w-4 h-4" />
+                </div>
+                <h2 className="text-base font-bold text-white">تنظیمات اطلاع‌رسانی ایمیل و تایید هویت</h2>
+              </div>
+              <p className="text-xs text-slate-400">
+                مدیریت آدرس ایمیل، تایید رمز یکبار مصرف (OTP)، دریافت رسید واریزی‌ها و بازیابی رمز عبور.
+              </p>
+            </div>
+
+            {/* Quick Action: Set/Change Password */}
+            <button
+              onClick={() => {
+                setShowPasswordModal(true);
+                setPasswordOtpSent(false);
+                setPasswordFeedback(null);
+              }}
+              className="flex items-center gap-2 bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-bold px-3.5 py-2 rounded-xl border border-slate-700 transition shrink-0"
+            >
+              <Lock className="w-3.5 h-3.5 text-amber-400" />
+              <span>تنظیم / تغییر کلمه عبور با ایمیل</span>
+            </button>
+          </div>
+
+          {/* Feedback Banner */}
+          {emailFeedback && (
+            <div
+              className={`p-3.5 rounded-xl border text-xs flex items-center justify-between gap-2 ${
+                emailFeedback.type === "success"
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                {emailFeedback.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{emailFeedback.message}</span>
+              </div>
+              <button
+                onClick={() => setEmailFeedback(null)}
+                className="text-slate-400 hover:text-white text-xs px-1"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Box 1: Email Verification Status */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-slate-300">وضعیت آدرس ایمیل:</span>
+                {user?.isEmailVerified ? (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-0.5 rounded-full">
+                    <CheckCircle2 className="w-3.5 h-3.5" />
+                    تایید شده و فعال
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1.5 text-[11px] font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2.5 py-0.5 rounded-full">
+                    <AlertCircle className="w-3.5 h-3.5" />
+                    تایید نشده
+                  </span>
+                )}
+              </div>
+
+              {user?.isEmailVerified && !isChangingEmail ? (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800">
+                    <span className="font-mono text-xs text-white" dir="ltr">
+                      {user.email}
+                    </span>
+                    <button
+                      onClick={() => setIsChangingEmail(true)}
+                      className="text-xs text-teal-400 hover:text-teal-300 underline font-medium"
+                    >
+                      تغییر ایمیل
+                    </button>
+                  </div>
+                  <p className="text-[11px] text-slate-500">
+                    این ایمیل برای ورود با OTP، دریافت رسیدهای پرداخت و بازیابی رمز عبور استفاده می‌شود.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="space-y-1.5">
+                    <label className="text-[11px] text-slate-400 block">
+                      {isChangingEmail ? "آدرس ایمیل جدید خود را وارد نمایید:" : "آدرس ایمیل خود را وارد نمایید:"}
+                    </label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="email"
+                        value={emailInput}
+                        onChange={(e) => setEmailInput(e.target.value)}
+                        placeholder="your-name@example.com"
+                        dir="ltr"
+                        className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3.5 py-2 text-xs text-white font-mono focus:outline-none focus:border-teal-500"
+                      />
+                      <button
+                        onClick={handleSendVerificationOtp}
+                        disabled={emailLoading}
+                        className="bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shrink-0 whitespace-nowrap"
+                      >
+                        {emailLoading ? "ارسال..." : emailOtpSent ? "ارسال مجدد" : "ارسال کد"}
+                      </button>
+                    </div>
+                  </div>
+
+                  {emailOtpSent && (
+                    <div className="p-3 bg-slate-900/90 border border-teal-500/30 rounded-xl space-y-2">
+                      <span className="text-[11px] text-teal-300 block font-bold">
+                        کد تایید ۵ رقمی ارسال شده به ایمیل:
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          maxLength={5}
+                          value={emailOtpCode}
+                          onChange={(e) => setEmailOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                          placeholder="۱۲۳۴۵"
+                          dir="ltr"
+                          className="w-32 bg-slate-950 border border-teal-500/50 rounded-xl px-3 py-2 text-center text-sm font-mono tracking-widest text-emerald-400 font-bold focus:outline-none"
+                        />
+                        <button
+                          onClick={handleVerifyOtp}
+                          disabled={emailLoading}
+                          className="bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold px-4 py-2 rounded-xl transition"
+                        >
+                          {emailLoading ? "در حال بررسی..." : "تایید و ثبت"}
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {isChangingEmail && (
+                    <button
+                      onClick={() => {
+                        setIsChangingEmail(false);
+                        setEmailOtpSent(false);
+                      }}
+                      className="text-[11px] text-slate-500 hover:text-slate-300 block pt-1"
+                    >
+                      انصراف از تغییر ایمیل
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+
+            {/* Box 2: Deposit Email Alert for PRO / SPECIAL */}
+            <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-5 space-y-4 flex flex-col justify-between">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Bell className="w-4 h-4 text-emerald-400" />
+                    <span className="text-xs font-bold text-white">ارسال رسید ایمیلی به ازای واریزی‌ها</span>
+                  </div>
+                  {user?.plan === "FREE" ? (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 border border-slate-700">
+                      مخصوص پلن حرفه‌ای
+                    </span>
+                  ) : (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                      پلن {user?.plan === "SPECIAL" ? "ویژه" : "حرفه‌ای"}
+                    </span>
+                  )}
+                </div>
+
+                <p className="text-xs text-slate-400 leading-relaxed">
+                  به ازای هر تراکنش واریزی موفق، یک ایمیل شکیل با جزئیات کامل شامل مبلغ، کد رهگیری، زمان واریز و مشخصات پرداخت‌کننده ارسال می‌گردد.
+                </p>
+              </div>
+
+              <div className="pt-3 border-t border-slate-800/80">
+                {user?.plan === "FREE" ? (
+                  <div className="flex items-center justify-between bg-slate-900/60 p-3 rounded-xl border border-slate-800">
+                    <span className="text-[11px] text-slate-400">
+                      این قابلیت با ارتقای حساب به پلن حرفه‌ای فعال می‌گردد.
+                    </span>
+                    <button
+                      onClick={() => {
+                        setUpgradeTargetPlan("PRO");
+                        setShowUpgradeModal(true);
+                      }}
+                      className="bg-amber-600/20 hover:bg-amber-600/30 text-amber-300 border border-amber-500/40 text-[11px] font-bold px-3 py-1.5 rounded-lg transition shrink-0"
+                    >
+                      ارتقای پلن
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-800 cursor-pointer hover:border-slate-700 transition">
+                    <div className="space-y-0.5">
+                      <span className="text-xs font-bold text-slate-200 block">
+                        دریافت ایمیل به ازای هر واریز موفق
+                      </span>
+                      <span className="text-[10px] text-slate-400">
+                        {user?.emailNotifyDeposit
+                          ? "فعال است — رسیدها به " + (user?.email || "ایمیل") + " ارسال می‌شود"
+                          : "غیرفعال است — ایمیلی ارسال نمی‌شود"}
+                      </span>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={Boolean(user?.emailNotifyDeposit)}
+                      onChange={handleToggleEmailDepositAlert}
+                      className="accent-emerald-500 w-5 h-5 rounded cursor-pointer"
+                    />
+                  </label>
+                )}
+              </div>
+            </div>
           </div>
         </div>
 
@@ -1361,6 +1792,106 @@ export default function UserPortalPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Password Reset Modal via Email OTP */}
+      {showPasswordModal && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0F172A] border border-slate-800 rounded-3xl max-w-md w-full p-6 space-y-5 animate-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base font-bold text-white">تنظیم یا تغییر کلمه عبور با ایمیل</h3>
+              </div>
+              <button
+                onClick={() => setShowPasswordModal(false)}
+                className="text-slate-400 hover:text-white text-sm"
+              >
+                ✕
+              </button>
+            </div>
+
+            <p className="text-xs text-slate-400 leading-relaxed">
+              جهت ورود بدون نیاز به موبایل، می‌توانید برای حساب خود کلمه عبور تعیین فرمایید. کد تایید به آدرس ایمیل شما ارسال خواهد شد.
+            </p>
+
+            {passwordFeedback && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                  passwordFeedback.type === "success"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                }`}
+              >
+                {passwordFeedback.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0" />
+                )}
+                <span>{passwordFeedback.message}</span>
+              </div>
+            )}
+
+            <div className="space-y-3 text-xs">
+              <div>
+                <label className="text-slate-400 block mb-1">آدرس ایمیل دریافت کد:</label>
+                <input
+                  type="text"
+                  disabled
+                  value={user?.email || emailInput}
+                  dir="ltr"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-slate-300 font-mono"
+                />
+              </div>
+
+              {!passwordOtpSent ? (
+                <button
+                  onClick={handleSendPasswordResetOtp}
+                  disabled={passwordLoading}
+                  className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition flex items-center justify-center gap-2"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>{passwordLoading ? "در حال ارسال کد..." : "ارسال کد تایید به ایمیل"}</span>
+                </button>
+              ) : (
+                <div className="space-y-3 pt-2 border-t border-slate-800">
+                  <div>
+                    <label className="text-slate-400 block mb-1">کد تایید ۵ رقمی دریافتی از ایمیل:</label>
+                    <input
+                      type="text"
+                      maxLength={5}
+                      value={passwordOtpCode}
+                      onChange={(e) => setPasswordOtpCode(e.target.value.replace(/[^0-9]/g, ""))}
+                      placeholder="۱۲۳۴۵"
+                      dir="ltr"
+                      className="w-full bg-slate-950 border border-teal-500/50 rounded-xl px-3 py-2 text-center text-sm font-mono tracking-widest text-emerald-400 font-bold focus:outline-none"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1">کلمه عبور جدید (حداقل ۶ کاراکتر):</label>
+                    <input
+                      type="password"
+                      value={newPasswordInput}
+                      onChange={(e) => setNewPasswordInput(e.target.value)}
+                      placeholder="••••••••"
+                      dir="ltr"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
+                    />
+                  </div>
+
+                  <button
+                    onClick={handleConfirmPasswordReset}
+                    disabled={passwordLoading}
+                    className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white font-bold py-2.5 rounded-xl transition"
+                  >
+                    {passwordLoading ? "در حال ذخیره..." : "تایید کد و ذخیره کلمه عبور جدید"}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

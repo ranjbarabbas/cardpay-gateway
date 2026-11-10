@@ -1,6 +1,8 @@
 // Resend Email Gateway Integration
 // Supports sending transactional alerts, lead notifications, and reports
 
+import { getSystemSettings } from "./settings";
+
 export interface ResendEmailOptions {
   to: string | string[];
   subject: string;
@@ -9,8 +11,10 @@ export interface ResendEmailOptions {
 }
 
 export async function sendResendEmail(options: ResendEmailOptions): Promise<{ success: boolean; id?: string; error?: string }> {
-  const apiKey = process.env.RESEND_API_KEY;
-  const fromEmail = options.from || process.env.RESEND_FROM_EMAIL || "HonarHub Pay <noreply@honarhub.ir>";
+  const settings = getSystemSettings();
+  const apiKey = settings.email.apiKey || process.env.RESEND_API_KEY || "";
+  const fromName = settings.email.fromName || "هنرهاب پی | HonarHub Pay";
+  const fromEmail = options.from || (settings.email.fromEmail ? `${fromName} <${settings.email.fromEmail}>` : (process.env.RESEND_FROM_EMAIL || "HonarHub Pay <noreply@honarhub.ir>"));
 
   // If Resend API Key is not configured yet, simulate safely in console/log
   if (!apiKey || apiKey === "your-resend-api-key") {
