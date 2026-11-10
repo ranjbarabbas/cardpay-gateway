@@ -84,6 +84,8 @@ export default function AdminDashboard() {
   const [userSearch, setUserSearch] = useState("");
   const [userPlanFilter, setUserPlanFilter] = useState("ALL");
   const [txSearch, setTxSearch] = useState("");
+  const [cardUserFilter, setCardUserFilter] = useState("ALL");
+  const [txUserFilter, setTxUserFilter] = useState("ALL");
 
   const [loading, setLoading] = useState(false);
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
@@ -150,10 +152,12 @@ export default function AdminDashboard() {
     bankSlug: "mehr_iran",
     bankTitle: "بانک قرض‌الحسنه مهر ایران",
     deviceId: "",
+    userId: "",
   });
 
   // New Device Form
   const [newDeviceName, setNewDeviceName] = useState("");
+  const [newDeviceUserId, setNewDeviceUserId] = useState("");
 
   // New Sender Form
   const [newSender, setNewSender] = useState({ senderId: "", bankSlug: "mehr_iran", description: "" });
@@ -447,7 +451,7 @@ export default function AdminDashboard() {
     const res = await fetch("/api/v1/admin/cards", {
       method: "POST",
       headers,
-      body: JSON.stringify(newCard),
+      body: JSON.stringify({ ...newCard, userId: newCard.userId || undefined }),
     });
     const data = await res.json();
     if (data.success) {
@@ -458,6 +462,7 @@ export default function AdminDashboard() {
         bankSlug: "mehr_iran",
         bankTitle: "بانک قرض‌الحسنه مهر ایران",
         deviceId: "",
+        userId: "",
       });
       loadData();
     } else {
@@ -506,11 +511,12 @@ export default function AdminDashboard() {
     const res = await fetch("/api/v1/admin/devices", {
       method: "POST",
       headers,
-      body: JSON.stringify({ name: newDeviceName }),
+      body: JSON.stringify({ name: newDeviceName, userId: newDeviceUserId || undefined }),
     });
     const data = await res.json();
     if (data.success) {
       setNewDeviceName("");
+      setNewDeviceUserId("");
       loadData();
     } else {
       alert("خطا: " + data.error);
@@ -700,9 +706,72 @@ export default function AdminDashboard() {
   const specialUsersCount = users.filter((u) => u.plan === "SPECIAL" || u.plan === "PREMIUM").length;
   const activeCards = cards.filter((c) => !c.isArchived);
   const archivedCards = cards.filter((c) => c.isArchived);
+  const filteredCards = (cardSubTab === "active" ? activeCards : archivedCards).filter((c) => {
+    if (cardUserFilter === "ALL") return true;
+    return c.userId === cardUserFilter || c.user?.id === cardUserFilter;
+  });
+
   const activeDevices = devices.filter((d) => d.isActive);
   const paidTransactions = transactions.filter((t) => t.status === "PAID");
   const totalVolumeToman = paidTransactions.reduce((acc, t) => acc + Number(t.finalAmountToman || 0), 0);
+
+  const filteredTransactions = transactions.filter((tx) => {
+    if (txUserFilter === "ALL") return true;
+    return (
+      tx.userId === txUserFilter ||
+      tx.user?.id === txUserFilter ||
+      tx.card?.userId === txUserFilter ||
+      tx.card?.user?.id === txUserFilter
+    );
+  });
+
+  const filteredTickets = tickets.filter((tkt) => {
+    if (txUserFilter === "ALL") return true;
+    return (
+      tkt.transaction?.userId === txUserFilter ||
+      tkt.transaction?.user?.id === txUserFilter ||
+      tkt.transaction?.card?.userId === txUserFilter ||
+      tkt.transaction?.card?.user?.id === txUserFilter
+    );
+  });
+
+  const getDeviceStatus = (device: any) => {
+    if (!device.lastSeenAt) {
+      return {
+        label: "در انتظار اتصال اولیه",
+        color: "bg-amber-500/10 text-amber-400 border-amber-500/30",
+        dot: "bg-amber-400",
+        pulse: false,
+      };
+    }
+    const diffMs = Date.now() - new Date(device.lastSeenAt).getTime();
+    const diffMins = Math.floor(diffMs / 60000);
+
+    if (diffMins <= 5 && device.isActive) {
+      return {
+        label: "آنلاین و متصل",
+        color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/30",
+        dot: "bg-emerald-400",
+        pulse: true,
+      };
+    }
+
+    let relativeTime = "";
+    if (diffMins < 60) {
+      relativeTime = `${toPersianDigits(Math.max(1, diffMins))} دقیقه پیش`;
+    } else if (diffMins < 1440) {
+      relativeTime = `${toPersianDigits(Math.floor(diffMins / 60))} ساعت پیش`;
+    } else {
+      relativeTime = toPersianDigits(new Date(device.lastSeenAt).toLocaleDateString("fa-IR"));
+    }
+
+    return {
+      label: `قطع ارتباط (آخرین اتصال: ${relativeTime})`,
+      color: "bg-rose-500/10 text-rose-400 border-rose-500/30",
+      dot: "bg-rose-400",
+      pulse: false,
+    };
+  };
 
   return (
     <div className="min-h-screen bg-[#070A0F] text-slate-100 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
@@ -1235,23 +1304,41 @@ export default function AdminDashboard() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-                  <button
-                    onClick={() => setCardSubTab("active")}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                      cardSubTab === "active" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    کارت‌های فعال ({toPersianDigits(activeCards.length)})
-                  </button>
-                  <button
-                    onClick={() => setCardSubTab("archived")}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                      cardSubTab === "archived" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    کارت‌های بایگانی‌شده ({toPersianDigits(archivedCards.length)})
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
+                    <Users className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                    <select
+                      value={cardUserFilter}
+                      onChange={(e) => setCardUserFilter(e.target.value)}
+                      className="bg-transparent text-xs text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL" className="bg-slate-900 text-white">همه کاربران ({toPersianDigits(cards.length)})</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id} className="bg-slate-900 text-white">
+                          {u.name || "کاربر"} ({u.phone || u.email || u.id.slice(0, 6)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+                    <button
+                      onClick={() => setCardSubTab("active")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        cardSubTab === "active" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      کارت‌های فعال ({toPersianDigits(activeCards.length)})
+                    </button>
+                    <button
+                      onClick={() => setCardSubTab("archived")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        cardSubTab === "archived" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      کارت‌های بایگانی‌شده ({toPersianDigits(archivedCards.length)})
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1262,7 +1349,7 @@ export default function AdminDashboard() {
                   <span>ثبت و اتصال کارت بانکی جدید</span>
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
                   <div>
                     <label className="text-slate-400 block mb-1">نام صاحب حساب:</label>
                     <input
@@ -1288,7 +1375,7 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="text-slate-400 block mb-1">شماره حساب (جهت تطبیق پیامک):</label>
+                    <label className="text-slate-400 block mb-1">شماره حساب (اختیاری):</label>
                     <input
                       type="text"
                       placeholder="111122223333444455"
@@ -1296,6 +1383,22 @@ export default function AdminDashboard() {
                       onChange={(e) => setNewCard({ ...newCard, accountNumber: e.target.value })}
                       className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
                     />
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1">کاربر مالک کارت (اختیاری):</label>
+                    <select
+                      value={newCard.userId}
+                      onChange={(e) => setNewCard({ ...newCard, userId: e.target.value })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500"
+                    >
+                      <option value="">سیستم عمومی / بدون کاربر</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.name || "کاربر"} ({u.phone || u.email || u.id.slice(0, 6)})
+                        </option>
+                      ))}
+                    </select>
                   </div>
 
                   <div>
@@ -1328,7 +1431,7 @@ export default function AdminDashboard() {
 
               {/* Cards Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {(cardSubTab === "active" ? activeCards : archivedCards).map((card) => (
+                {filteredCards.map((card) => (
                   <div
                     key={card.id}
                     className="bg-slate-900 border border-slate-800 hover:border-slate-700 rounded-2xl p-4 space-y-3 transition"
@@ -1342,6 +1445,12 @@ export default function AdminDashboard() {
                       >
                         {card.isActive ? "فعال در درگاه" : "غیرفعال"}
                       </span>
+                    </div>
+
+                    {/* Associated User Badge */}
+                    <div className="flex items-center gap-1.5 text-[11px] text-slate-300 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
+                      <Users className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                      <span>کاربر مالک: <strong className="text-white font-medium">{card.user?.name || card.user?.phone || "کاربر عمومی سیستم"}</strong></span>
                     </div>
 
                     <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1 font-mono text-xs">
@@ -1417,7 +1526,7 @@ export default function AdminDashboard() {
               </div>
 
               {/* Register Device Form */}
-              <form onSubmit={handleAddDevice} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex gap-3 text-xs">
+              <form onSubmit={handleAddDevice} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 flex flex-col md:flex-row gap-3 text-xs">
                 <input
                   type="text"
                   placeholder="نام دستگاه جدید (مثلاً: گوشی سامسونگ پشتیبانی #۱)"
@@ -1426,9 +1535,21 @@ export default function AdminDashboard() {
                   className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
                   required
                 />
+                <select
+                  value={newDeviceUserId}
+                  onChange={(e) => setNewDeviceUserId(e.target.value)}
+                  className="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-indigo-500"
+                >
+                  <option value="">کاربر مالک دستگاه (اختیاری)...</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.name || "کاربر"} ({u.phone || u.email || u.id.slice(0, 6)})
+                    </option>
+                  ))}
+                </select>
                 <button
                   type="submit"
-                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl transition"
+                  className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl transition whitespace-nowrap"
                 >
                   ثبت دستگاه جدید
                 </button>
@@ -1436,56 +1557,64 @@ export default function AdminDashboard() {
 
               {/* Devices Grid */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {devices.map((device) => (
-                  <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white text-sm">{device.name}</span>
-                      <span
-                        className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                          device.isActive ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30" : "bg-slate-800 text-slate-400"
-                        }`}
-                      >
-                        {device.isActive ? "متصل" : "قطع"}
-                      </span>
-                    </div>
-
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
-                      <div className="text-slate-400">
-                        کلید اتصال اپلیکیشن (API Key):
-                      </div>
-                      <div className="flex items-center justify-between text-indigo-300 font-mono text-[11px]">
-                        <span>{device.apiKey.slice(0, 16)}...</span>
-                        <button
-                          onClick={() => copyToClipboard(device.apiKey, device.id)}
-                          className="text-slate-400 hover:text-white"
+                {devices.map((device) => {
+                  const status = getDeviceStatus(device);
+                  return (
+                    <div key={device.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="font-bold text-white text-sm truncate">{device.name}</span>
+                        <span
+                          className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1.5 shrink-0 ${status.color}`}
                         >
-                          {copiedKey === device.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          <span className={`w-1.5 h-1.5 rounded-full ${status.dot} ${status.pulse ? "animate-pulse" : ""}`} />
+                          <span>{status.label}</span>
+                        </span>
+                      </div>
+
+                      {/* Associated User Badge */}
+                      <div className="flex items-center gap-1.5 text-[11px] text-slate-300 bg-slate-950/70 px-2.5 py-1.5 rounded-xl border border-slate-800/80">
+                        <Users className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
+                        <span>کاربر متصل: <strong className="text-white font-medium">{device.user?.name || device.user?.phone || "کاربر عمومی سیستم"}</strong></span>
+                      </div>
+
+                      <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 space-y-1 text-xs">
+                        <div className="text-slate-400">
+                          کلید اتصال اپلیکیشن (API Key):
+                        </div>
+                        <div className="flex items-center justify-between text-indigo-300 font-mono text-[11px]">
+                          <span>{device.apiKey.slice(0, 16)}...</span>
+                          <button
+                            onClick={() => copyToClipboard(device.apiKey, device.id)}
+                            className="text-slate-400 hover:text-white"
+                          >
+                            {copiedKey === device.id ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <button
+                          onClick={() => {
+                            setNotifyDeviceId(device.id);
+                            setNotifyTitle("");
+                            setNotifyMessage("");
+                          }}
+                          className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 text-[11px]"
+                        >
+                          <Send className="w-3 h-3" />
+                          <span>ارسال پوش اختصاصی</span>
+                        </button>
+
+                        <button
+                          onClick={() => handleToggleDevice(device.id, device.isActive)}
+                          className="text-slate-400 hover:text-white text-[11px]"
+                        >
+                          {device.isActive ? "غیرفعال" : "فعال‌سازی"}
                         </button>
                       </div>
                     </div>
-
-                    <div className="flex items-center justify-between text-xs pt-1">
-                      <button
-                        onClick={() => {
-                          setNotifyDeviceId(device.id);
-                          setNotifyTitle("");
-                          setNotifyMessage("");
-                        }}
-                        className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 text-[11px]"
-                      >
-                        <Send className="w-3 h-3" />
-                        <span>ارسال پوش اختصاصی</span>
-                      </button>
-
-                      <button
-                        onClick={() => handleToggleDevice(device.id, device.isActive)}
-                        className="text-slate-400 hover:text-white text-[11px]"
-                      >
-                        {device.isActive ? "غیرفعال" : "فعال‌سازی"}
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
@@ -1626,31 +1755,49 @@ export default function AdminDashboard() {
                   </p>
                 </div>
 
-                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
-                  <button
-                    onClick={() => setTxSubTab("transactions")}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                      txSubTab === "transactions" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    تراکنش‌ها ({toPersianDigits(transactions.length)})
-                  </button>
-                  <button
-                    onClick={() => setTxSubTab("sms_logs")}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                      txSubTab === "sms_logs" ? "bg-teal-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    لاگ پیامک‌های خام ({toPersianDigits(smsLogs.length)})
-                  </button>
-                  <button
-                    onClick={() => setTxSubTab("tickets")}
-                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
-                      txSubTab === "tickets" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white"
-                    }`}
-                  >
-                    مغایرت‌ها ({toPersianDigits(tickets.length)})
-                  </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <div className="flex items-center gap-1.5 bg-slate-900 border border-slate-800 rounded-xl px-2.5 py-1">
+                    <Users className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                    <select
+                      value={txUserFilter}
+                      onChange={(e) => setTxUserFilter(e.target.value)}
+                      className="bg-transparent text-xs text-slate-300 focus:outline-none cursor-pointer"
+                    >
+                      <option value="ALL" className="bg-slate-900 text-white">همه کاربران ({toPersianDigits(transactions.length)})</option>
+                      {users.map((u) => (
+                        <option key={u.id} value={u.id} className="bg-slate-900 text-white">
+                          {u.name || "کاربر"} ({u.phone || u.email || u.id.slice(0, 6)})
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800 text-xs">
+                    <button
+                      onClick={() => setTxSubTab("transactions")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        txSubTab === "transactions" ? "bg-emerald-600 text-white shadow" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      تراکنش‌ها ({toPersianDigits(filteredTransactions.length)})
+                    </button>
+                    <button
+                      onClick={() => setTxSubTab("sms_logs")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        txSubTab === "sms_logs" ? "bg-teal-600 text-white shadow" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      لاگ پیامک‌های خام ({toPersianDigits(smsLogs.length)})
+                    </button>
+                    <button
+                      onClick={() => setTxSubTab("tickets")}
+                      className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                        txSubTab === "tickets" ? "bg-amber-600 text-white shadow" : "text-slate-400 hover:text-white"
+                      }`}
+                    >
+                      مغایرت‌ها ({toPersianDigits(filteredTickets.length)})
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -1660,7 +1807,8 @@ export default function AdminDashboard() {
                   <table className="w-full text-right text-xs">
                     <thead className="bg-slate-900 text-slate-400 border-b border-slate-800">
                       <tr>
-                        <th className="p-3">شناسه پیگیری / لینک پرداخت</th>
+                        <th className="p-3">شناسه پیگیری / لینک</th>
+                        <th className="p-3">کاربر پذیرنده</th>
                         <th className="p-3">مبلغ پایه</th>
                         <th className="p-3">آفست</th>
                         <th className="p-3">مبلغ پرداختی نهایی</th>
@@ -1672,7 +1820,7 @@ export default function AdminDashboard() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-800/60 font-mono">
-                      {transactions.map((tx) => (
+                      {filteredTransactions.map((tx) => (
                         <tr key={tx.id} className="hover:bg-slate-900/40 transition">
                           <td className="p-3">
                             <Link
@@ -1683,6 +1831,11 @@ export default function AdminDashboard() {
                               <span>{tx.internalTrackingCode || tx.authority.slice(0, 14)}</span>
                               <ExternalLink className="w-3 h-3 text-slate-500" />
                             </Link>
+                          </td>
+                          <td className="p-3 font-sans text-xs">
+                            <span className="text-slate-300 font-medium">
+                              {tx.user?.name || tx.card?.user?.name || (tx.user?.phone ? tx.user.phone : "کاربر سیستم")}
+                            </span>
                           </td>
                           <td className="p-3 text-slate-300">{formatPersianNumber(tx.originalAmountToman)} ت</td>
                           <td className="p-3 text-teal-400 font-bold">+{toPersianDigits(tx.offsetToman)} ت</td>
@@ -1742,18 +1895,28 @@ export default function AdminDashboard() {
               {/* Tickets Sub-Tab */}
               {txSubTab === "tickets" && (
                 <div className="space-y-3">
-                  {tickets.length === 0 ? (
+                  {filteredTickets.length === 0 ? (
                     <p className="text-xs text-slate-500 text-center py-8">مغایرتی ثبت نشده است.</p>
                   ) : (
-                    tickets.map((tkt) => (
-                      <div key={tkt.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs space-y-2">
-                        <div className="flex items-center justify-between font-bold text-white">
-                          <span>{tkt.reason}</span>
-                          <span className="text-amber-400">{tkt.status}</span>
+                    filteredTickets.map((tkt) => {
+                      const tktUser = tkt.transaction?.user || tkt.transaction?.card?.user;
+                      return (
+                        <div key={tkt.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 text-xs space-y-2">
+                          <div className="flex items-center justify-between font-bold text-white">
+                            <div className="flex items-center gap-2">
+                              <span>{tkt.reason}</span>
+                              {tktUser && (
+                                <span className="text-[11px] bg-slate-950 px-2 py-0.5 rounded text-teal-400 font-normal">
+                                  کاربر: {tktUser.name || tktUser.phone}
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-amber-400">{tkt.status}</span>
+                          </div>
+                          <p className="text-slate-400">{tkt.notes}</p>
                         </div>
-                        <p className="text-slate-400">{tkt.notes}</p>
-                      </div>
-                    ))
+                      );
+                    })
                   )}
                 </div>
               )}

@@ -162,11 +162,18 @@ export async function POST(req: NextRequest) {
     const authority = `CPAY_${timestampPart}_${randomSuffix}`;
     const internalTrackingCode = generateInternalTrackingCode();
 
+    const apiKey = req.headers.get("x-api-key");
+    let apiKeyUserId = null;
+    if (apiKey) {
+      const authUser = await db.user.findUnique({ where: { apiKey } });
+      if (authUser) apiKeyUserId = authUser.id;
+    }
+
     const transaction = await db.transaction.create({
       data: {
         authority,
         internalTrackingCode,
-        userId: targetCard.userId || null,
+        userId: targetCard.userId || apiKeyUserId || null,
         cardId: targetCard.id,
         originalAmountToman: resolved.originalAmountToman,
         offsetToman: resolved.offsetToman,

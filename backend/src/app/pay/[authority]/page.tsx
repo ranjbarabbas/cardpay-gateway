@@ -48,6 +48,21 @@ function CheckoutContent({ authority }: { authority: string }) {
   const [secondsLeft, setSecondsLeft] = useState<number>(600);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simResult, setSimResult] = useState<string | null>(null);
+  const [isLocalhost, setIsLocalhost] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const host = window.location.hostname;
+      setIsLocalhost(
+        host === "localhost" ||
+        host === "127.0.0.1" ||
+        host.endsWith(".local") ||
+        host.startsWith("192.168.") ||
+        host.startsWith("10.") ||
+        host === "[::1]"
+      );
+    }
+  }, []);
 
   // Fetch status
   const fetchStatus = async () => {
@@ -429,28 +444,30 @@ ${details.payableAmountRial.toLocaleString()}+
           </div>
         </div>
 
-        {/* Sandbox & Interactive Simulator Drawer */}
-        <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-xs space-y-2 text-center">
-          <div className="flex items-center justify-between text-slate-400">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
-              <Play className="w-3.5 h-3.5" />
-              لابراتوار تست و ارزیابی درگاه (Sandbox):
-            </span>
-            <button
-              onClick={handleSimulatePayment}
-              disabled={isSimulating}
-              className="bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
-            >
-              {isSimulating ? <RotateCcw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-              <span>شبیه‌سازی خودکار واریز این تراکنش</span>
-            </button>
+        {/* Sandbox & Interactive Simulator Drawer - Localhost / Local Dev Only */}
+        {isLocalhost && (
+          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-xs space-y-2 text-center">
+            <div className="flex items-center justify-between text-slate-400">
+              <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
+                <Play className="w-3.5 h-3.5" />
+                لابراتوار تست و ارزیابی درگاه (Sandbox):
+              </span>
+              <button
+                onClick={handleSimulatePayment}
+                disabled={isSimulating}
+                className="bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
+              >
+                {isSimulating ? <RotateCcw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
+                <span>شبیه‌سازی خودکار واریز این تراکنش</span>
+              </button>
+            </div>
+            {simResult && (
+              <p className="text-[11px] text-emerald-300 font-medium bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-2 mt-2">
+                {simResult}
+              </p>
+            )}
           </div>
-          {simResult && (
-            <p className="text-[11px] text-emerald-300 font-medium bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-2 mt-2">
-              {simResult}
-            </p>
-          )}
-        </div>
+        )}
 
       </div>
     </div>

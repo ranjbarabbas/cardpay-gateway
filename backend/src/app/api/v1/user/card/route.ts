@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { ownerName, cardNumber, accountNumber, iban, bankTitle = "بانک قرض‌الحسنه مهر ایران", bankSlug = "mehr_iran", replace = false } = body;
+    const { ownerName, cardNumber, accountNumber, iban, bankTitle, bankSlug = "mehr_iran", replace = false } = body;
 
     if (!ownerName || !cardNumber) {
       return NextResponse.json(
@@ -35,6 +35,12 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    const cleanIban = iban?.trim()
+      ? (iban.trim().toUpperCase().startsWith("IR") ? iban.trim().toUpperCase() : `IR${iban.trim().replace(/[^0-9]/g, "")}`)
+      : null;
+
+    const resolvedBankTitle = bankTitle?.trim() || "بانک قرض‌الحسنه مهر ایران";
 
     const isExistingUserCard = user.cards.some((c) => c.cardNumber === cleanCard);
 
@@ -78,8 +84,8 @@ export async function POST(req: NextRequest) {
       update: {
         ownerName,
         accountNumber: accountNumber?.trim() || null,
-        iban: iban?.trim() || null,
-        bankTitle,
+        iban: cleanIban,
+        bankTitle: resolvedBankTitle,
         bankSlug,
         userId: user.id,
         isArchived: false,
@@ -89,8 +95,8 @@ export async function POST(req: NextRequest) {
         ownerName,
         cardNumber: cleanCard,
         accountNumber: accountNumber?.trim() || null,
-        iban: iban?.trim() || null,
-        bankTitle,
+        iban: cleanIban,
+        bankTitle: resolvedBankTitle,
         bankSlug,
         userId: user.id,
         isActive: true,

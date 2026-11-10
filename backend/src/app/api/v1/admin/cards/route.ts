@@ -7,8 +7,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+  const where: any = {};
+  if (userId) {
+    where.userId = userId;
+  }
+
   const cards = await db.bankCard.findMany({
-    include: { device: true },
+    where,
+    include: { device: true, user: true },
     orderBy: { createdAt: "desc" },
   });
 
@@ -69,7 +77,7 @@ export async function POST(req: NextRequest) {
         iban: iban ? iban.trim() : null,
         bankSlug,
         bankTitle,
-        ...(cleanUserId ? { merchantUserId: cleanUserId } : {}),
+        ...(cleanUserId ? { merchantUserId: cleanUserId, userId: cleanUserId } : {}),
         ...(deviceId ? { deviceId } : {}),
         isActive: true,
         isArchived: false,
@@ -83,6 +91,7 @@ export async function POST(req: NextRequest) {
         bankSlug,
         bankTitle,
         merchantUserId: cleanUserId || null,
+        userId: cleanUserId || null,
         deviceId: deviceId || null,
         isActive: true,
         isArchived: false,

@@ -38,6 +38,7 @@ export default function UserPortalPage() {
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [txPage, setTxPage] = useState(1);
+  const [selectedCardId, setSelectedCardId] = useState<string>("");
   const TX_PER_PAGE = 10;
 
   // Card modal state
@@ -49,7 +50,7 @@ export default function UserPortalPage() {
     cardNumber: "",
     accountNumber: "",
     iban: "",
-    bankTitle: "بانک قرض‌الحسنه مهر ایران",
+    bankTitle: "",
   });
   const [cardLoading, setCardLoading] = useState(false);
   const [cardMsg, setCardMsg] = useState<string | null>(null);
@@ -149,7 +150,7 @@ export default function UserPortalPage() {
         cardNumber: "",
         accountNumber: "",
         iban: "",
-        bankTitle: "بانک قرض‌الحسنه مهر ایران",
+        bankTitle: "",
       });
       fetchUserData();
     } catch (err: any) {
@@ -195,6 +196,7 @@ export default function UserPortalPage() {
     setTestResult(null);
     try {
       const cleanNumeric = parseInt(testAmount.replace(/,/g, "")) || 50000;
+      const targetCard = selectedCardId ? user.cards.find((c: any) => c.id === selectedCardId) : user.cards[0];
       const res = await fetch("/api/v1/payment/request", {
         method: "POST",
         headers: {
@@ -203,9 +205,9 @@ export default function UserPortalPage() {
         },
         body: JSON.stringify({
           amount: cleanNumeric,
-          cartId: user.cards[0].id,
+          cardId: targetCard?.id || user.cards[0].id,
           callbackUrl: `${window.location.origin}/portal`,
-          description: `تست پرداخت آزمایشی پنل کاربری ${user.name || ""}`,
+          description: `پرداخت فاکتور ${user.name || ""}`,
         }),
       });
       const json = await res.json();
@@ -213,7 +215,7 @@ export default function UserPortalPage() {
         setTestResult(json.data);
         await fetchUserData(); // Auto refresh transactions and counter immediately!
       } else {
-        alert(json.message || json.error || "خطا در ایجاد پرداخت تستی");
+        alert(json.message || json.error || "خطا در ایجاد لینک پرداخت");
       }
     } catch (e: any) {
       alert(e.message || "خطا در ارتباط با سرور");
@@ -610,15 +612,15 @@ export default function UserPortalPage() {
             {user.apiKey}
           </div>
 
-          {/* Test Payment Trigger */}
+          {/* Payment Link Trigger */}
           <div className="border-t border-slate-800/80 pt-6 space-y-4">
             <h3 className="text-sm font-bold text-white flex items-center gap-2">
               <Send className="w-4 h-4 text-emerald-400" />
-              <span>ایجاد فاکتور آزمایشی و تست زنده صفحه پرداخت</span>
+              <span>ایجاد درگاه پرداخت و صدور فاکتور اختصاصی</span>
             </h3>
 
             <div className="flex flex-col sm:flex-row items-center gap-3">
-              <div className="relative w-full sm:w-64">
+              <div className="relative w-full sm:w-56">
                 <input
                   type="text"
                   inputMode="numeric"
@@ -631,16 +633,34 @@ export default function UserPortalPage() {
                 <span className="absolute left-3 top-3 text-[10px] text-slate-500 font-sans">تومان</span>
               </div>
 
+              {/* Multi-Card Dropdown Selector */}
+              {user?.cards && user.cards.length > 1 && (
+                <div className="relative w-full sm:w-64">
+                  <select
+                    value={selectedCardId || user.cards[0]?.id}
+                    onChange={(e) => setSelectedCardId(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer appearance-none pr-8 pl-3"
+                  >
+                    {user.cards.map((c: any) => (
+                      <option key={c.id} value={c.id} className="bg-slate-900 text-white">
+                        {c.bankTitle || "کارت بانکی"} • {c.ownerName} (...{c.cardNumber.slice(-4)})
+                      </option>
+                    ))}
+                  </select>
+                  <CreditCard className="w-4 h-4 text-emerald-400 absolute right-2.5 top-3 pointer-events-none" />
+                </div>
+              )}
+
               <button
                 onClick={handleCreateTestPayment}
                 disabled={testLoading}
-                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2"
+                className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold px-6 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 shrink-0"
               >
                 {testLoading ? (
-                  <span>در حال ایجاد پرداخت تستی...</span>
+                  <span>در حال ایجاد لینک پرداخت...</span>
                 ) : (
                   <>
-                    <span>ایجاد لینک پرداخت تستی</span>
+                    <span>ایجاد لینک پرداخت</span>
                     <ArrowRight className="w-3.5 h-3.5 rotate-180" />
                   </>
                 )}
@@ -674,7 +694,7 @@ export default function UserPortalPage() {
 
         {/* Section 4: Recent Transactions */}
         {(() => {
-          const allTx = user?.transactions || [];
+          const allTx = (user?.transactions || []).slice().sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
           const totalTxPages = Math.max(1, Math.ceil(allTx.length / TX_PER_PAGE));
           const safeTxPage = Math.min(txPage, totalTxPages);
           const paginatedTx = allTx.slice((safeTxPage - 1) * TX_PER_PAGE, safeTxPage * TX_PER_PAGE);
@@ -692,13 +712,13 @@ export default function UserPortalPage() {
                   )}
                 </h2>
                 <span className="text-xs text-slate-400 bg-slate-900 px-3 py-1 rounded-xl border border-slate-800">
-                  نمایش بسته‌های {toPersianDigits(10)} تایی • صفحه {toPersianDigits(safeTxPage)} از {toPersianDigits(totalTxPages)}
+                  نمایش ۱۰ تراکنش در هر صفحه • صفحه {toPersianDigits(safeTxPage)} از {toPersianDigits(totalTxPages)}
                 </span>
               </div>
 
               {allTx.length === 0 ? (
                 <div className="text-center py-8 text-xs text-slate-500">
-                  هنوز تراکنشی برای حساب شما ثبت نشده است. با ساخت لینک تستی بالا می‌توانید اولین تراکنش را ایجاد نمایید.
+                  هنوز تراکنشی برای حساب شما ثبت نشده است. با ساخت لینک پرداخت بالا می‌توانید اولین تراکنش را ایجاد نمایید.
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -840,19 +860,23 @@ export default function UserPortalPage() {
 
             <form onSubmit={handleSaveCard} className="space-y-4 text-xs">
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium">نام و نام‌خانوادگی صاحب حساب:</label>
+                <label className="text-slate-300 font-medium">
+                  نام و نام‌خانوادگی صاحب حساب <span className="text-rose-400 font-bold">*</span>:
+                </label>
                 <input
                   type="text"
                   required
                   value={cardForm.ownerName}
                   onChange={(e) => setCardForm({ ...cardForm, ownerName: e.target.value })}
-                  placeholder="مثال: عباس رنجبر"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="مثال: امیر رضایی"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium">شماره ۱۶ رقمی کارت بانکی:</label>
+                <label className="text-slate-300 font-medium">
+                  شماره ۱۶ رقمی کارت بانکی <span className="text-rose-400 font-bold">*</span>:
+                </label>
                 <input
                   type="text"
                   required
@@ -860,30 +884,38 @@ export default function UserPortalPage() {
                   value={cardForm.cardNumber}
                   onChange={(e) => setCardForm({ ...cardForm, cardNumber: e.target.value.replace(/[^0-9]/g, "") })}
                   placeholder="6037991987654321"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
                   dir="ltr"
                 />
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium">شماره حساب واریزی (جهت تطبیق با پیامک):</label>
-                <input
-                  type="text"
-                  value={cardForm.accountNumber}
-                  onChange={(e) => setCardForm({ ...cardForm, accountNumber: e.target.value })}
-                  placeholder="مثال: 987654321012345678"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500"
-                  dir="ltr"
-                />
+                <label className="text-slate-300 font-medium">شماره شبا (اختیاری):</label>
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    maxLength={24}
+                    value={cardForm.iban}
+                    onChange={(e) => setCardForm({ ...cardForm, iban: e.target.value.replace(/[^0-9]/g, "") })}
+                    placeholder="120540102780001234567890"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-12 pr-4 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500 tracking-wider text-xs placeholder:text-slate-600"
+                    dir="ltr"
+                  />
+                  <span className="absolute left-3 font-mono font-black text-emerald-400 text-xs select-none pointer-events-none bg-slate-900 border border-slate-800 px-1.5 py-0.5 rounded">
+                    IR
+                  </span>
+                </div>
+                <span className="text-[10px] text-slate-500 block">۲۴ رقم عددی بدون پیشوند IR</span>
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium">عنوان نمایشی بانک:</label>
+                <label className="text-slate-300 font-medium">عنوان نمایشی بانک (اختیاری):</label>
                 <input
                   type="text"
                   value={cardForm.bankTitle}
                   onChange={(e) => setCardForm({ ...cardForm, bankTitle: e.target.value })}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500"
+                  placeholder="مثال: بانک قرض‌الحسنه مهر ایران یا بانک سامان"
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
                 />
               </div>
 

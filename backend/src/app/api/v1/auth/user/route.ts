@@ -111,7 +111,7 @@ export async function GET(req: NextRequest) {
         devices: true,
         transactions: {
           orderBy: { createdAt: "desc" },
-          take: 10,
+          take: 100,
           include: { card: true },
         },
       },

@@ -8,8 +8,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const userId = searchParams.get("userId");
+  const where: any = {};
+  if (userId) {
+    where.userId = userId;
+  }
+
   const devices = await db.device.findMany({
+    where,
     include: {
+      user: true,
       cards: true,
       _count: { select: { smsLogs: true } },
     },
@@ -26,7 +35,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { name, phoneModel } = body;
+    const { name, phoneModel, userId } = body;
 
     if (!name) {
       return NextResponse.json(
@@ -43,7 +52,11 @@ export async function POST(req: NextRequest) {
         name,
         apiKey,
         phoneModel: phoneModel || null,
+        userId: userId || null,
         isActive: true,
+      },
+      include: {
+        user: true,
       },
     });
 
