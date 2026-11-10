@@ -78,7 +78,7 @@ export default function AdminDashboard() {
   const [senderSubTab, setSenderSubTab] = useState<"approved" | "blocked" | "pending">("approved");
   const [cardSubTab, setCardSubTab] = useState<"active" | "archived">("active");
   const [txSubTab, setTxSubTab] = useState<"transactions" | "sms_logs" | "tickets">("transactions");
-  const [settingsSubTab, setSettingsSubTab] = useState<"sms" | "email" | "leads">("sms");
+  const [settingsSubTab, setSettingsSubTab] = useState<"admin_card" | "sms" | "email" | "leads">("admin_card");
 
   // Filtering & Pagination
   const [userSearch, setUserSearch] = useState("");
@@ -93,6 +93,21 @@ export default function AdminDashboard() {
 
   // Settings State
   const [systemSettings, setSystemSettings] = useState<any>({
+    adminCard: {
+      ownerName: "هنرهاب پی (حساب رسمی مدیریت)",
+      cardNumber: "6063731099887766",
+      iban: "IR000000000000000000000000",
+      bankTitle: "بانک قرض‌الحسنه مهر ایران",
+      description: "کارت رسمی پرداخت و ارتقای اشتراک و پلن‌های هنرهاب پی",
+    },
+    pricing: {
+      pro1MonthToman: 199000,
+      pro3MonthsToman: 499000,
+      pro12MonthsToman: 1690000,
+      special1MonthToman: 399000,
+      special3MonthsToman: 999000,
+      special12MonthsToman: 3490000,
+    },
     sms: {
       provider: "farazsms",
       enabled: true,
@@ -107,7 +122,7 @@ export default function AdminDashboard() {
     email: {
       provider: "resend",
       enabled: true,
-      apiKey: "re_honarhub_pay_live_2026",
+      apiKey: "",
       fromEmail: "notifications@honarhub.ir",
       fromName: "هنرهاب پی | HonarHub Pay",
       replyTo: "support@honarhub.ir",
@@ -137,6 +152,13 @@ export default function AdminDashboard() {
     role: "USER",
   });
   const [createUserLoading, setCreateUserLoading] = useState(false);
+
+  // User Plan & Duration Management Modal
+  const [planModalUser, setPlanModalUser] = useState<any | null>(null);
+  const [planModalTarget, setPlanModalTarget] = useState<string>("PRO");
+  const [planModalDuration, setPlanModalDuration] = useState<number>(1);
+  const [planModalNotes, setPlanModalNotes] = useState<string>("");
+  const [planModalLoading, setPlanModalLoading] = useState(false);
 
   // Broadcast Notification Modal
   const [isBroadcastOpen, setIsBroadcastOpen] = useState(false);
@@ -323,16 +345,52 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleOpenPlanModal = (u: any) => {
+    setPlanModalUser(u);
+    setPlanModalTarget(u.plan === "FREE" ? "PRO" : u.plan);
+    setPlanModalDuration(u.planDurationMonths || 1);
+    setPlanModalNotes("");
+  };
+
+  const handleSaveUserPlan = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!planModalUser) return;
+    setPlanModalLoading(true);
+    try {
+      const res = await fetch(`/api/v1/admin/users/${planModalUser.id}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          plan: planModalTarget,
+          durationMonths: planModalDuration,
+          notes: planModalNotes,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        alert("پلن و مدت زمان کاربر به‌روزرسانی شد، کارت‌ها بازتنظیم شدند و پیام اطلاع‌رسانی ارسال گردید.");
+        setPlanModalUser(null);
+        loadData();
+      } else {
+        alert("خطا در تغییر پلن کاربر: " + data.error);
+      }
+    } catch (err: any) {
+      alert("خطای ارتباط: " + err.message);
+    } finally {
+      setPlanModalLoading(false);
+    }
+  };
+
   const handleUpdateUserPlan = async (userId: string, newPlan: string) => {
     try {
       const res = await fetch(`/api/v1/admin/users/${userId}`, {
         method: "PATCH",
         headers,
-        body: JSON.stringify({ plan: newPlan }),
+        body: JSON.stringify({ plan: newPlan, durationMonths: 1 }),
       });
       const data = await res.json();
       if (data.success) {
-        setUsers((prev) => prev.map((u) => (u.id === userId ? { ...u, plan: newPlan } : u)));
+        loadData();
       } else {
         alert("خطا در تغییر پلن کاربر: " + data.error);
       }
@@ -1187,23 +1245,49 @@ export default function AdminDashboard() {
                             </div>
                           </td>
 
-                          {/* Plan Badge & Quick Changer */}
+                          {/* Plan Badge & Expiration & Modal Opener */}
                           <td className="p-3.5 font-sans">
-                            <select
-                              value={u.plan}
-                              onChange={(e) => handleUpdateUserPlan(u.id, e.target.value)}
-                              className={`text-[11px] font-bold px-2.5 py-1 rounded-lg border cursor-pointer focus:outline-none transition ${
-                                u.plan === "PRO"
-                                  ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
-                                  : u.plan === "SPECIAL" || u.plan === "PREMIUM"
-                                  ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
-                                  : "bg-slate-800 text-slate-300 border-slate-700"
-                              }`}
-                            >
-                              <option value="FREE" className="bg-slate-900 text-white">پلن رایگان (FREE)</option>
-                              <option value="PRO" className="bg-slate-900 text-white">پلن حرفه‌ای (PRO)</option>
-                              <option value="SPECIAL" className="bg-slate-900 text-white">پلن نامحدود (SPECIAL)</option>
-                            </select>
+                            <div className="space-y-1">
+                              <div className="flex items-center gap-1.5">
+                                <span
+                                  className={`text-[11px] font-bold px-2 py-0.5 rounded-lg border ${
+                                    u.plan === "PRO"
+                                      ? "bg-teal-500/10 text-teal-300 border-teal-500/30"
+                                      : u.plan === "SPECIAL" || u.plan === "PREMIUM"
+                                      ? "bg-amber-500/10 text-amber-300 border-amber-500/30"
+                                      : "bg-slate-800 text-slate-300 border-slate-700"
+                                  }`}
+                                >
+                                  {u.plan === "PRO"
+                                    ? "حرفه‌ای (PRO)"
+                                    : u.plan === "SPECIAL" || u.plan === "PREMIUM"
+                                    ? "ویژه (SPECIAL)"
+                                    : "پایه (FREE)"}
+                                </span>
+                                <button
+                                  onClick={() => handleOpenPlanModal(u)}
+                                  className="p-1 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-lg transition"
+                                  title="مدیریت و تمدید اشتراک"
+                                >
+                                  <Settings className="w-3 h-3 text-teal-400" />
+                                </button>
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-sans">
+                                {u.plan === "FREE" ? (
+                                  <span>دائمی رایگان</span>
+                                ) : u.planExpiresAt ? (
+                                  new Date(u.planExpiresAt) > new Date() ? (
+                                    <span className="text-teal-400">
+                                      تا {toPersianDigits(new Date(u.planExpiresAt).toLocaleDateString("fa-IR"))}
+                                    </span>
+                                  ) : (
+                                    <span className="text-rose-400 font-bold">منقضی شده</span>
+                                  )
+                                ) : (
+                                  <span>بدون تاریخ انقضا</span>
+                                )}
+                              </div>
+                            </div>
                           </td>
 
                           {/* Status Toggle */}
@@ -1229,6 +1313,14 @@ export default function AdminDashboard() {
                                 <CreditCard className="w-3.5 h-3.5 text-teal-400" />
                                 <span>{toPersianDigits(u.activeCardsCount || 0)}</span>
                               </span>
+                              {u.frozenCardsCount > 0 && (
+                                <span
+                                  className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-1.5 py-0.5 rounded font-bold"
+                                  title="کارت‌های فریز شده به دلیل سقف پلن"
+                                >
+                                  {toPersianDigits(u.frozenCardsCount)} فریز
+                                </span>
+                              )}
                               <span className="text-slate-600">|</span>
                               <span className="flex items-center gap-1" title="دستگاه‌های اندروید متصل">
                                 <Smartphone className="w-3.5 h-3.5 text-indigo-400" />
@@ -1271,13 +1363,22 @@ export default function AdminDashboard() {
 
                           {/* Actions */}
                           <td className="p-3.5 text-center">
-                            <button
-                              onClick={() => handleDeleteUser(u.id, u.name)}
-                              className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
-                              title="حذف کاربر"
-                            >
-                              <Trash2 className="w-4 h-4" />
-                            </button>
+                            <div className="flex items-center justify-center gap-1">
+                              <button
+                                onClick={() => handleOpenPlanModal(u)}
+                                className="p-1.5 text-slate-400 hover:text-teal-300 hover:bg-teal-500/10 rounded-lg transition"
+                                title="مدیریت، ارتقا و تمدید پلن"
+                              >
+                                <Sparkles className="w-4 h-4 text-teal-400" />
+                              </button>
+                              <button
+                                onClick={() => handleDeleteUser(u.id, u.name)}
+                                className="p-1.5 text-slate-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition"
+                                title="حذف کاربر"
+                              >
+                                <Trash2 className="w-4 h-4" />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}
@@ -1847,10 +1948,18 @@ export default function AdminDashboard() {
                                   ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
                                   : tx.status === "PENDING"
                                   ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                                  : tx.status === "EXPIRED"
+                                  ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
                                   : "bg-slate-800 text-slate-400"
                               }`}
                             >
-                              {tx.status === "PAID" ? "پرداخت شده" : tx.status === "PENDING" ? "در انتظار" : tx.status}
+                              {tx.status === "PAID"
+                                ? "پرداخت شده"
+                                : tx.status === "PENDING"
+                                ? "در انتظار"
+                                : tx.status === "EXPIRED"
+                                ? "منقضی شده"
+                                : tx.status}
                             </span>
                           </td>
                           <td className="p-3 font-sans text-slate-400">{tx.card?.ownerName || "—"}</td>
@@ -1959,7 +2068,18 @@ export default function AdminDashboard() {
               )}
 
               {/* Sub-tabs for Settings */}
-              <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+              <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
+                <button
+                  onClick={() => setSettingsSubTab("admin_card")}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
+                    settingsSubTab === "admin_card"
+                      ? "bg-emerald-600 text-white shadow"
+                      : "bg-slate-900 text-slate-400 hover:text-white"
+                  }`}
+                >
+                  <CreditCard className="w-4 h-4" />
+                  <span>کارت بانکی مدیریت و تعرفه اشتراک</span>
+                </button>
                 <button
                   onClick={() => setSettingsSubTab("sms")}
                   className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
@@ -1991,9 +2111,211 @@ export default function AdminDashboard() {
                   }`}
                 >
                   <Sparkles className="w-4 h-4" />
-                  <span>لیدهای پلن پرمیوم ({toPersianDigits(leads.length)})</span>
+                  <span>لیدهای ارتقای پلن ({toPersianDigits(leads.length)})</span>
                 </button>
               </div>
+
+              {/* SUBTAB 0: ADMIN CARD & PRICING */}
+              {settingsSubTab === "admin_card" && (
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  {/* Admin Bank Card */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 text-xs">
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <CreditCard className="w-4 h-4 text-emerald-400" />
+                      <div>
+                        <span className="font-bold text-white text-sm block">کارت بانکی رسمی مدیریت سامانه</span>
+                        <span className="text-[11px] text-slate-400">شماره کارت مقصد جهت دریافت مبالغ ارتقای اشتراک پذیرندگان</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-slate-400 block mb-1">نام صاحب حساب مدیریت:</label>
+                        <input
+                          type="text"
+                          value={systemSettings.adminCard?.ownerName || ""}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              adminCard: { ...systemSettings.adminCard, ownerName: e.target.value },
+                            })
+                          }
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-sans"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1">شماره کارت ۱۶ رقمی:</label>
+                        <input
+                          type="text"
+                          value={systemSettings.adminCard?.cardNumber || ""}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              adminCard: { ...systemSettings.adminCard, cardNumber: e.target.value },
+                            })
+                          }
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono tracking-wider"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1">شماره شبا (اختیاری با IR):</label>
+                        <input
+                          type="text"
+                          value={systemSettings.adminCard?.iban || ""}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              adminCard: { ...systemSettings.adminCard, iban: e.target.value },
+                            })
+                          }
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-mono"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1">نام و عنوان نمایشی بانک:</label>
+                        <input
+                          type="text"
+                          value={systemSettings.adminCard?.bankTitle || ""}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              adminCard: { ...systemSettings.adminCard, bankTitle: e.target.value },
+                            })
+                          }
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-sans"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="text-slate-400 block mb-1">توضیحات راهنما برای کاربران:</label>
+                        <textarea
+                          rows={2}
+                          value={systemSettings.adminCard?.description || ""}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              adminCard: { ...systemSettings.adminCard, description: e.target.value },
+                            })
+                          }
+                          className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-emerald-500 font-sans text-xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Pricing Configuration */}
+                  <div className="bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 text-xs">
+                    <div className="flex items-center gap-2 border-b border-slate-800 pb-3">
+                      <Sparkles className="w-4 h-4 text-teal-400" />
+                      <div>
+                        <span className="font-bold text-white text-sm block">تعرفه پلن‌های اشتراک (تومان)</span>
+                        <span className="text-[11px] text-slate-400">قیمت‌گذاری دوره‌های ۱، ۳ و ۱۲ ماهه</span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <div className="font-bold text-teal-300">پلن حرفه‌ای (PRO) - تا ۵ کارت و ۵۰۰ تراکنش</div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[11px] text-slate-400 block mb-1">۱ ماهه:</label>
+                            <input
+                              type="number"
+                              value={systemSettings.pricing?.pro1MonthToman || 199000}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  pricing: { ...systemSettings.pricing, pro1MonthToman: Number(e.target.value) },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-slate-400 block mb-1">۳ ماهه:</label>
+                            <input
+                              type="number"
+                              value={systemSettings.pricing?.pro3MonthsToman || 499000}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  pricing: { ...systemSettings.pricing, pro3MonthsToman: Number(e.target.value) },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-slate-400 block mb-1">۱۲ ماهه:</label>
+                            <input
+                              type="number"
+                              value={systemSettings.pricing?.pro12MonthsToman || 1690000}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  pricing: { ...systemSettings.pricing, pro12MonthsToman: Number(e.target.value) },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-3">
+                        <div className="font-bold text-amber-300">پلن ویژه (VIP / SPECIAL) - کارت و تراکنش نامحدود</div>
+                        <div className="grid grid-cols-3 gap-2">
+                          <div>
+                            <label className="text-[11px] text-slate-400 block mb-1">۱ ماهه:</label>
+                            <input
+                              type="number"
+                              value={systemSettings.pricing?.special1MonthToman || 399000}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  pricing: { ...systemSettings.pricing, special1MonthToman: Number(e.target.value) },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-slate-400 block mb-1">۳ ماهه:</label>
+                            <input
+                              type="number"
+                              value={systemSettings.pricing?.special3MonthsToman || 999000}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  pricing: { ...systemSettings.pricing, special3MonthsToman: Number(e.target.value) },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                            />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-slate-400 block mb-1">۱۲ ماهه:</label>
+                            <input
+                              type="number"
+                              value={systemSettings.pricing?.special12MonthsToman || 3490000}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  pricing: { ...systemSettings.pricing, special12MonthsToman: Number(e.target.value) },
+                                })
+                              }
+                              className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* SUBTAB 1: FARAZ SMS */}
               {settingsSubTab === "sms" && (
@@ -2718,6 +3040,101 @@ export default function AdminDashboard() {
                   className="bg-indigo-600 hover:bg-indigo-500 text-white font-bold px-4 py-2 rounded-xl transition"
                 >
                   {broadcastLoading ? "در حال ارسال همگانی..." : "ارسال به تمام دستگاه‌ها"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+      {/* MODAL: Manage User Subscription Plan & Duration */}
+      {planModalUser && (
+        <div className="fixed inset-0 z-50 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#111827] border border-slate-700 rounded-3xl w-full max-w-md shadow-2xl p-6 space-y-5 animate-in fade-in zoom-in-95 duration-150">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+              <h3 className="text-base font-bold text-white flex items-center gap-2">
+                <Sparkles className="w-5 h-5 text-teal-400" />
+                <span>مدیریت و تمدید اشتراک: {planModalUser.name || planModalUser.phone}</span>
+              </h3>
+              <button
+                onClick={() => setPlanModalUser(null)}
+                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-lg hover:bg-slate-800"
+              >
+                ✕
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveUserPlan} className="space-y-4 text-xs">
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">پلن تعرفه انتخابی:</label>
+                <select
+                  value={planModalTarget}
+                  onChange={(e) => setPlanModalTarget(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 font-sans"
+                >
+                  <option value="FREE">پلن پایه (FREE • رایگان • حداکثر ۱ کارت فعال)</option>
+                  <option value="PRO">پلن حرفه‌ای (PRO • تا ۵ کارت فعال • ۵۰۰ تراکنش ماهانه)</option>
+                  <option value="SPECIAL">پلن ویژه (SPECIAL • نامحدود • بدون سقف)</option>
+                </select>
+              </div>
+
+              {planModalTarget !== "FREE" && (
+                <div>
+                  <label className="text-slate-300 font-medium block mb-1">مدت زمان اشتراک:</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { months: 1, label: "۱ ماهه" },
+                      { months: 3, label: "۳ ماهه" },
+                      { months: 12, label: "۱۲ ماهه (۱ ساله)" },
+                    ].map((d) => (
+                      <button
+                        key={d.months}
+                        type="button"
+                        onClick={() => setPlanModalDuration(d.months)}
+                        className={`py-2 px-3 rounded-xl border text-center font-bold transition ${
+                          planModalDuration === d.months
+                            ? "bg-teal-600 text-white border-teal-500 shadow-md shadow-teal-600/30"
+                            : "bg-slate-950 text-slate-400 border-slate-800 hover:text-white"
+                        }`}
+                      >
+                        {d.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">پیام یا یادداشت مدیریت (اختیاری جهت درج در اعلان کاربر):</label>
+                <input
+                  type="text"
+                  placeholder="مثال: تمدید اشتراک ویژه به مناسبت تخفیف سالانه"
+                  value={planModalNotes}
+                  onChange={(e) => setPlanModalNotes(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 font-sans"
+                />
+              </div>
+
+              <div className="bg-slate-950/80 p-3 rounded-xl border border-slate-800 text-[11px] text-slate-400 space-y-1">
+                <p className="text-teal-300 font-bold">نکات اعمال خودکار:</p>
+                <p>• در صورت ارتقا، کارت‌های فریز شده به صورت خودکار فعال خواهند شد.</p>
+                <p>• در صورت دانگرید به رایگان، تنها کارت اول فعال مانده و سایر کارت‌ها فریز می‌شوند.</p>
+                <p>• اعلان فوری درون‌برنامه‌ای، پیامکی و ایمیلی برای کاربر ارسال می‌گردد.</p>
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-3 border-t border-slate-800">
+                <button
+                  type="button"
+                  onClick={() => setPlanModalUser(null)}
+                  className="px-4 py-2 rounded-xl text-slate-400 hover:text-white"
+                >
+                  انصراف
+                </button>
+                <button
+                  type="submit"
+                  disabled={planModalLoading}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-5 py-2.5 rounded-xl transition shadow"
+                >
+                  {planModalLoading ? "در حال ثبت و اعمال..." : "ذخیره و اعمال فوری"}
                 </button>
               </div>
             </form>

@@ -45,20 +45,30 @@ export async function POST(req: NextRequest) {
           { status: 404 }
         );
       }
+      if (targetCard.isFrozen) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "CARD_FROZEN",
+            message: "این کارت بانکی به دلیل محدودیت یا انقضای پلن کاربری در حالت فریز قرار دارد و صدور فاکتور برای آن مقدور نیست. لطفاً اشتراک خود را تمدید فرمایید.",
+          },
+          { status: 403 }
+        );
+      }
     } else if (rawCardNumber) {
       const cleanCard = String(rawCardNumber).replace(/[^0-9]/g, "");
       targetCard = await db.bankCard.findFirst({
-        where: { cardNumber: cleanCard, isActive: true, isArchived: false },
+        where: { cardNumber: cleanCard, isActive: true, isArchived: false, isFrozen: false },
       });
       if (!targetCard) {
         return NextResponse.json(
-          { success: false, error: `Card with number ${cleanCard} was not found, is inactive, or has been archived.` },
+          { success: false, error: `Card with number ${cleanCard} was not found, is inactive, archived, or frozen.` },
           { status: 404 }
         );
       }
     } else if (targetBankSlug) {
       targetCard = await db.bankCard.findFirst({
-        where: { bankSlug: targetBankSlug, isActive: true, isArchived: false },
+        where: { bankSlug: targetBankSlug, isActive: true, isArchived: false, isFrozen: false },
         orderBy: { createdAt: "asc" },
       });
       if (!targetCard) {
@@ -68,9 +78,9 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      // Default: Pick the first active non-archived card
+      // Default: Pick the first active non-archived non-frozen card
       targetCard = await db.bankCard.findFirst({
-        where: { isActive: true, isArchived: false },
+        where: { isActive: true, isArchived: false, isFrozen: false },
         orderBy: { createdAt: "asc" },
       });
       if (!targetCard) {

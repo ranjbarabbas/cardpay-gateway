@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
+import { checkAndEnforcePlanExpirations } from "@/lib/services/plan-expiration.service";
 
 // GET /api/v1/admin/users - List all registered users
 export async function GET(req: NextRequest) {
@@ -9,6 +10,9 @@ export async function GET(req: NextRequest) {
   }
 
   try {
+    // Automatically check and enforce any expired plans
+    await checkAndEnforcePlanExpirations();
+
     const users = await db.user.findMany({
       orderBy: { createdAt: "desc" },
       include: {
@@ -29,10 +33,13 @@ export async function GET(req: NextRequest) {
         name: u.name,
         role: u.role,
         plan: u.plan,
+        planExpiresAt: u.planExpiresAt,
+        planDurationMonths: u.planDurationMonths,
         apiKey: u.apiKey,
         isActive: u.isActive,
         createdAt: u.createdAt,
-        activeCardsCount: u.cards.length,
+        activeCardsCount: u.cards.filter((c) => c.isActive && !c.isFrozen).length,
+        frozenCardsCount: u.cards.filter((c) => c.isFrozen).length,
         devicesCount: u.devices.length,
         transactionsCount: u._count.transactions,
       })),

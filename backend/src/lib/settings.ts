@@ -2,6 +2,21 @@ import fs from "fs";
 import path from "path";
 
 export interface SystemSettings {
+  adminCard: {
+    ownerName: string;
+    cardNumber: string;
+    iban?: string;
+    bankTitle: string;
+    description: string;
+  };
+  pricing: {
+    pro1MonthToman: number;
+    pro3MonthsToman: number;
+    pro12MonthsToman: number;
+    special1MonthToman: number;
+    special3MonthsToman: number;
+    special12MonthsToman: number;
+  };
   sms: {
     provider: "farazsms";
     enabled: boolean;
@@ -34,6 +49,21 @@ export interface SystemSettings {
 const SETTINGS_FILE_PATH = path.join(process.cwd(), "system_settings.json");
 
 const defaultSettings: SystemSettings = {
+  adminCard: {
+    ownerName: "هنرهاب پی (حساب رسمی مدیریت)",
+    cardNumber: "6063731099887766",
+    iban: "IR000000000000000000000000",
+    bankTitle: "بانک قرض‌الحسنه مهر ایران",
+    description: "کارت رسمی پرداخت و ارتقای اشتراک و پلن‌های هنرهاب پی",
+  },
+  pricing: {
+    pro1MonthToman: 199000,
+    pro3MonthsToman: 499000,
+    pro12MonthsToman: 1690000,
+    special1MonthToman: 399000,
+    special3MonthsToman: 999000,
+    special12MonthsToman: 3490000,
+  },
   sms: {
     provider: "farazsms",
     enabled: true,
@@ -48,7 +78,7 @@ const defaultSettings: SystemSettings = {
   email: {
     provider: "resend",
     enabled: true,
-    apiKey: process.env.RESEND_API_KEY || "re_honarhub_pay_live_2026",
+    apiKey: process.env.RESEND_API_KEY || "",
     fromEmail: process.env.RESEND_FROM_EMAIL || "notifications@honarhub.ir",
     fromName: "هنرهاب پی | HonarHub Pay",
     replyTo: "support@honarhub.ir",
@@ -71,6 +101,8 @@ export function getSystemSettings(): SystemSettings {
       return {
         ...defaultSettings,
         ...parsed,
+        adminCard: { ...defaultSettings.adminCard, ...(parsed.adminCard || {}) },
+        pricing: { ...defaultSettings.pricing, ...(parsed.pricing || {}) },
         sms: { ...defaultSettings.sms, ...parsed.sms },
         email: { ...defaultSettings.email, ...parsed.email },
         general: { ...defaultSettings.general, ...parsed.general },
@@ -88,6 +120,8 @@ export function saveSystemSettings(updates: Partial<SystemSettings>): SystemSett
     const updated: SystemSettings = {
       ...current,
       ...updates,
+      adminCard: { ...current.adminCard, ...(updates.adminCard || {}) },
+      pricing: { ...current.pricing, ...(updates.pricing || {}) },
       sms: { ...current.sms, ...(updates.sms || {}) },
       email: { ...current.email, ...(updates.email || {}) },
       general: { ...current.general, ...(updates.general || {}) },

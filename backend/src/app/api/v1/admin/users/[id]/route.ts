@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
+import { setUserPlanAndDuration } from "@/lib/services/plan-expiration.service";
 
 // PATCH /api/v1/admin/users/[id] - Update user details, plan, active status
 export async function PATCH(
@@ -14,7 +15,7 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { name, phone, email, plan, isActive, role } = body;
+    const { name, phone, email, plan, durationMonths = 1, isActive, role, notes } = body;
 
     const existingUser = await db.user.findUnique({
       where: { id },
@@ -24,18 +25,32 @@ export async function PATCH(
       return NextResponse.json({ success: false, error: "کاربر یافت نشد." }, { status: 404 });
     }
 
+    // If plan is being modified, use the dedicated plan engine that handles expiration, card freezing/unfreezing and notifications
+    if (typeof plan === "string" && (plan !== existingUser.plan || durationMonths)) {
+      await setUserPlanAndDuration(
+        id,
+        plan,
+        Number(durationMonths) || 1,
+        notes || "تغییر و مدیریت پلن توسط مدیر سامانه"
+      );
+    }
+
     const updateData: any = {};
     if (typeof name === "string") updateData.name = name.trim();
     if (typeof phone === "string") updateData.phone = phone.replace(/[^0-9]/g, "").trim();
     if (typeof email === "string") updateData.email = email.toLowerCase().trim();
-    if (typeof plan === "string") updateData.plan = plan;
     if (typeof isActive === "boolean") updateData.isActive = isActive;
     if (typeof role === "string") updateData.role = role;
 
-    const updatedUser = await db.user.update({
-      where: { id },
-      data: updateData,
-    });
+    let updatedUser;
+    if (Object.keys(updateData).length > 0) {
+      updatedUser = await db.user.update({
+        where: { id },
+        data: updateData,
+      });
+    } else {
+      updatedUser = await db.user.findUnique({ where: { id } });
+    }
 
     return NextResponse.json({
       success: true,

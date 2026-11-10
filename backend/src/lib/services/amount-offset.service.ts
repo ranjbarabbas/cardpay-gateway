@@ -1,4 +1,5 @@
 import { db } from "../db";
+import { expireOverduePendingTransactions } from "./plan-expiration.service";
 
 export interface ResolvedAmount {
   originalAmountToman: bigint;
@@ -17,7 +18,7 @@ export class AmountOffsetService {
   private static readonly COLLISION_LOCK_MINUTES = 20;
 
   /**
-   * Calculates an available unique payable amount for a card
+   * Calculates an available unique payable amount across all cards and users
    * by finding the smallest collision-free offset (+11, +12, +13, ...)
    * within the 20-minute cooldown window.
    */
@@ -31,11 +32,13 @@ export class AmountOffsetService {
     const expiresAt = new Date(now.getTime() + this.PAYMENT_VALIDITY_MINUTES * 60 * 1000);
     const collisionLockUntil = new Date(now.getTime() + this.COLLISION_LOCK_MINUTES * 60 * 1000);
 
-    // Query active transactions on this card that haven't passed the 20-min collision cooldown
+    // 1. Expire any pending transaction that has passed the 10-minute window
+    await expireOverduePendingTransactions();
+
+    // 2. Query ALL active transactions across the platform within the 20-min collision cooldown
+    // This guarantees no two transactions (on the same card or different cards/users) share the same payable amount!
     const activeTransactions = await db.transaction.findMany({
       where: {
-        cardId,
-        status: { in: ["PENDING", "PAID", "MANUALLY_VERIFIED"] },
         collisionLockUntil: { gt: now },
       },
       select: {

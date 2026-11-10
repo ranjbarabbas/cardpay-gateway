@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
+import { expireOverduePendingTransactions } from "@/lib/services/plan-expiration.service";
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
+
+  // Auto-expire any pending transactions past the 10-minute window
+  await expireOverduePendingTransactions();
 
   const { searchParams } = new URL(req.url);
   const type = searchParams.get("type") || "transactions"; // "transactions" | "sms_logs" | "tickets"

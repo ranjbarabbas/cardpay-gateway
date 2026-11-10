@@ -34,6 +34,10 @@ yarn-debug.log*
 yarn-error.log*
 *.log
 
+# System Runtime Settings
+system_settings.json
+backend/system_settings.json
+
 # OS files
 .DS_Store
 Thumbs.db

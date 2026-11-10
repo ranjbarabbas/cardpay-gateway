@@ -10,33 +10,52 @@ datasource db {
 }
 
 model User {
-  id           String        @id @default(uuid())
-  phone        String?       @unique
-  email        String?       @unique
-  name         String?
-  role         String        @default("USER") // USER, ADMIN
-  plan         String        @default("FREE") // FREE, PREMIUM
-  apiKey       String        @unique @default(uuid())
-  isActive     Boolean       @default(true)
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  id                  String             @id @default(uuid())
+  phone               String?            @unique
+  email               String?            @unique
+  name                String?
+  role                String             @default("USER") // USER, ADMIN
+  plan                String             @default("FREE") // FREE, PRO, SPECIAL
+  planExpiresAt       DateTime?          // Expiration timestamp for PRO / SPECIAL plans
+  planDurationMonths  Int?               // 1, 3, 12 months
+  apiKey              String             @unique @default(uuid())
+  isActive            Boolean            @default(true)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
 
-  cards        BankCard[]
-  devices      Device[]
-  transactions Transaction[]
+  cards               BankCard[]
+  devices             Device[]
+  transactions        Transaction[]
+  notifications       UserNotification[]
 
   @@map("users")
 }
 
-model LeadRequest {
+model UserNotification {
   id        String   @id @default(uuid())
-  phone     String
-  name      String?
-  plan      String   @default("PREMIUM")
-  status    String   @default("PENDING") // PENDING, CONTACTED, ARCHIVED
-  notes     String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      String   @default("INFO") // INFO, PLAN_UPGRADED, PLAN_DOWNGRADED, PLAN_EXPIRED
+  isRead    Boolean  @default(false)
   createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+
+  @@map("user_notifications")
+}
+
+model LeadRequest {
+  id             String    @id @default(uuid())
+  phone          String
+  name           String?
+  plan           String    @default("PREMIUM")
+  durationMonths Int?      @default(1) // 1, 3, 12 months
+  amountToman    Int?
+  trackingCode   String?   // Deposit tracking / reference code
+  status         String    @default("PENDING") // PENDING, UPGRADED, REJECTED, ARCHIVED
+  notes          String?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   @@map("lead_requests")
 }
@@ -87,6 +106,7 @@ model BankCard {
   dailyLimit    BigInt?       // Max daily deposit cap in Toman
   isActive      Boolean       @default(true)
   isArchived    Boolean       @default(false)
+  isFrozen      Boolean       @default(false) // Frozen when user's plan downgrades/expires
   archivedAt    DateTime?
   merchantUserId String?      // Optional Artist/User ID in the host website
   createdAt     DateTime      @default(now())

@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import {
+  expireOverduePendingTransactions,
+  checkAndEnforcePlanExpirations,
+} from "@/lib/services/plan-expiration.service";
+import { getSystemSettings } from "@/lib/settings";
 
 // POST /api/v1/auth/user - Login or Register with Phone or Email
 export async function POST(req: NextRequest) {
@@ -104,11 +109,24 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "وارد نشده‌اید" }, { status: 401 });
     }
 
+    // 1. Automatically expire any pending transactions past the 10-minute payment grace period
+    await expireOverduePendingTransactions();
+
+    // 2. Automatically check and enforce subscription plan expirations & freeze extra cards
+    await checkAndEnforcePlanExpirations();
+
     const user = await db.user.findUnique({
       where: { id: userId },
       include: {
-        cards: { where: { isArchived: false } },
+        cards: {
+          where: { isArchived: false },
+          orderBy: { createdAt: "asc" },
+        },
         devices: true,
+        notifications: {
+          orderBy: { createdAt: "desc" },
+          take: 20,
+        },
         transactions: {
           orderBy: { createdAt: "desc" },
           take: 100,
@@ -154,6 +172,8 @@ export async function GET(req: NextRequest) {
       },
     });
 
+    const settings = getSystemSettings();
+
     return NextResponse.json({
       success: true,
       data: {
@@ -162,6 +182,8 @@ export async function GET(req: NextRequest) {
         phone: user.phone,
         email: user.email,
         plan: user.plan,
+        planExpiresAt: user.planExpiresAt,
+        planDurationMonths: user.planDurationMonths,
         role: user.role,
         apiKey: user.apiKey,
         dailyTxCount: 0,
@@ -169,6 +191,9 @@ export async function GET(req: NextRequest) {
         monthlySuccessfulTxCount,
         cards: user.cards,
         devices: userDevices,
+        notifications: user.notifications,
+        adminCard: settings.adminCard,
+        pricing: settings.pricing,
         transactions: user.transactions.map((tx) => ({
           ...tx,
           originalAmountToman: Number(tx.originalAmountToman),

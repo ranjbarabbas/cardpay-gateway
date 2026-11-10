@@ -57,6 +57,9 @@ export default function UserPortalPage() {
 
   // Plan Upgrade state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [upgradeTargetPlan, setUpgradeTargetPlan] = useState<"PRO" | "SPECIAL">("PRO");
+  const [upgradeDurationMonths, setUpgradeDurationMonths] = useState<1 | 3 | 12>(1);
+  const [upgradeTrackingCode, setUpgradeTrackingCode] = useState("");
   const [upgradeLoading, setUpgradeLoading] = useState(false);
   const [upgradeMsg, setUpgradeMsg] = useState<string | null>(null);
 
@@ -160,14 +163,46 @@ export default function UserPortalPage() {
     }
   };
 
-  const handleUpgradePlan = async (targetPlan: "PRO" | "SPECIAL") => {
+  const handleUpgradePlan = async (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
     setUpgradeLoading(true);
     setUpgradeMsg(null);
     try {
+      const pricing = user?.pricing || {
+        pro1MonthToman: 199000,
+        pro3MonthsToman: 499000,
+        pro12MonthsToman: 1690000,
+        special1MonthToman: 399000,
+        special3MonthsToman: 999000,
+        special12MonthsToman: 3490000,
+      };
+
+      let amountToman = pricing.pro1MonthToman;
+      if (upgradeTargetPlan === "PRO") {
+        amountToman =
+          upgradeDurationMonths === 1
+            ? pricing.pro1MonthToman
+            : upgradeDurationMonths === 3
+            ? pricing.pro3MonthsToman
+            : pricing.pro12MonthsToman;
+      } else {
+        amountToman =
+          upgradeDurationMonths === 1
+            ? pricing.special1MonthToman
+            : upgradeDurationMonths === 3
+            ? pricing.special3MonthsToman
+            : pricing.special12MonthsToman;
+      }
+
       const res = await fetch("/api/v1/user/upgrade", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetPlan }),
+        body: JSON.stringify({
+          targetPlan: upgradeTargetPlan,
+          durationMonths: upgradeDurationMonths,
+          trackingCode: upgradeTrackingCode,
+          amountToman,
+        }),
       });
       const data = await res.json();
       if (!res.ok || !data.success) {
@@ -179,7 +214,8 @@ export default function UserPortalPage() {
         setShowUpgradeModal(false);
         setShowCardNoticeModal(false);
         setUpgradeMsg(null);
-      }, 2500);
+        setUpgradeTrackingCode("");
+      }, 3000);
     } catch (err: any) {
       setUpgradeMsg(err.message);
     } finally {
@@ -350,6 +386,15 @@ export default function UserPortalPage() {
                 {userPlan === "SPECIAL" && `نامحدود`}
               </span>
             </div>
+
+            {user?.plan !== "FREE" && user?.planExpiresAt && (
+              <div className="flex items-center justify-between text-slate-400 pt-1 border-t border-slate-800">
+                <span>اعتبار اشتراک:</span>
+                <span className="text-teal-300 font-bold">
+                  {toPersianDigits(new Date(user.planExpiresAt).toLocaleDateString("fa-IR"))}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
@@ -451,9 +496,20 @@ export default function UserPortalPage() {
                   >
                     <div className="flex items-center justify-between text-xs text-slate-400">
                       <span className="font-bold text-emerald-400">{card.bankTitle}</span>
-                      <span className="font-mono text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
-                        ID: {card.id.slice(0, 8)}...
-                      </span>
+                      <div className="flex items-center gap-2">
+                        {card.isFrozen ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                            فریز شده (نیاز به تمدید پلن)
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                            فعال در درگاه
+                          </span>
+                        )}
+                        <span className="font-mono text-[11px] bg-slate-800/80 px-2.5 py-0.5 rounded-full border border-slate-700">
+                          ID: {card.id.slice(0, 8)}...
+                        </span>
+                      </div>
                     </div>
 
                     <div className="pt-2 text-center" dir="ltr">
@@ -633,19 +689,24 @@ export default function UserPortalPage() {
                 <span className="absolute left-3 top-3 text-[10px] text-slate-500 font-sans">تومان</span>
               </div>
 
-              {/* Multi-Card Dropdown Selector */}
-              {user?.cards && user.cards.length > 1 && (
+              {/* Multi-Card Dropdown Selector (Active non-frozen cards only) */}
+              {user?.cards && user.cards.filter((c: any) => !c.isFrozen && c.isActive).length > 1 && (
                 <div className="relative w-full sm:w-64">
                   <select
-                    value={selectedCardId || user.cards[0]?.id}
+                    value={
+                      selectedCardId ||
+                      user.cards.filter((c: any) => !c.isFrozen && c.isActive)[0]?.id
+                    }
                     onChange={(e) => setSelectedCardId(e.target.value)}
                     className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-xs text-white focus:outline-none focus:border-emerald-500 cursor-pointer appearance-none pr-8 pl-3"
                   >
-                    {user.cards.map((c: any) => (
-                      <option key={c.id} value={c.id} className="bg-slate-900 text-white">
-                        {c.bankTitle || "کارت بانکی"} • {c.ownerName} (...{c.cardNumber.slice(-4)})
-                      </option>
-                    ))}
+                    {user.cards
+                      .filter((c: any) => !c.isFrozen && c.isActive)
+                      .map((c: any) => (
+                        <option key={c.id} value={c.id} className="bg-slate-900 text-white">
+                          {c.bankTitle || "کارت بانکی"} • {c.ownerName} (...{c.cardNumber.slice(-4)})
+                        </option>
+                      ))}
                   </select>
                   <CreditCard className="w-4 h-4 text-emerald-400 absolute right-2.5 top-3 pointer-events-none" />
                 </div>
@@ -762,10 +823,18 @@ export default function UserPortalPage() {
                                     ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
                                     : tx.status === "PENDING"
                                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                                    : tx.status === "EXPIRED"
+                                    ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
                                     : "bg-slate-800 text-slate-400"
                                 }`}
                               >
-                                {tx.status === "PAID" ? "پرداخت شده" : tx.status === "PENDING" ? "در انتظار پرداخت" : tx.status}
+                                {tx.status === "PAID"
+                                  ? "پرداخت شده"
+                                  : tx.status === "PENDING"
+                                  ? "در انتظار پرداخت"
+                                  : tx.status === "EXPIRED"
+                                  ? "منقضی شده"
+                                  : tx.status}
                               </span>
                             </td>
                             <td className="p-3 text-slate-400 font-sans">{tx.card?.ownerName || "—"}</td>
@@ -1015,7 +1084,7 @@ export default function UserPortalPage() {
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div className="flex items-center gap-2.5">
                 <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-                <h3 className="text-base font-bold text-white">ارتقای پلن حساب کاربری هنرهاب پی</h3>
+                <h3 className="text-base font-bold text-white">ارتقا و تمدید اشتراک درگاه هنرهاب پی</h3>
               </div>
               <button
                 onClick={() => setShowUpgradeModal(false)}
@@ -1026,115 +1095,272 @@ export default function UserPortalPage() {
             </div>
 
             {upgradeMsg && (
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs text-center font-bold">
+              <div className="p-3.5 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-2xl text-xs text-center font-bold">
                 {upgradeMsg}
               </div>
             )}
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              {/* Plan 1: Middle Plan (Pro) */}
-              <div className="bg-gradient-to-b from-slate-900 via-[#132035] to-slate-900 border-2 border-teal-500/50 rounded-2xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 px-3 py-1 rounded-full">
-                      پلن پیشنهادی
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">Pro Tier</span>
-                  </div>
-
-                  <div>
-                    <h4 className="text-lg font-black text-white">پلن حرفه‌ای</h4>
-                    <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-2xl font-black text-teal-300">۲۹۹,۰۰۰</span>
-                      <span className="text-xs text-slate-400">تومان / ماهانه</span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-2.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span><strong>تا ۵ کارت بانکی مجزا</strong> به صورت همزمان</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span><strong>سقف ۵۰۰ تراکنش موفق ماهانه</strong> (تا ۵ کارت بانکی)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>امکان اتصال ۵ دستگاه تلفن همراه به سامانه</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>وب‌هوک‌های تسویه آنی و وب‌سرویس بدون وقفه</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-teal-300 font-bold">
-                      <CheckCircle2 className="w-4 h-4 text-teal-400 shrink-0" />
-                      <span>کارمزد تراکنش: ۰ درصد (کاملاً رایگان)</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <button
-                  onClick={() => handleUpgradePlan("PRO")}
-                  disabled={upgradeLoading || userPlan === "PRO"}
-                  className="w-full bg-teal-600 hover:bg-teal-500 disabled:opacity-50 text-white font-bold py-3 rounded-xl transition text-xs shadow-lg shadow-teal-600/20 flex items-center justify-center gap-2"
-                >
-                  <Zap className="w-4 h-4" />
-                  <span>{userPlan === "PRO" ? "پلن فعال فعلی شما" : "ارتقا به پلن حرفه‌ای (۲۹۹ هزار تومان)"}</span>
-                </button>
-              </div>
-
-              {/* Plan 2: Special VIP Plan */}
-              <div className="bg-gradient-to-b from-slate-900 via-[#1e1e2d] to-slate-900 border-2 border-amber-500/50 rounded-2xl p-6 space-y-5 flex flex-col justify-between shadow-xl">
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-3 py-1 rounded-full">
-                      ظرفیت نامحدود
-                    </span>
-                    <span className="text-xs font-mono text-slate-400">VIP Special</span>
-                  </div>
-
-                  <div>
-                    <h4 className="text-lg font-black text-white">پلن ویژه (VIP)</h4>
-                    <div className="flex items-baseline gap-1 mt-1">
-                      <span className="text-xl font-bold text-amber-300">بدون هیچ محدودیتی</span>
-                    </div>
-                  </div>
-
-                  <ul className="space-y-2.5 text-xs text-slate-300 pt-2 border-t border-slate-800">
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span><strong>تعداد کارت‌های نامحدود</strong> (به ازای تمام کاربران)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>اتصال نامحدود دستگاه‌ها و تلفن‌های همراه به سامانه</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span><strong>تراکنش‌های موفق نامحدود</strong> (بدون سقف ماهانه)</span>
-                    </li>
-                    <li className="flex items-center gap-2">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>پشتیبانی VIP فنی و راه‌اندازی اختصاصی روی سرور شما</span>
-                    </li>
-                    <li className="flex items-center gap-2 text-amber-300 font-bold">
-                      <CheckCircle2 className="w-4 h-4 text-amber-400 shrink-0" />
-                      <span>کارمزد تراکنش: ۰ درصد (کاملاً رایگان)</span>
-                    </li>
-                  </ul>
-                </div>
-
-                <button
-                  onClick={() => handleUpgradePlan("SPECIAL")}
-                  disabled={upgradeLoading || userPlan === "SPECIAL"}
-                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 disabled:opacity-50 text-slate-950 font-black py-3 rounded-xl transition text-xs shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-                >
-                  <Star className="w-4 h-4 fill-current" />
-                  <span>{userPlan === "SPECIAL" ? "پلن فعال فعلی شما" : "درخواست ارتقا به پلن ویژه"}</span>
-                </button>
+            {/* Duration Selector (1, 3, 12 months) */}
+            <div className="space-y-2">
+              <label className="text-xs text-slate-300 font-bold block">مدت زمان اشتراک:</label>
+              <div className="grid grid-cols-3 gap-2 text-xs">
+                {[
+                  { months: 1 as const, title: "۱ ماهه", discount: null },
+                  { months: 3 as const, title: "۳ ماهه", discount: "تخفیف فصلی" },
+                  { months: 12 as const, title: "۱۲ ماهه (۱ ساله)", discount: "بیشترین صرفه اقتصادی" },
+                ].map((d) => (
+                  <button
+                    key={d.months}
+                    type="button"
+                    onClick={() => setUpgradeDurationMonths(d.months)}
+                    className={`p-3 rounded-2xl border text-center transition flex flex-col items-center justify-center gap-1 ${
+                      upgradeDurationMonths === d.months
+                        ? "bg-gradient-to-r from-teal-600/30 to-emerald-600/30 border-teal-500 text-white shadow-lg"
+                        : "bg-slate-900 border-slate-800 text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    <span className="font-bold text-xs">{d.title}</span>
+                    {d.discount && (
+                      <span className="text-[10px] text-teal-400 font-medium">({d.discount})</span>
+                    )}
+                  </button>
+                ))}
               </div>
             </div>
+
+            {/* Plan Cards */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+              {/* Plan 1: Pro */}
+              {(() => {
+                const proPrice =
+                  upgradeDurationMonths === 1
+                    ? (user?.pricing?.pro1MonthToman || 199000)
+                    : upgradeDurationMonths === 3
+                    ? (user?.pricing?.pro3MonthsToman || 499000)
+                    : (user?.pricing?.pro12MonthsToman || 1690000);
+
+                const isSelected = upgradeTargetPlan === "PRO";
+
+                return (
+                  <div
+                    onClick={() => setUpgradeTargetPlan("PRO")}
+                    className={`cursor-pointer rounded-2xl p-5 space-y-4 flex flex-col justify-between transition border-2 ${
+                      isSelected
+                        ? "bg-gradient-to-b from-slate-900 via-[#132035] to-slate-900 border-teal-500 shadow-xl shadow-teal-500/10"
+                        : "bg-slate-900 border-slate-800 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-teal-300 bg-teal-500/20 border border-teal-500/30 px-2.5 py-0.5 rounded-full">
+                          پلن پیشنهادی
+                        </span>
+                        <input
+                          type="radio"
+                          name="targetPlan"
+                          checked={isSelected}
+                          onChange={() => setUpgradeTargetPlan("PRO")}
+                          className="accent-teal-500 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-black text-white">پلن حرفه‌ای (PRO)</h4>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className="text-xl font-black text-teal-300">
+                            {formatPersianNumber(proPrice)}
+                          </span>
+                          <span className="text-xs text-slate-400">تومان ({toPersianDigits(upgradeDurationMonths)} ماهه)</span>
+                        </div>
+                      </div>
+
+                      <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                          <span><strong>تا ۵ کارت بانکی مجزا</strong> به صورت همزمان</span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                          <span><strong>۵۰۰ تراکنش موفق ماهانه</strong></span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                          <span>اتصال ۵ گوشی همراه به سامانه</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-teal-300 font-bold">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                          <span>کارمزد تراکنش: ۰ درصد</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
+
+              {/* Plan 2: Special VIP */}
+              {(() => {
+                const specialPrice =
+                  upgradeDurationMonths === 1
+                    ? (user?.pricing?.special1MonthToman || 399000)
+                    : upgradeDurationMonths === 3
+                    ? (user?.pricing?.special3MonthsToman || 999000)
+                    : (user?.pricing?.special12MonthsToman || 3490000);
+
+                const isSelected = upgradeTargetPlan === "SPECIAL";
+
+                return (
+                  <div
+                    onClick={() => setUpgradeTargetPlan("SPECIAL")}
+                    className={`cursor-pointer rounded-2xl p-5 space-y-4 flex flex-col justify-between transition border-2 ${
+                      isSelected
+                        ? "bg-gradient-to-b from-slate-900 via-[#1e1e2d] to-slate-900 border-amber-500 shadow-xl shadow-amber-500/10"
+                        : "bg-slate-900 border-slate-800 opacity-70 hover:opacity-100"
+                    }`}
+                  >
+                    <div className="space-y-3">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-amber-300 bg-amber-500/20 border border-amber-500/30 px-2.5 py-0.5 rounded-full">
+                          ظرفیت نامحدود VIP
+                        </span>
+                        <input
+                          type="radio"
+                          name="targetPlan"
+                          checked={isSelected}
+                          onChange={() => setUpgradeTargetPlan("SPECIAL")}
+                          className="accent-amber-500 cursor-pointer"
+                        />
+                      </div>
+
+                      <div>
+                        <h4 className="text-base font-black text-white">پلن ویژه (VIP)</h4>
+                        <div className="flex items-baseline gap-1 mt-1">
+                          <span className="text-xl font-black text-amber-300">
+                            {formatPersianNumber(specialPrice)}
+                          </span>
+                          <span className="text-xs text-slate-400">تومان ({toPersianDigits(upgradeDurationMonths)} ماهه)</span>
+                        </div>
+                      </div>
+
+                      <ul className="space-y-2 text-xs text-slate-300 pt-2 border-t border-slate-800">
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span><strong>تعداد کارت‌های نامحدود</strong></span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span><strong>تراکنش‌های نامحدود ماهانه</strong></span>
+                        </li>
+                        <li className="flex items-center gap-2">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>اتصال نامحدود دستگاه‌ها</span>
+                        </li>
+                        <li className="flex items-center gap-2 text-amber-300 font-bold">
+                          <CheckCircle2 className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                          <span>پشتیبانی VIP و کارمزد ۰ درصد</span>
+                        </li>
+                      </ul>
+                    </div>
+                  </div>
+                );
+              })()}
+            </div>
+
+            {/* Admin Bank Card Details & Payment Instructions */}
+            <div className="bg-slate-950 p-5 rounded-2xl border border-slate-800 space-y-3 text-xs">
+              <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <CreditCard className="w-4 h-4 text-emerald-400" />
+                  <span className="font-bold text-white">کارت بانکی رسمی مدیریت سامانه جهت واریز وجه:</span>
+                </div>
+                <span className="text-[11px] text-teal-400 font-sans">
+                  مبلغ قابل پرداخت:{" "}
+                  <strong>
+                    {formatPersianNumber(
+                      upgradeTargetPlan === "PRO"
+                        ? upgradeDurationMonths === 1
+                          ? (user?.pricing?.pro1MonthToman || 199000)
+                          : upgradeDurationMonths === 3
+                          ? (user?.pricing?.pro3MonthsToman || 499000)
+                          : (user?.pricing?.pro12MonthsToman || 1690000)
+                        : upgradeDurationMonths === 1
+                        ? (user?.pricing?.special1MonthToman || 399000)
+                        : upgradeDurationMonths === 3
+                        ? (user?.pricing?.special3MonthsToman || 999000)
+                        : (user?.pricing?.special12MonthsToman || 3490000)
+                    )}{" "}
+                    تومان
+                  </strong>
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-300">
+                <div className="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-400">شماره کارت:</span>
+                  <div className="flex items-center gap-1.5 font-mono text-emerald-400 font-bold">
+                    <span>{toPersianDigits(user?.adminCard?.cardNumber || "6063731099887766")}</span>
+                    <button
+                      type="button"
+                      onClick={() => handleCopy(user?.adminCard?.cardNumber || "6063731099887766", "admin-card")}
+                      className="p-1 hover:text-white"
+                      title="کپی شماره کارت"
+                    >
+                      {copiedId === "admin-card" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5 text-slate-400" />}
+                    </button>
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800">
+                  <span className="text-slate-400">صاحب حساب:</span>
+                  <span className="text-white font-bold">{user?.adminCard?.ownerName || "مدیریت هنرهاب پی (امیر رضایی)"}</span>
+                </div>
+
+                <div className="flex items-center justify-between bg-slate-900/90 px-3 py-2 rounded-xl border border-slate-800 sm:col-span-2">
+                  <span className="text-slate-400">بانک مقصد:</span>
+                  <span className="text-white">{user?.adminCard?.bankTitle || "بانک قرض‌الحسنه مهر ایران"}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tracking Code Input & Submit Form */}
+            <form onSubmit={handleUpgradePlan} className="space-y-4 text-xs">
+              <div>
+                <label className="text-slate-300 font-medium block mb-1">
+                  کد رهگیری فیش یا ۴ رقم آخر کارت واریزکننده (اختیاری جهت تسریع تایید):
+                </label>
+                <input
+                  type="text"
+                  placeholder="مثال: رهگیری 981245 یا کارت 6037"
+                  value={upgradeTrackingCode}
+                  onChange={(e) => setUpgradeTrackingCode(e.target.value)}
+                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2.5 text-white font-sans focus:outline-none focus:border-teal-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowUpgradeModal(false)}
+                  className="px-4 py-2.5 rounded-xl text-slate-400 hover:text-white"
+                >
+                  انصراف
+                </button>
+
+                <button
+                  type="submit"
+                  disabled={upgradeLoading}
+                  className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-6 py-3 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center gap-2"
+                >
+                  {upgradeLoading ? (
+                    <span>در حال ثبت درخواست...</span>
+                  ) : (
+                    <>
+                      <Zap className="w-4 h-4" />
+                      <span>ثبت و فعال‌سازی اشتراک ({toPersianDigits(upgradeDurationMonths)} ماهه)</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
