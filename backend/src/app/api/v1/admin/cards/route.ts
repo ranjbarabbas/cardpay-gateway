@@ -33,7 +33,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       isSandbox: true,
-      message: "کارت بانکی در محیط سندباکس با موفقیت شبیه‌سازی گردید (هیچ رکوردی در دیتابیس عملیاتی ثبت نشد).",
+      message: "کارت بانکی در محیط سندباکس با موفقیت شبیه‌سازی گردید.",
       data: {
         id: `sandbox_card_${Date.now().toString(36)}`,
         ownerName: body.ownerName || "امیر رضایی (سندباکس)",

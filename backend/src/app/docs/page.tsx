@@ -141,7 +141,7 @@ const ENDPOINTS: EndpointDoc[] = [
     auth: "Optional / Merchant API Key (Header: x-api-key)",
     headers: [
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
-      { key: "x-api-key", value: "hp_sandbox_test_key_2026", desc: "کلید آزمایشی سندباکس (اختیاری جهت تست بدون دیتابیس)" },
+      { key: "x-api-key", value: "hp_sandbox_test_key_2026", desc: "کلید وب‌سرویس آزمایشی سندباکس" },
       { key: "Accept", value: "application/json", desc: "فرمت پاسخ دریافتی" },
     ],
     params: [
@@ -630,18 +630,11 @@ export default function DocsPage() {
 
             <a
               href="/api/v1/download/apk"
-              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition"
+              className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3.5 py-2 rounded-xl transition"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
               <span className="hidden md:inline">دانلود APK اندروید (v{ANDROID_APK_VERSION})</span>
             </a>
-
-            <Link
-              href="/admin"
-              className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-md shadow-emerald-600/20"
-            >
-              پنل مدیریت
-            </Link>
           </div>
         </div>
       </header>
@@ -1066,10 +1059,10 @@ export default function DocsPage() {
             <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3 text-right space-y-1">
               <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
                 <Shield className="w-3.5 h-3.5" />
-                <span>محیط ایزوله سندباکس و آزمایشی</span>
+                <span>محیط آزمایشی سندباکس (Sandbox)</span>
               </div>
               <p className="text-[11px] text-slate-300 leading-relaxed font-normal">
-                درخواست‌ها در محیط شبیه‌ساز اجرا شده و هیچ تغییری در دیتابیس عملیاتی ثبت نمی‌شود. کلید پیش‌فرض تست: <code className="text-amber-300 font-mono font-bold bg-slate-950 px-1 py-0.5 rounded">hp_sandbox_test_key_2026</code>
+                درخواست‌ها در محیط شبیه‌ساز اجرا می‌شوند. کلید پیش‌فرض تست: <code className="text-amber-300 font-mono font-bold bg-slate-950 px-1 py-0.5 rounded">hp_sandbox_test_key_2026</code>
               </p>
             </div>
 

@@ -122,7 +122,7 @@ export async function checkAndEnforcePlanExpirations(): Promise<number> {
       if (u.phone) {
         sendFarazSms({
           recipient: u.phone,
-          message: `کاربر گرامی هنرهاب پی،\nمدت زمان اشتراک شما به پایان رسید و حساب شما به پلن پایه منتقل شد. کارت‌های مازاد فریز شدند.\nجهت تمدید به پنل کاربری مراجعه نمایید.\nhonarhub.ir/portal`,
+          message: `کاربر گرامی هنرهاب پی،\nمدت زمان اشتراک شما به پایان رسید و حساب شما به پلن پایه منتقل شد. کارت‌های مازاد فریز شدند.\nجهت تمدید به پنل کاربری مراجعه نمایید.\nhonarhub.com/portal`,
         }).catch((e) => console.error("Plan expiry SMS alert error:", e));
       }
 
@@ -137,7 +137,7 @@ export async function checkAndEnforcePlanExpirations(): Promise<number> {
               <p>کاربر گرامی <strong>${u.name || "عزیز"}</strong>،</p>
               <p>${notifMessage}</p>
               <div style="margin: 20px 0;">
-                <a href="https://honarhub.ir/portal" style="background-color: #10b981; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+                <a href="https://honarhub.com/portal" style="background-color: #10b981; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
                   تمدید فوری اشتراک در پنل کاربری
                 </a>
               </div>
@@ -250,7 +250,7 @@ export async function setUserPlanAndDuration(
   if (user.phone) {
     sendFarazSms({
       recipient: user.phone,
-      message: `کاربر گرامی هنرهاب پی،\n${notifMessage}\nhonarhub.ir/portal`,
+      message: `کاربر گرامی هنرهاب پی،\n${notifMessage}\nhonarhub.com/portal`,
     }).catch((e) => console.error("User plan notification SMS failed:", e));
   }
 
@@ -266,7 +266,7 @@ export async function setUserPlanAndDuration(
           <p>${notifMessage}</p>
           ${adminNotes ? `<p style="color: #94a3b8; font-size: 13px;">توضیحات مدیریت: ${adminNotes}</p>` : ""}
           <div style="margin: 20px 0;">
-            <a href="https://honarhub.ir/portal" style="background-color: #10b981; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
+            <a href="https://honarhub.com/portal" style="background-color: #10b981; color: #fff; padding: 10px 20px; text-decoration: none; border-radius: 8px; font-weight: bold; display: inline-block;">
               ورود به پنل کاربری هنرهاب پی
             </a>
           </div>

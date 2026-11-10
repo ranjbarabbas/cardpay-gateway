@@ -14,7 +14,7 @@ export async function sendResendEmail(options: ResendEmailOptions): Promise<{ su
   const settings = getSystemSettings();
   const apiKey = settings.email.apiKey || process.env.RESEND_API_KEY || "";
   const fromName = settings.email.fromName || "هنرهاب پی | HonarHub Pay";
-  const fromEmail = options.from || (settings.email.fromEmail ? `${fromName} <${settings.email.fromEmail}>` : (process.env.RESEND_FROM_EMAIL || "HonarHub Pay <noreply@honarhub.ir>"));
+  const fromEmail = options.from || (settings.email.fromEmail ? `${fromName} <${settings.email.fromEmail}>` : (process.env.RESEND_FROM_EMAIL || "HonarHub Pay <noreply@honarhub.com>"));
 
   // If Resend API Key is not configured yet, simulate safely in console/log
   if (!apiKey || apiKey === "your-resend-api-key") {

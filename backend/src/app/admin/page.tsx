@@ -126,9 +126,9 @@ export default function AdminDashboard() {
       provider: "resend",
       enabled: true,
       apiKey: "",
-      fromEmail: "notifications@honarhub.ir",
+      fromEmail: "notifications@honarhub.com",
       fromName: "هنرهاب پی | HonarHub Pay",
-      replyTo: "support@honarhub.ir",
+      replyTo: "support@honarhub.com",
     },
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -140,7 +140,7 @@ export default function AdminDashboard() {
   const [testSmsLoading, setTestSmsLoading] = useState(false);
   const [testSmsResult, setTestSmsResult] = useState<any>(null);
 
-  const [testEmailRecipient, setTestEmailRecipient] = useState("admin@honarhub.ir");
+  const [testEmailRecipient, setTestEmailRecipient] = useState("admin@honarhub.com");
   const [testEmailSubject, setTestEmailSubject] = useState("تست وب‌سرویس ایمیل هنرهاب پی");
   const [testEmailLoading, setTestEmailLoading] = useState(false);
   const [testEmailResult, setTestEmailResult] = useState<any>(null);
@@ -1076,7 +1076,7 @@ export default function AdminDashboard() {
                       </span>
                     </div>
                     <p className="text-slate-400 text-[11px]">
-                      فرستنده: <span className="font-mono text-slate-200">{systemSettings?.email?.fromEmail || "notifications@honarhub.ir"}</span>
+                      فرستنده: <span className="font-mono text-slate-200">{systemSettings?.email?.fromEmail || "notifications@honarhub.com"}</span>
                     </p>
                   </div>
                 </div>
@@ -2601,7 +2601,7 @@ export default function AdminDashboard() {
                               email: { ...systemSettings.email, fromEmail: e.target.value },
                             })
                           }
-                          placeholder="notifications@honarhub.ir یا onboarding@resend.dev"
+                          placeholder="notifications@honarhub.com یا onboarding@resend.dev"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
                         />
                       </div>
@@ -2633,7 +2633,7 @@ export default function AdminDashboard() {
                               email: { ...systemSettings.email, replyTo: e.target.value },
                             })
                           }
-                          placeholder="support@honarhub.ir"
+                          placeholder="support@honarhub.com"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
                         />
                       </div>
@@ -2654,7 +2654,7 @@ export default function AdminDashboard() {
                           type="email"
                           value={testEmailRecipient}
                           onChange={(e) => setTestEmailRecipient(e.target.value)}
-                          placeholder="admin@honarhub.ir"
+                          placeholder="admin@honarhub.com"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
                         />
                       </div>

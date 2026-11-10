@@ -53,7 +53,7 @@ export async function POST(req: NextRequest) {
         success: true,
         isSandbox: true,
         message:
-          "درخواست پرداخت در محیط آزمایشی (سندباکس) ایجاد گردید. هیچ تغییری در دیتابیس عملیاتی ثبت نشده است.",
+          "درخواست پرداخت در محیط آزمایشی (سندباکس) با موفقیت ایجاد گردید.",
         data: {
           authority: sandboxTx.authority,
           trackingCode: sandboxTx.internalTrackingCode,

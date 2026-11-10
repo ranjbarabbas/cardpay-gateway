@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 3. Alert Admin via Resend Email
-    const adminEmails = (process.env.ADMIN_EMAILS || process.env.EMAILS || "admin@honarhub.ir").split(",").map((e) => e.trim());
+    const adminEmails = (process.env.ADMIN_EMAILS || process.env.EMAILS || "admin@honarhub.com").split(",").map((e) => e.trim());
     await sendResendEmail({
       to: adminEmails,
       subject: `🔥 لید جدید پلن پرمیوم هنرهاب پی: ${cleanPhone}`,

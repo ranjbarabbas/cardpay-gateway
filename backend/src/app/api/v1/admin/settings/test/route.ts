@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     if (type === "email") {
       const targetEmail = recipient || "user@example.com";
       const resendKey = settings.email.apiKey;
-      const fromEmail = settings.email.fromEmail || "notifications@honarhub.ir";
+      const fromEmail = settings.email.fromEmail || "notifications@honarhub.com";
       const fromName = settings.email.fromName || "هنرهاب پی";
 
       let responseDetails: any = {

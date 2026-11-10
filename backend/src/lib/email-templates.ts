@@ -88,7 +88,7 @@ function emailLayout(title: string, contentHtml: string): string {
                 این پیام به صورت خودکار از سوی سیستم امنیتی <strong>هنرهاب پی</strong> ارسال گردیده است.
               </p>
               <p style="margin: 0; color: #475569;">
-                پشتیبانی: support@honarhub.ir | وب‌سایت: <a href="https://honarhub.ir" style="color: #10B981; text-decoration: none;">honarhub.ir</a>
+                پشتیبانی: support@honarhub.com | وب‌سایت: <a href="https://honarhub.com" style="color: #10B981; text-decoration: none;">honarhub.com</a>
               </p>
             </td>
           </tr>
@@ -296,7 +296,7 @@ export function getDepositAlertTemplate(options: DepositAlertEmailOptions): stri
 
     <!-- Action Link -->
     <div style="text-align: center; margin: 0 0 16px 0;">
-      <a href="https://honarhub.ir/portal" style="background-color: #1E293B; border: 1px solid #334155; color: #E2E8F0; font-size: 12px; font-weight: bold; text-decoration: none; padding: 10px 24px; border-radius: 10px; display: inline-block;">
+      <a href="https://honarhub.com/portal" style="background-color: #1E293B; border: 1px solid #334155; color: #E2E8F0; font-size: 12px; font-weight: bold; text-decoration: none; padding: 10px 24px; border-radius: 10px; display: inline-block;">
         مشاهده جزییات در پنل کاربری هنرهاب پی
       </a>
     </div>
