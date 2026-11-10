@@ -19,55 +19,73 @@ export default function MobileAutoScrollCarousel({
 }: MobileAutoScrollCarouselProps) {
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [isInView, setIsInView] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
   const itemRefs = useRef<(HTMLDivElement | null)[]>([]);
   const isInteractingRef = useRef(false);
 
   const itemCount = React.Children.count(children);
 
-  // Scroll to slide by index
-  const scrollToSlide = useCallback((index: number) => {
-    const targetEl = itemRefs.current[index];
-    if (targetEl && containerRef.current) {
-      targetEl.scrollIntoView({
-        behavior: "smooth",
-        block: "nearest",
-        inline: "center",
-      });
-      setActiveIndex(index);
-    }
+  // Observe visibility in viewport: do not auto-scroll if user hasn't scrolled to this section yet
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el || typeof IntersectionObserver === "undefined") return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        setIsInView(entry.isIntersecting);
+      },
+      { threshold: 0.2 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
   }, []);
 
-  // Auto-scroll effect: advances every 3 seconds unless user touched/paused
+  // Scroll smoothly inside container ONLY without moving the window viewport
+  const scrollContainerToIndex = useCallback((index: number) => {
+    const container = containerRef.current;
+    const targetEl = itemRefs.current[index];
+    if (!container || !targetEl) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const targetRect = targetEl.getBoundingClientRect();
+
+    // Distance between target center and container center
+    const diff = (targetRect.left + targetRect.width / 2) - (containerRect.left + containerRect.width / 2);
+
+    if (Math.abs(diff) > 2) {
+      container.scrollBy({
+        left: diff,
+        behavior: "smooth",
+      });
+    }
+    setActiveIndex(index);
+  }, []);
+
+  // Auto-scroll effect: advances every 3 seconds only if visible and not touched/paused
   useEffect(() => {
-    if (isPaused || itemCount <= 1) return;
+    if (isPaused || !isInView || itemCount <= 1) return;
 
     const timer = setInterval(() => {
       if (isInteractingRef.current) return;
       setActiveIndex((prev) => {
         const next = (prev + 1) % itemCount;
-        const targetEl = itemRefs.current[next];
-        if (targetEl && containerRef.current) {
-          targetEl.scrollIntoView({
-            behavior: "smooth",
-            block: "nearest",
-            inline: "center",
-          });
-        }
+        scrollContainerToIndex(next);
         return next;
       });
     }, autoScrollInterval);
 
     return () => clearInterval(timer);
-  }, [isPaused, itemCount, autoScrollInterval]);
+  }, [isPaused, isInView, itemCount, autoScrollInterval, scrollContainerToIndex]);
 
   // Handle touch and interaction pause
-  const handleTouchStart = () => {
+  const handleUserInteract = () => {
     isInteractingRef.current = true;
-    setIsPaused(true); // Permanent pause on user interaction as requested
+    setIsPaused(true);
   };
 
-  // Sync activeIndex with manual scroll using IntersectionObserver or scroll position
+  // Sync activeIndex with manual scroll
   const handleScroll = () => {
     if (!containerRef.current) return;
     const container = containerRef.current;
@@ -104,11 +122,12 @@ export default function MobileAutoScrollCarousel({
         <div
           ref={containerRef}
           onScroll={handleScroll}
-          onTouchStart={handleTouchStart}
-          onPointerDown={handleTouchStart}
-          className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar py-3 px-4 touch-pan-y"
+          onTouchStart={handleUserInteract}
+          onPointerDown={handleUserInteract}
+          onMouseEnter={handleUserInteract}
+          onWheel={handleUserInteract}
+          className="flex gap-4 overflow-x-auto snap-x snap-mandatory scroll-smooth no-scrollbar py-3 px-4"
           style={{
-            touchAction: "pan-y",
             WebkitOverflowScrolling: "touch",
           }}
           dir="rtl"
@@ -120,7 +139,6 @@ export default function MobileAutoScrollCarousel({
                 itemRefs.current[idx] = el;
               }}
               className="min-w-[85vw] max-w-[85vw] sm:min-w-[340px] sm:max-w-[340px] snap-center shrink-0 transition-transform duration-300"
-              style={{ touchAction: "pan-y" }}
             >
               {child}
             </div>
@@ -135,8 +153,8 @@ export default function MobileAutoScrollCarousel({
                 key={idx}
                 type="button"
                 onClick={() => {
-                  setIsPaused(true);
-                  scrollToSlide(idx);
+                  handleUserInteract();
+                  scrollContainerToIndex(idx);
                 }}
                 aria-label={`اسلاید ${idx + 1}`}
                 className={`h-2 rounded-full transition-all duration-300 ${

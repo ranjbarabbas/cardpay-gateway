@@ -106,7 +106,11 @@ export async function sendOtp(params: {
 /**
  * Verify OTP entered by user
  */
-export async function verifyOtpCode(target: string, code: string): Promise<boolean> {
+export async function verifyOtpCode(
+  target: string,
+  code: string,
+  markUsed: boolean = true
+): Promise<boolean> {
   const cleanCode = code.toString().trim();
   const now = new Date();
 
@@ -122,11 +126,13 @@ export async function verifyOtpCode(target: string, code: string): Promise<boole
 
   if (!validRecord) return false;
 
-  // Mark as used
-  await db.verificationCode.update({
-    where: { id: validRecord.id },
-    data: { isUsed: true },
-  });
+  // Mark as used if requested
+  if (markUsed) {
+    await db.verificationCode.update({
+      where: { id: validRecord.id },
+      data: { isUsed: true },
+    });
+  }
 
   return true;
 }

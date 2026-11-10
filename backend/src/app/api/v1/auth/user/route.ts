@@ -118,6 +118,23 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Action: Verify OTP Code (Validates without marking as used)
+    if (action === "verify_otp") {
+      const rawId = identifier || phone || email;
+      if (!rawId || !code) {
+        return NextResponse.json({ success: false, error: "شناسه کاربری و کد تایید الزامی است." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const isValid = await verifyOtpCode(parsed.clean, code, false);
+      if (!isValid) {
+        return NextResponse.json({ success: false, error: "کد تایید وارد شده نادرست است یا منقضی شده است." }, { status: 400 });
+      }
+      return NextResponse.json({
+        success: true,
+        message: "کد تایید معتبر است.",
+      });
+    }
+
     // 3. Action: Login with Password
     if (action === "login_password") {
       const rawId = identifier || phone || email;
