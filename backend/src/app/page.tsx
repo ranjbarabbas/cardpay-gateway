@@ -30,8 +30,9 @@ import {
   Users,
   Percent,
   ShieldCheck,
+  Globe,
 } from "lucide-react";
-import { APP_NAME, APP_VERSION } from "@/lib/version";
+import { APP_NAME, APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import InteractivePaymentSimulator from "@/components/InteractivePaymentSimulator";
 
 export default function Home() {
@@ -114,8 +115,9 @@ export default function Home() {
               alt={APP_NAME}
               className="h-9 w-auto object-contain transition group-hover:opacity-95"
             />
-            <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-mono">
-              v{APP_VERSION}
+            <span className="text-[11px] bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 font-bold px-2.5 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1.5 transition">
+              <span>نسخه سامانه</span>
+              <span className="font-mono text-[10px] text-emerald-400">v{APP_VERSION}</span>
             </span>
           </Link>
 
@@ -500,7 +502,7 @@ export default function Home() {
             <span>سامانه درگاه پرداخت کارت‌به‌کارت هوشمند و خودکار</span>
           </div>
 
-          <div className="flex items-center gap-4 text-xs text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-400">
             <Link href="/portal" className="hover:text-emerald-400 transition">پرتال کاربری</Link>
             <Link href="/docs" className="hover:text-emerald-400 transition">داکیومنت API</Link>
             <Link href="/admin" className="hover:text-emerald-400 transition">ورود مدیران</Link>
@@ -512,9 +514,23 @@ export default function Home() {
             >
               گیت‌هاب
             </a>
-            <span className="text-emerald-400 font-mono font-bold">
-              نسخه {APP_VERSION}
-            </span>
+            
+            <div className="flex items-center gap-2 md:pr-3 md:border-r border-slate-800">
+              <span className="inline-flex items-center gap-1.5 bg-slate-900/90 border border-slate-800 text-slate-300 px-2.5 py-1 rounded-lg text-[11px]">
+                <Globe className="w-3.5 h-3.5 text-teal-400" />
+                <span>نسخه وب:</span>
+                <span className="text-teal-400 font-mono font-bold" dir="ltr">v{APP_VERSION}</span>
+              </span>
+              <a
+                href="/api/v1/download/apk"
+                className="inline-flex items-center gap-1.5 bg-slate-900/90 hover:bg-slate-800 border border-slate-800 text-slate-300 hover:text-emerald-300 px-2.5 py-1 rounded-lg text-[11px] transition"
+                title="دانلود مستقیم اپلیکیشن همگام‌ساز پیامک اندروید"
+              >
+                <Smartphone className="w-3.5 h-3.5 text-emerald-400" />
+                <span>نسخه اندروید:</span>
+                <span className="text-emerald-400 font-mono font-bold" dir="ltr">v{ANDROID_APK_VERSION}</span>
+              </a>
+            </div>
           </div>
         </div>
 

@@ -1,24 +1,17 @@
-# CardPay Gateway & Android Sync Companion
+# HonarHub Pay Gateway & Android Sync Companion
 
 [![GitHub Release](https://img.shields.io/github/v/release/ranjbarabbas/cardpay-gateway?style=for-the-badge&color=emerald&logo=github)](https://github.com/ranjbarabbas/cardpay-gateway/releases)
-[![Download APK](https://img.shields.io/badge/Download-CardPay_Sync_v1.2.0.apk-10B981?style=for-the-badge&logo=android&logoColor=white)](https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.2.0/cardpay-sync.apk)
+[![All Releases](https://img.shields.io/badge/GitHub-All_Releases_%26_APKs-blue?style=for-the-badge&logo=github)](https://github.com/ranjbarabbas/cardpay-gateway/releases)
 [![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)](LICENSE)
 [![Next.js](https://img.shields.io/badge/Next.js-16.4-black?style=for-the-badge&logo=next.js)](https://nextjs.org)
 [![Kotlin](https://img.shields.io/badge/Kotlin-Android_Native-7F52FF?style=for-the-badge&logo=kotlin&logoColor=white)](https://kotlinlang.org)
 
 An enterprise-grade, peer-to-peer (P2P) card-to-card automated payment gateway system. Designed for independent merchants, startups, and marketplaces seeking direct-to-bank instant settlement with zero intermediary fees, zero account freeze risks, and zero dependency on traditional PSPs.
 
----
-
-## 📥 Android Companion App Releases (History Archive)
-
-| Asset Name | Version | Release Notes | Size | Checksum (SHA-256) | Download Link |
-| :--- | :---: | :--- | :---: | :--- | :--- |
-| **`cardpay-sync.apk`** | `v1.2.0` | **Latest:** Dark & Light theme toggle, sticky footer version badge | **5.5 MB** | `f23862c5d61232d5b395ac0d68f54b7c95ba48063a1b88ed1b5e8003098fb5be` | [**Download v1.2.0**](https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.2.0/cardpay-sync.apk) |
-| **`cardpay-sync-v1.1.0.apk`** | `v1.1.0` | HonarHub circular branding, Vazirmatn font, RTL, Blocked senders | **5.5 MB** | `eb444b867339d75adfb1319bdfeed8f3e085f5cc6e6b83042f312fc3135953ef` | [**Download v1.1.0**](https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.1.0/cardpay-sync.apk) |
-| **`cardpay-sync-v1.0.0.apk`** | `v1.0.0` | Initial production companion release | **5.2 MB** | `80e0dbfb35e8c46926ab18d9771876cb0148581abe4553f21f52102e6f872107` | [**Download v1.0.0**](https://github.com/ranjbarabbas/cardpay-gateway/releases/download/v1.0.0/cardpay-sync.apk) |
-
-> **Direct Server Endpoint:** You can also download the latest APK directly from your gateway instance at `GET /api/v1/download/apk`.
+> 📦 **Official Releases & Mobile APKs:**  
+> All compiled Android APK binaries and platform version changelogs are published in the official GitHub Releases area:  
+> 🔗 **[Explore GitHub Releases & Download Latest APKs →](https://github.com/ranjbarabbas/cardpay-gateway/releases)**  
+> *(You can also download the latest APK directly from your live server instance at `GET /api/v1/download/apk`)*
 
 ---
 
