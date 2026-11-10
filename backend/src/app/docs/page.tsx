@@ -68,7 +68,7 @@ const ENDPOINTS: EndpointDoc[] = [
         type: "string",
         required: true,
         desc: "نام و نام‌خانوادگی صاحب حساب یا کاربر",
-        example: "استاد رضا میرزایی",
+        example: "امیر رضایی",
       },
       {
         name: "cardNumber",
@@ -101,7 +101,7 @@ const ENDPOINTS: EndpointDoc[] = [
     ],
     requestSample: JSON.stringify(
       {
-        ownerName: "استاد رضا میرزایی",
+        ownerName: "امیر رضایی",
         cardNumber: "6037991987654321",
         accountNumber: "987654321012345678",
         bankSlug: "mehr_iran",
@@ -115,7 +115,7 @@ const ENDPOINTS: EndpointDoc[] = [
         success: true,
         data: {
           id: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
-          ownerName: "استاد رضا میرزایی",
+          ownerName: "امیر رضایی",
           cardNumber: "6037991987654321",
           accountNumber: "987654321012345678",
           bankSlug: "mehr_iran",
@@ -203,7 +203,7 @@ const ENDPOINTS: EndpointDoc[] = [
           expiresAt: "2026-11-08T14:30:59.851Z",
           paymentUrl: "http://localhost:3050/pay/CPAY_MW7X6YBW_71B9364E",
           card: {
-            ownerName: "استاد رضا میرزایی",
+            ownerName: "امیر رضایی",
             cardNumber: "6037991987654321",
             accountNumber: "987654321012345678",
             bankTitle: "بانک قرض‌الحسنه مهر ایران",
@@ -251,7 +251,7 @@ const ENDPOINTS: EndpointDoc[] = [
           paidAt: "2026-11-08T14:21:00.000Z",
           expiresAt: "2026-11-08T14:30:59.851Z",
           card: {
-            ownerName: "استاد رضا میرزایی",
+            ownerName: "امیر رضایی",
             cardNumber: "6037991987654321",
             bankTitle: "بانک قرض‌الحسنه مهر ایران",
           },
@@ -318,7 +318,7 @@ const ENDPOINTS: EndpointDoc[] = [
           offsetToman: 11,
           paidAt: "2026-11-08T14:21:00.000Z",
           card: {
-            ownerName: "استاد رضا میرزایی",
+            ownerName: "امیر رضایی",
             cardNumber: "6037991987654321",
             bankTitle: "بانک قرض‌الحسنه مهر ایران",
           },
