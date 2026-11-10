@@ -27,7 +27,7 @@ import {
   Zap,
   TrendingUp,
 } from "lucide-react";
-import { APP_NAME, APP_VERSION } from "@/lib/version";
+import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
 
 export default function UserPortalPage() {
@@ -566,7 +566,7 @@ export default function UserPortalPage() {
               className="w-full flex items-center justify-center gap-2 bg-slate-800 hover:bg-slate-700 text-teal-300 border border-teal-500/30 text-xs font-bold py-3 rounded-2xl transition shadow-lg"
             >
               <Download className="w-4 h-4" />
-              <span>دانلود فایل APK نسخه {APP_VERSION}</span>
+              <span>دانلود فایل APK نسخه {ANDROID_APK_VERSION}</span>
             </a>
           </div>
         </div>

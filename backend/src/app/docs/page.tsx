@@ -29,7 +29,7 @@ import {
   Key,
   X,
 } from "lucide-react";
-import { APP_NAME, APP_VERSION } from "@/lib/version";
+import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 
 interface EndpointDoc {
   id: string;
@@ -601,7 +601,7 @@ export default function DocsPage() {
 
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 px-2.5 py-0.5 rounded-full font-bold">
-                v{APP_VERSION}
+                v{WEB_APP_VERSION}
               </span>
               <span className="text-[11px] text-slate-400 hidden md:inline">
                 مستندات تعاملی وب‌سرویس REST
@@ -627,7 +627,7 @@ export default function DocsPage() {
               className="flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold px-3 py-2 rounded-xl transition"
             >
               <Download className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="hidden md:inline">دانلود APK نسخه {APP_VERSION}</span>
+              <span className="hidden md:inline">دانلود APK اندروید (v{ANDROID_APK_VERSION})</span>
             </a>
 
             <Link
@@ -989,7 +989,7 @@ export default function DocsPage() {
                 className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20"
               >
                 <Download className="w-4 h-4" />
-                <span>دانلود مستقیم فایل APK (نسخه {APP_VERSION})</span>
+                <span>دانلود مستقیم فایل APK (نسخه {ANDROID_APK_VERSION})</span>
               </a>
             </div>
           </section>

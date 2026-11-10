@@ -34,7 +34,7 @@ import {
   Sun,
   Moon,
 } from "lucide-react";
-import { APP_NAME, APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
+import { APP_NAME, APP_VERSION, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import InteractivePaymentSimulator from "@/components/InteractivePaymentSimulator";
 
 export default function Home() {
@@ -157,9 +157,9 @@ export default function Home() {
                   : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300"
               }`}
             >
-              <span>نسخه سامانه</span>
+              <span>نسخه وب</span>
               <span className={`font-mono text-[10px] ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
-                v{APP_VERSION}
+                v{WEB_APP_VERSION}
               </span>
             </span>
           </Link>
@@ -229,10 +229,11 @@ export default function Home() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
             </span>
-            <span>نسل نوین درگاه پرداخت P2P • بدون بلوکه شدن پول، بدون واسطه و بدون کارمزد شاپرکی</span>
+            <span>نسل نوین درگاه پرداخت P2P • تسویه مستقیم بانکی و بدون کارمزد شاپرکی</span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl md:text-4xl lg:text-[44px] font-black leading-snug tracking-tight flex flex-col items-center gap-2 sm:gap-3.5">
+          {/* Main Hero Headline */}
+          <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-[46px] font-black leading-tight tracking-tight flex flex-col items-center gap-3">
             <span
               className={`whitespace-nowrap transition-colors duration-200 ${
                 theme === "dark" ? "text-white" : "text-slate-900"
@@ -240,70 +241,56 @@ export default function Home() {
             >
               پول مستقیماً در حساب بانکی شما؛
             </span>
-            <span className="whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-400 to-amber-400">
+            <span className="whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 drop-shadow-sm">
               بدون اینماد، بدون تاخیر و کاملاً آنی
             </span>
           </h1>
 
+          {/* Clean Subtitle without Offset */}
           <p
             className={`text-sm md:text-base leading-relaxed max-w-2xl mx-auto font-normal transition-colors ${
               theme === "dark" ? "text-slate-300" : "text-slate-600"
             }`}
           >
-            <strong className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{APP_NAME}</strong> پل ارتباطی مستقیم میان خریداران و کارت‌های بانکی شماست. با بهره‌گیری از الگوریتم اختصاصی آفست پویا (<span className="text-teal-500 font-mono font-bold">+۱۱ تومان</span>) و هوش مصنوعی همگام‌ساز پیامک‌های واریز، هر کارت بانکی را به یک درگاه پرداخت تمام‌خودکار، امن و ۲۴ ساعته تبدیل کنید.
+            <strong className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{APP_NAME}</strong> پل ارتباطی مستقیم و هوشمند میان خریداران و کارت‌های بانکی شماست. با بهره‌گیری از الگوریتم‌های اختصاصی تطبیق بانکی و موتور هوش مصنوعی همگام‌ساز پیامک‌های واریز، هر کارت بانکی را به یک درگاه پرداخت تمام‌خودکار، امن و ۲۴ ساعته تبدیل کنید.
           </p>
 
-          {/* 4 Core Pillars Pills */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 max-w-2xl mx-auto pt-1">
-            <div
-              className={`flex items-center justify-center gap-2 border rounded-xl px-3 py-2 text-[11px] shadow-sm transition ${
-                theme === "dark"
-                  ? "bg-slate-900/80 border-slate-800 text-slate-300"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
-            >
-              <Zap className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-              <span>تسویه بلادرنگ بانکی</span>
+          {/* Animated Trust & Speed Badges */}
+          <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition ${
+              theme === "dark"
+                ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
+                : "bg-emerald-50 border-emerald-200 text-emerald-800"
+            }`}>
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+              <span>تطبیق بلادرنگ در کمتر از ۱ ثانیه</span>
             </div>
-            <div
-              className={`flex items-center justify-center gap-2 border rounded-xl px-3 py-2 text-[11px] shadow-sm transition ${
-                theme === "dark"
-                  ? "bg-slate-900/80 border-slate-800 text-slate-300"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
-            >
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span>تایید ۱۰۰٪ خودکار با پیامک</span>
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition ${
+              theme === "dark"
+                ? "bg-teal-950/40 border-teal-500/30 text-teal-300"
+                : "bg-teal-50 border-teal-200 text-teal-800"
+            }`}>
+              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
+              <span>پردازش ۱۰۰٪ خودکار پیامک بانک</span>
             </div>
-            <div
-              className={`flex items-center justify-center gap-2 border rounded-xl px-3 py-2 text-[11px] shadow-sm transition ${
-                theme === "dark"
-                  ? "bg-slate-900/80 border-slate-800 text-slate-300"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
-            >
-              <Percent className="w-3.5 h-3.5 text-teal-400 shrink-0" />
-              <span>کارمزد ۰ درصد همیشگی</span>
-            </div>
-            <div
-              className={`flex items-center justify-center gap-2 border rounded-xl px-3 py-2 text-[11px] shadow-sm transition ${
-                theme === "dark"
-                  ? "bg-slate-900/80 border-slate-800 text-slate-300"
-                  : "bg-white border-slate-200 text-slate-700"
-              }`}
-            >
-              <Lock className="w-3.5 h-3.5 text-sky-400 shrink-0" />
-              <span>عدم انسداد یا بلوکه وجه</span>
+            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition ${
+              theme === "dark"
+                ? "bg-amber-950/40 border-amber-500/30 text-amber-300"
+                : "bg-amber-50 border-amber-200 text-amber-800"
+            }`}>
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>کارمزد تراکنش: ۰ درصد</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-3">
+          {/* Action CTAs */}
+          <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
             <Link
               href="/login"
-              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs md:text-sm font-bold px-6 py-3.5 rounded-2xl transition shadow-xl shadow-emerald-600/25"
+              className="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white text-xs md:text-sm font-bold px-6 py-3.5 rounded-2xl transition shadow-xl shadow-emerald-600/25 group"
             >
               <span>ورود / ثبت‌نام رایگان به پنل</span>
-              <ArrowRight className="w-4 h-4 rotate-180" />
+              <ArrowRight className="w-4 h-4 rotate-180 group-hover:-translate-x-1 transition-transform" />
             </Link>
 
             <Link
@@ -327,8 +314,75 @@ export default function Home() {
               }`}
             >
               <Download className="w-4 h-4 text-teal-500" />
-              <span>دانلود اپلیکیشن اندروید (APK)</span>
+              <span>دانلود اپ اندروید (v{ANDROID_APK_VERSION})</span>
             </a>
+          </div>
+
+          {/* 4 Core Pillars Cards - Redesigned & Beautiful */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-4xl mx-auto pt-6 text-right">
+            <div
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+                theme === "dark"
+                  ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-amber-500/30 text-slate-200"
+                  : "bg-white hover:bg-amber-50/20 border-slate-200 hover:border-amber-300 text-slate-800 shadow-sm"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-400 mb-2.5">
+                <Zap className="w-4 h-4" />
+              </div>
+              <div className="font-black text-xs mb-1">تسویه بلادرنگ بانکی</div>
+              <div className={`text-[11px] leading-relaxed ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                انتقال مستقیم پول به کارت شما؛ بدون واسطه، بدون نگه‌داشت و بدون تاخیر شاپرک
+              </div>
+            </div>
+
+            <div
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+                theme === "dark"
+                  ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-emerald-500/30 text-slate-200"
+                  : "bg-white hover:bg-emerald-50/20 border-slate-200 hover:border-emerald-300 text-slate-800 shadow-sm"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-400 mb-2.5">
+                <ShieldCheck className="w-4 h-4" />
+              </div>
+              <div className="font-black text-xs mb-1">تایید ۱۰۰٪ خودکار با پیامک</div>
+              <div className={`text-[11px] leading-relaxed ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                پردازش هوشمند پیامک سرخط معتبر بانک و اعلام آنی موفقیت به سفارش مشتری
+              </div>
+            </div>
+
+            <div
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+                theme === "dark"
+                  ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-teal-500/30 text-slate-200"
+                  : "bg-white hover:bg-teal-50/20 border-slate-200 hover:border-teal-300 text-slate-800 shadow-sm"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-teal-500/10 border border-teal-500/20 flex items-center justify-center text-teal-400 mb-2.5">
+                <Percent className="w-4 h-4" />
+              </div>
+              <div className="font-black text-xs mb-1">کارمزد ۰ درصد همیشگی</div>
+              <div className={`text-[11px] leading-relaxed ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                دریافت کل مبلغ فروش بدون کسر درصدهای سنگین واسطه‌ها یا کارمزد شاپرک
+              </div>
+            </div>
+
+            <div
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+                theme === "dark"
+                  ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-sky-500/30 text-slate-200"
+                  : "bg-white hover:bg-sky-50/20 border-slate-200 hover:border-sky-300 text-slate-800 shadow-sm"
+              }`}
+            >
+              <div className="w-8 h-8 rounded-xl bg-sky-500/10 border border-sky-500/20 flex items-center justify-center text-sky-400 mb-2.5">
+                <Lock className="w-4 h-4" />
+              </div>
+              <div className="font-black text-xs mb-1">عدم انسداد یا بلوکه وجه</div>
+              <div className={`text-[11px] leading-relaxed ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>
+                بدون ریسک مسدودسازی حساب و بدون نیاز به اخذ اینماد و تشریفات دست‌وپاگیر
+              </div>
+            </div>
           </div>
         </div>
 
@@ -704,7 +758,7 @@ export default function Home() {
               }`}>
                 <Globe className="w-3.5 h-3.5 text-teal-500" />
                 <span>نسخه وب:</span>
-                <span className="text-teal-500 font-mono font-bold" dir="ltr">v{APP_VERSION}</span>
+                <span className="text-teal-500 font-mono font-bold" dir="ltr">v{WEB_APP_VERSION}</span>
               </span>
               <a
                 href="/api/v1/download/apk"
