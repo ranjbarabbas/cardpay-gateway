@@ -77,7 +77,7 @@ export async function GET(req: NextRequest) {
     if (!allowedEmails.includes(email)) {
       return NextResponse.redirect(
         `${origin}/admin/login?error=${encodeURIComponent(
-          `حساب جیمیل «${email}» دسترسی مدیریت ندارد. ایمیل شما باید در .env ثبت شده باشد.`
+          `حساب کاربری «${email}» دارای دسترسی مدیریت سامانه نیست. لطفاً با ایمیل مجاز مدیر وارد شوید.`
         )}`
       );
     }

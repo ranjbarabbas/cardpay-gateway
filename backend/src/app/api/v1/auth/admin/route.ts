@@ -249,7 +249,22 @@ export async function POST(req: NextRequest) {
     applyAdminCookies(response, rawEmail);
     return response;
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error("[ADMIN_AUTH_ERROR]", err);
+    let errMsg = "خطای غیرمنتظره در پردازش درخواست ورود. لطفاً مجدداً تلاش فرمایید.";
+    if (err?.message) {
+      if (
+        err.message.includes("datasource `db`") ||
+        err.message.includes("protocol `file:`") ||
+        err.message.includes("Can't reach database server") ||
+        err.message.includes("P1001") ||
+        err.message.includes("P1000")
+      ) {
+        errMsg = "خطا در برقراری ارتباط با پایگاه داده. لطفاً از اتصال و تنظیم متغیر DATABASE_URL اطمینان حاصل فرمایید.";
+      } else if (!err.message.includes("prisma") && !err.message.includes("invocation")) {
+        errMsg = err.message;
+      }
+    }
+    return NextResponse.json({ success: false, error: errMsg }, { status: 500 });
   }
 }
 

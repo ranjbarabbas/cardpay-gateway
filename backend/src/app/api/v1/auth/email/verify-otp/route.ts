@@ -85,8 +85,20 @@ export async function POST(req: NextRequest) {
     });
   } catch (error: any) {
     console.error("[EMAIL_VERIFY_OTP_ERROR]", error);
+    let errMsg = "خطا در بررسی کد تایید. لطفاً مجدداً تلاش نمایید.";
+    if (error?.message) {
+      if (
+        error.message.includes("datasource `db`") ||
+        error.message.includes("protocol `file:`") ||
+        error.message.includes("Can't reach database server")
+      ) {
+        errMsg = "خطا در برقراری ارتباط با پایگاه داده. لطفاً از اتصال و تنظیم متغیر DATABASE_URL اطمینان حاصل فرمایید.";
+      } else if (!error.message.includes("prisma") && !error.message.includes("invocation")) {
+        errMsg = error.message;
+      }
+    }
     return NextResponse.json(
-      { success: false, error: error.message || "خطا در بررسی کد تایید" },
+      { success: false, error: errMsg },
       { status: 500 }
     );
   }

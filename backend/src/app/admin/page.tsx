@@ -61,6 +61,8 @@ type AdminTab =
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState<AdminTab>("overview");
   const [adminKey, setAdminKey] = useState("super-secret-admin-key-change-me");
+  const [authChecking, setAuthChecking] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   // State data
   const [cards, setCards] = useState<any[]>([]);
@@ -305,15 +307,16 @@ export default function AdminDashboard() {
       .then((data) => {
         if (data.authenticated && data.email) {
           setAdminEmail(data.email);
+          setIsAuthenticated(true);
+          setAuthChecking(false);
+          loadData();
         } else {
-          setAdminEmail("ranjbar.abbas1988@gmail.com (دسترسی مستقیم توسعه)");
+          window.location.href = "/admin/login";
         }
       })
       .catch(() => {
-        setAdminEmail("ranjbar.abbas1988@gmail.com (دسترسی مستقیم توسعه)");
+        window.location.href = "/admin/login";
       });
-
-    loadData();
   }, []);
 
   // User Actions
@@ -831,6 +834,15 @@ export default function AdminDashboard() {
       pulse: false,
     };
   };
+
+  if (authChecking || !isAuthenticated) {
+    return (
+      <div className="min-h-screen bg-[#070A0F] flex flex-col items-center justify-center text-slate-400 gap-3" dir="rtl">
+        <RefreshCw className="w-8 h-8 animate-spin text-emerald-500" />
+        <span className="text-sm font-medium">در حال بررسی احراز هویت مدیریت...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-[#070A0F] text-slate-100 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">

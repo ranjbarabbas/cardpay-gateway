@@ -1,5 +1,13 @@
 import { PrismaClient } from "@prisma/client";
 
+// Normalize DATABASE_URL for SQLite if file: protocol prefix is missing
+if (process.env.DATABASE_URL) {
+  const rawDbUrl = process.env.DATABASE_URL.trim();
+  if (!rawDbUrl.startsWith("file:") && !rawDbUrl.includes("://")) {
+    process.env.DATABASE_URL = `file:${rawDbUrl}`;
+  }
+}
+
 // Workaround for BigInt serialization in JSON
 declare global {
   interface BigInt {

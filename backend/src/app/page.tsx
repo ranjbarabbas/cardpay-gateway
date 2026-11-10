@@ -675,7 +675,7 @@ export default function Home() {
           }`}>
             <Link href="/portal" className="hover:text-emerald-500 transition">پرتال کاربری</Link>
             <Link href="/docs" className="hover:text-emerald-500 transition">داکیومنت API</Link>
-            <Link href="/admin" className="hover:text-emerald-500 transition">ورود مدیران</Link>
+            <Link href="/admin/login" className="hover:text-emerald-500 transition">ورود مدیران</Link>
             <a
               href="https://github.com/ranjbarabbas/cardpay-gateway"
               target="_blank"
