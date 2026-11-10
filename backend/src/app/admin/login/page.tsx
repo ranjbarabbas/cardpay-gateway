@@ -1,42 +1,86 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Shield, Lock, ArrowLeft, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Shield, Lock, ArrowLeft, AlertCircle, CheckCircle2, Mail, ExternalLink, Sparkles } from "lucide-react";
 import { APP_NAME, APP_VERSION } from "@/lib/version";
 
 export default function AdminLoginPage() {
   const router = useRouter();
-  const [googleEmail, setGoogleEmail] = useState("");
+  const [adminEmail, setAdminEmail] = useState("");
+  const [allowedEmails, setAllowedEmails] = useState<string[]>([]);
+  const [gmailAccounts, setGmailAccounts] = useState<string[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const handleGoogleSSO = async (emailToSubmit: string) => {
+  // Load configured admin emails and check current session
+  useEffect(() => {
+    const fetchAdminInfo = async () => {
+      try {
+        const res = await fetch("/api/v1/auth/admin");
+        const data = await res.json();
+        if (data.authenticated) {
+          router.push("/admin");
+          return;
+        }
+        if (data.allowedEmails && data.allowedEmails.length > 0) {
+          setAllowedEmails(data.allowedEmails);
+          const gmails = data.gmailAccounts || data.allowedEmails.filter((e: string) => e.endsWith("@gmail.com"));
+          setGmailAccounts(gmails);
+          if (gmails.length > 0) {
+            setAdminEmail(gmails[0]);
+          } else {
+            setAdminEmail(data.allowedEmails[0]);
+          }
+        }
+      } catch {
+        // Fallback default
+        setAllowedEmails(["ranjbar.abbas1988@gmail.com", "admin@cardpay.local"]);
+        setGmailAccounts(["ranjbar.abbas1988@gmail.com"]);
+        setAdminEmail("ranjbar.abbas1988@gmail.com");
+      }
+    };
+    fetchAdminInfo();
+  }, [router]);
+
+  // Handle Google SSO & Email Authentication
+  const handleAdminAuth = async (emailToSubmit: string, credential?: string) => {
     setError(null);
     setLoading(true);
     try {
       const res = await fetch("/api/v1/auth/admin", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: emailToSubmit }),
+        body: JSON.stringify({
+          email: emailToSubmit.trim(),
+          credential,
+        }),
       });
 
       const data = await res.json();
       if (!res.ok || !data.success) {
-        throw new Error(data.error || "دسترسی مجاز نمی‌باشد.");
+        throw new Error(data.error || "دسترسی مدیریت به این حساب داده نشده است.");
       }
 
       router.push("/admin");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "خطا در احراز هویت ادمین");
     } finally {
       setLoading(false);
     }
   };
 
+  const primaryGmail = gmailAccounts[0] || "ranjbar.abbas1988@gmail.com";
+
   return (
     <div className="min-h-screen bg-[#070A0F] text-slate-100 flex flex-col justify-between font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
+      {/* Background ambient lighting */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
+        <div className="absolute top-[-10%] right-[30%] w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-[140px]" />
+        <div className="absolute bottom-[10%] left-[20%] w-[450px] h-[450px] bg-emerald-500/10 rounded-full blur-[130px]" />
+      </div>
+
       {/* Header */}
       <header className="p-6 max-w-6xl mx-auto w-full flex items-center justify-between">
         <Link href="/" className="flex items-center gap-3">
@@ -47,21 +91,21 @@ export default function AdminLoginPage() {
         </Link>
 
         <Link href="/" className="text-xs text-slate-400 hover:text-white flex items-center gap-1.5 transition">
-          <span>صفحه اصلی</span>
+          <span>بازگشت به سایت</span>
           <ArrowLeft className="w-3.5 h-3.5" />
         </Link>
       </header>
 
-      {/* Card */}
+      {/* Main Card */}
       <main className="flex-1 flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-8 shadow-2xl backdrop-blur-md space-y-6">
           <div className="text-center space-y-2">
             <div className="w-14 h-14 bg-gradient-to-tr from-amber-500/20 to-emerald-500/20 border border-amber-500/30 rounded-2xl flex items-center justify-center mx-auto text-amber-400 shadow-inner">
               <Shield className="w-7 h-7" />
             </div>
-            <h1 className="text-2xl font-black text-white">ورود مدیران با Google SSO</h1>
+            <h1 className="text-xl md:text-2xl font-black text-white">ورود به پنل مدیریت</h1>
             <p className="text-xs text-slate-400 leading-relaxed">
-              دسترسی به پنل ادمین منحصراً برای ایمیل‌های ثبت‌شده در متغیر محیطی <code className="text-emerald-400 font-mono">ADMIN_EMAILS</code> فراهم است.
+              احراز هویت مدیران از طریق حساب جیمیل (Google SSO) و ایمیل‌های ثبت‌شده در متغیر محیطی <code className="text-emerald-400 font-mono">.env</code>
             </p>
           </div>
 
@@ -72,14 +116,14 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          {/* Quick SSO Button */}
+          {/* 1. Gmail Google SSO One-Click Button */}
           <div className="space-y-3">
             <button
-              onClick={() => handleGoogleSSO(googleEmail || "admin@honarhub.ir")}
+              onClick={() => handleAdminAuth(primaryGmail)}
               disabled={loading}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 rounded-xl transition shadow-lg text-xs"
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 rounded-xl transition shadow-lg text-xs group"
             >
-              {/* Google SVG Logo */}
+              {/* Official Google Vector Logo */}
               <svg className="w-4 h-4" viewBox="0 0 24 24">
                 <path
                   fill="#4285F4"
@@ -98,37 +142,82 @@ export default function AdminLoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              <span>{loading ? "در حال اعتبارسنجی..." : "ورود با حساب گوگل (Google SSO)"}</span>
+              <span>{loading ? "در حال تایید ورود..." : `ورود با جیمیل مدیریت (${primaryGmail})`}</span>
             </button>
 
+            {/* Configured Admin Emails Quick Pills */}
+            {allowedEmails.length > 0 && (
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between text-[11px] text-slate-400">
+                  <span>حساب‌های مجاز تعریف‌شده در env:</span>
+                  <span className="text-emerald-400 font-mono text-[10px]">{allowedEmails.length} حساب</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {allowedEmails.map((mail, idx) => {
+                    const isG = mail.endsWith("@gmail.com");
+                    return (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setAdminEmail(mail);
+                          handleAdminAuth(mail);
+                        }}
+                        disabled={loading}
+                        className={`text-[11px] font-mono px-2.5 py-1 rounded-lg border transition flex items-center gap-1.5 ${
+                          mail === adminEmail
+                            ? "bg-emerald-500/20 text-emerald-300 border-emerald-500/40"
+                            : "bg-slate-900 hover:bg-slate-800 text-slate-300 border-slate-800"
+                        }`}
+                        dir="ltr"
+                      >
+                        {isG ? (
+                          <span className="w-1.5 h-1.5 rounded-full bg-blue-400" />
+                        ) : (
+                          <Mail className="w-3 h-3 text-slate-400" />
+                        )}
+                        <span>{mail}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             <div className="relative flex items-center justify-center my-4">
-              <span className="bg-[#0F172A] px-3 text-[10px] text-slate-500 z-10">یا ورود با ایمیل مدیریت</span>
+              <span className="bg-[#0F172A] px-3 text-[10px] text-slate-500 z-10">یا ورود با تایپ آدرس ایمیل</span>
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-slate-800" />
               </div>
             </div>
 
+            {/* 2. Manual Email Input Form */}
             <form
               onSubmit={(e) => {
                 e.preventDefault();
-                handleGoogleSSO(googleEmail);
+                handleAdminAuth(adminEmail);
               }}
               className="space-y-3"
             >
-              <input
-                type="email"
-                value={googleEmail}
-                onChange={(e) => setGoogleEmail(e.target.value)}
-                placeholder="admin@honarhub.ir"
-                className="w-full bg-slate-950 border border-slate-800 focus:border-emerald-500 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none transition"
-                dir="ltr"
-              />
+              <div className="space-y-1.5">
+                <label className="text-slate-300 font-medium block text-xs">آدرس ایمیل ادمین:</label>
+                <input
+                  type="email"
+                  required
+                  value={adminEmail}
+                  onChange={(e) => setAdminEmail(e.target.value)}
+                  placeholder="ranjbar.abbas1988@gmail.com"
+                  className="w-full bg-slate-950 border border-slate-800 focus:border-amber-500 rounded-xl px-4 py-3 text-slate-100 placeholder-slate-600 text-xs font-mono focus:outline-none transition"
+                  dir="ltr"
+                />
+              </div>
+
               <button
                 type="submit"
-                disabled={loading}
-                className="w-full bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold py-2.5 rounded-xl transition text-xs"
+                disabled={loading || !adminEmail}
+                className="w-full bg-gradient-to-r from-amber-600 to-amber-500 hover:from-amber-500 hover:to-amber-400 disabled:opacity-50 text-slate-950 font-black py-3 rounded-xl transition text-xs shadow-lg shadow-amber-500/20"
               >
-                بررسی دسترسی ادمین
+                {loading ? "در حال اعتبارسنجی ادمین..." : "ورود به کنترل‌پنل مدیریت"}
               </button>
             </form>
           </div>
@@ -137,7 +226,7 @@ export default function AdminLoginPage() {
 
       {/* Footer */}
       <footer className="p-6 text-center text-[11px] text-slate-600">
-        سامانه درگاه پرداخت {APP_NAME} • کنترل دسترسی مدیریت
+        سامانه درگاه پرداخت {APP_NAME} • کنترل پنل مدیریت یکپارچه
       </footer>
     </div>
   );

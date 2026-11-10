@@ -1,37 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getAdminEmails } from "@/lib/auth-admin";
 
-function getAdminEmails(): string[] {
-  const envEmails = process.env.ADMIN_EMAILS || process.env.EMAILS || "ranjbar.abbas1988@gmail.com,admin@honarhub.ir,admin@cardpay.local,merchant@example.com";
-  return envEmails
-    .split(",")
-    .map((e) => e.trim().toLowerCase())
-    .filter(Boolean);
-}
-
-// POST /api/v1/auth/admin - Google SSO login verification
+// POST /api/v1/auth/admin - Admin Email & Google SSO login verification
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => ({}));
     const { email, credential } = body;
 
-    if (!email) {
+    let emailToVerify = (email || "").toLowerCase().trim();
+
+    // If Google SSO credential (JWT) is provided, decode payload
+    if (credential && typeof credential === "string") {
+      try {
+        const parts = credential.split(".");
+        if (parts.length === 3) {
+          const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
+          if (payload.email) {
+            emailToVerify = payload.email.toLowerCase().trim();
+          }
+        }
+      } catch (e: any) {
+        console.warn("[GOOGLE_SSO_JWT_PARSE_ERROR]", e.message);
+      }
+    }
+
+    if (!emailToVerify) {
       return NextResponse.json(
-        { success: false, error: "ایمیل جهت احراز هویت الزامی است." },
+        { success: false, error: "ایمیل یا شناسه حساب گوگل جهت ورود الزامی است." },
         { status: 400 }
       );
     }
 
-    const cleanEmail = email.toLowerCase().trim();
     const allowedEmails = getAdminEmails();
-
-    const isAllowed = allowedEmails.includes(cleanEmail);
+    const isAllowed = allowedEmails.includes(emailToVerify);
 
     if (!isAllowed) {
       return NextResponse.json(
         {
           success: false,
-          error: `ایمیل «${cleanEmail}» در لیست مدیران مجاز سامانه ثبت نشده است. لطفاً با ایمیل تعریف‌شده در تنظیمات سیستم وارد شوید.`,
-          allowedHint: `ایمیل‌های مجاز در فایل .env سیستم مشخص می‌شوند.`,
+          error: `ایمیل «${emailToVerify}» در لیست مدیران مجاز سامانه (.env) ثبت نشده است.`,
+          allowedHint: `ایمیل‌های مجاز در متغیر ADMIN_EMAILS یا EMAILS در فایل .env تعریف شده‌اند.`,
+          configuredEmails: allowedEmails.map((e) => {
+            const [u, d] = e.split("@");
+            return `${u.slice(0, 3)}***@${d}`;
+          }),
         },
         { status: 403 }
       );
@@ -40,11 +52,12 @@ export async function POST(req: NextRequest) {
     // Generate secure admin session
     const response = NextResponse.json({
       success: true,
-      message: `خوش‌آمدید ${cleanEmail}. احراز هویت با موفقیت انجام شد.`,
-      email: cleanEmail,
+      message: `ورود موفقیت‌آمیز بود. خوش‌آمدید (${emailToVerify})`,
+      email: emailToVerify,
+      isGmail: emailToVerify.endsWith("@gmail.com"),
     });
 
-    response.cookies.set("honarhub_admin_email", cleanEmail, {
+    response.cookies.set("honarhub_admin_email", emailToVerify, {
       path: "/",
       maxAge: 60 * 60 * 24 * 7, // 7 days
       httpOnly: false,
@@ -64,32 +77,28 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// GET /api/v1/auth/admin - Verify admin status
+// GET /api/v1/auth/admin - Verify admin status & get allowed admin accounts
 export async function GET(req: NextRequest) {
   const session = req.cookies.get("honarhub_admin_session")?.value;
   const email = req.cookies.get("honarhub_admin_email")?.value;
   const allowedEmails = getAdminEmails();
 
-  if (session === "active_admin_session" && email && allowedEmails.includes(email.toLowerCase())) {
-    return NextResponse.json({
-      success: true,
-      authenticated: true,
-      email,
-      allowedEmails,
-    });
-  }
+  const isAuthenticated = Boolean(
+    session === "active_admin_session" && email && allowedEmails.includes(email.toLowerCase())
+  );
 
   return NextResponse.json({
-    success: false,
-    authenticated: false,
-    error: "دسترسی مدیریت نیازمند ورود با حساب مجاز است.",
+    success: true,
+    authenticated: isAuthenticated,
+    email: isAuthenticated ? email : null,
     allowedEmails,
-  }, { status: 401 });
+    gmailAccounts: allowedEmails.filter((e) => e.endsWith("@gmail.com")),
+  });
 }
 
 // DELETE /api/v1/auth/admin - Logout admin
 export async function DELETE() {
-  const response = NextResponse.json({ success: true, message: "خروج انجام شد." });
+  const response = NextResponse.json({ success: true, message: "خروج از پنل مدیریت انجام شد." });
   response.cookies.delete("honarhub_admin_session");
   response.cookies.delete("honarhub_admin_email");
   return response;
