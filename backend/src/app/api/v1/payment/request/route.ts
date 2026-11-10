@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, formatFriendlyDbError } from "@/lib/db";
 import { AmountOffsetService } from "@/lib/services/amount-offset.service";
 import { generateInternalTrackingCode } from "@/lib/services/tracking-code.service";
 import crypto from "crypto";
@@ -224,7 +224,7 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Internal server error";
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    console.error("[PAYMENT_REQUEST_ERROR]", error);
+    return NextResponse.json({ success: false, error: formatFriendlyDbError(error) }, { status: 500 });
   }
 }

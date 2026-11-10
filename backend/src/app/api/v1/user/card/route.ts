@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { db } from "@/lib/db";
+import { db, formatFriendlyDbError } from "@/lib/db";
 
 // POST /api/v1/user/card - Register or update card for logged in user
 export async function POST(req: NextRequest) {
@@ -109,6 +109,7 @@ export async function POST(req: NextRequest) {
       data: card,
     });
   } catch (err: any) {
-    return NextResponse.json({ success: false, error: err.message }, { status: 500 });
+    console.error("[USER_CARD_ERROR]", err);
+    return NextResponse.json({ success: false, error: formatFriendlyDbError(err) }, { status: 500 });
   }
 }
