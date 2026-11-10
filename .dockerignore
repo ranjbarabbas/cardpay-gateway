@@ -1,0 +1,9 @@
+backend/node_modules
+backend/.next
+backend/dev.db
+backend/dev.db-journal
+backend/.env
+backend/.env.local
+backend/*.log
+android
+.git
