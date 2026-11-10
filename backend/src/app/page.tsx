@@ -36,6 +36,7 @@ import {
 } from "lucide-react";
 import { APP_NAME, APP_VERSION, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import InteractivePaymentSimulator from "@/components/InteractivePaymentSimulator";
+import MobileAutoScrollCarousel from "@/components/MobileAutoScrollCarousel";
 
 export default function Home() {
   const [theme, setTheme] = useState<"dark" | "light">("dark");
@@ -150,18 +151,6 @@ export default function Home() {
               alt={APP_NAME}
               className="h-9 w-auto object-contain transition group-hover:opacity-95"
             />
-            <span
-              className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border flex items-center gap-1.5 transition ${
-                theme === "dark"
-                  ? "bg-emerald-500/15 hover:bg-emerald-500/25 text-emerald-300 border-emerald-500/30"
-                  : "bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-300"
-              }`}
-            >
-              <span>نسخه وب</span>
-              <span className={`font-mono text-[10px] ${theme === "dark" ? "text-emerald-400" : "text-emerald-600"}`}>
-                v{WEB_APP_VERSION}
-              </span>
-            </span>
           </Link>
 
           <nav className={`hidden md:flex items-center gap-6 text-xs font-medium ${
@@ -255,34 +244,6 @@ export default function Home() {
             <strong className={`font-black ${theme === "dark" ? "text-white" : "text-slate-900"}`}>{APP_NAME}</strong> پل ارتباطی مستقیم و هوشمند میان خریداران و کارت‌های بانکی شماست. با بهره‌گیری از الگوریتم‌های اختصاصی تطبیق بانکی و موتور هوش مصنوعی همگام‌ساز پیامک‌های واریز، هر کارت بانکی را به یک درگاه پرداخت تمام‌خودکار، امن و ۲۴ ساعته تبدیل کنید.
           </p>
 
-          {/* Animated Trust & Speed Badges */}
-          <div className="flex flex-wrap items-center justify-center gap-2.5 pt-1">
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition ${
-              theme === "dark"
-                ? "bg-emerald-950/40 border-emerald-500/30 text-emerald-300"
-                : "bg-emerald-50 border-emerald-200 text-emerald-800"
-            }`}>
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-              <span>تطبیق بلادرنگ در کمتر از ۱ ثانیه</span>
-            </div>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition ${
-              theme === "dark"
-                ? "bg-teal-950/40 border-teal-500/30 text-teal-300"
-                : "bg-teal-50 border-teal-200 text-teal-800"
-            }`}>
-              <CheckCircle2 className="w-3.5 h-3.5 text-teal-400" />
-              <span>پردازش ۱۰۰٪ خودکار پیامک بانک</span>
-            </div>
-            <div className={`flex items-center gap-2 px-3 py-1.5 rounded-full border text-xs font-medium transition ${
-              theme === "dark"
-                ? "bg-amber-950/40 border-amber-500/30 text-amber-300"
-                : "bg-amber-50 border-amber-200 text-amber-800"
-            }`}>
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-              <span>کارمزد تراکنش: ۰ درصد</span>
-            </div>
-          </div>
-
           {/* Action CTAs */}
           <div className="flex flex-wrap items-center justify-center gap-3.5 pt-2">
             <Link
@@ -318,10 +279,14 @@ export default function Home() {
             </a>
           </div>
 
-          {/* 4 Core Pillars Cards - Redesigned & Beautiful */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-4xl mx-auto pt-6 text-right">
+          {/* 4 Core Pillars Cards - Features Carousel on Mobile */}
+          <MobileAutoScrollCarousel
+            autoScrollInterval={3000}
+            desktopGridClassName="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 max-w-4xl mx-auto pt-6 text-right"
+            theme={theme}
+          >
             <div
-              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 h-full ${
                 theme === "dark"
                   ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-amber-500/30 text-slate-200"
                   : "bg-white hover:bg-amber-50/20 border-slate-200 hover:border-amber-300 text-slate-800 shadow-sm"
@@ -337,7 +302,7 @@ export default function Home() {
             </div>
 
             <div
-              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 h-full ${
                 theme === "dark"
                   ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-emerald-500/30 text-slate-200"
                   : "bg-white hover:bg-emerald-50/20 border-slate-200 hover:border-emerald-300 text-slate-800 shadow-sm"
@@ -353,7 +318,7 @@ export default function Home() {
             </div>
 
             <div
-              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 h-full ${
                 theme === "dark"
                   ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-teal-500/30 text-slate-200"
                   : "bg-white hover:bg-teal-50/20 border-slate-200 hover:border-teal-300 text-slate-800 shadow-sm"
@@ -369,7 +334,7 @@ export default function Home() {
             </div>
 
             <div
-              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 ${
+              className={`p-4 rounded-2xl border transition-all duration-300 hover:-translate-y-1 h-full ${
                 theme === "dark"
                   ? "bg-slate-900/60 hover:bg-slate-900 border-slate-800/80 hover:border-sky-500/30 text-slate-200"
                   : "bg-white hover:bg-sky-50/20 border-slate-200 hover:border-sky-300 text-slate-800 shadow-sm"
@@ -383,7 +348,7 @@ export default function Home() {
                 بدون ریسک مسدودسازی حساب و بدون نیاز به اخذ اینماد و تشریفات دست‌وپاگیر
               </div>
             </div>
-          </div>
+          </MobileAutoScrollCarousel>
         </div>
 
         {/* Section: Business Pricing Plans */}
@@ -401,7 +366,11 @@ export default function Home() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch">
+          <MobileAutoScrollCarousel
+            autoScrollInterval={3000}
+            desktopGridClassName="grid grid-cols-1 lg:grid-cols-3 gap-6 max-w-6xl mx-auto items-stretch"
+            theme={theme}
+          >
             {/* Plan 1: Free Forever */}
             <div className={`border rounded-3xl p-6 md:p-8 flex flex-col justify-between transition shadow-xl relative overflow-hidden group ${
               theme === "dark"
@@ -652,7 +621,7 @@ export default function Home() {
                 </div>
               </div>
             </div>
-          </div>
+          </MobileAutoScrollCarousel>
         </section>
 
         {/* Interactive Live Payment Simulator Widget */}
