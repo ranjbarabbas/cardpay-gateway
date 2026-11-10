@@ -462,9 +462,14 @@ export default function Home() {
                   </h3>
                 </div>
 
-                <div className="h-14 flex items-baseline gap-1">
-                  <span className="text-3xl font-black text-teal-500">۲۹۹,۰۰۰</span>
-                  <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>تومان / ماهانه</span>
+                <div className="h-14 flex flex-col justify-center">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-black text-teal-500">۱۹۹,۰۰۰</span>
+                    <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>تومان / ماهانه</span>
+                  </div>
+                  <span className={`text-[10px] ${theme === "dark" ? "text-teal-400/80" : "text-teal-600"}`}>
+                    ۳ ماهه: ۴۹۹,۰۰۰ (۱۶٪ تخفیف) • ۶ ماهه: ۸۹۹,۰۰۰ (۲۵٪ تخفیف)
+                  </span>
                 </div>
 
                 <div className="h-12 flex items-center">
@@ -504,7 +509,7 @@ export default function Home() {
                   href="/login"
                   className="w-full bg-teal-600 hover:bg-teal-500 text-white font-bold py-3.5 rounded-xl transition text-center text-xs shadow-lg shadow-teal-600/20 block"
                 >
-                  انتخاب پلن حرفه‌ای
+                  خرید و فعال‌سازی آنلاین پلن حرفه‌ای
                 </Link>
               </div>
             </div>
@@ -529,8 +534,14 @@ export default function Home() {
                   </h3>
                 </div>
 
-                <div className="h-14 flex items-center">
-                  <span className="text-2xl font-black text-amber-500">بدون هیچ محدودیتی</span>
+                <div className="h-14 flex flex-col justify-center">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-black text-amber-500">۳۹۹,۰۰۰</span>
+                    <span className={`text-xs ${theme === "dark" ? "text-slate-400" : "text-slate-500"}`}>تومان / ماهانه</span>
+                  </div>
+                  <span className={`text-[10px] ${theme === "dark" ? "text-amber-400/80" : "text-amber-600"}`}>
+                    ۳ ماهه: ۹۹۹,۰۰۰ (۱۷٪ تخفیف) • ۶ ماهه: ۱,۷۹۹,۰۰۰ (۲۵٪ تخفیف)
+                  </span>
                 </div>
 
                 <div className="h-12 flex items-center">
@@ -565,60 +576,17 @@ export default function Home() {
                 </ul>
               </div>
 
-              {/* Lead Contact Form */}
-              <div className="pt-6">
-                <div className={`border rounded-2xl p-4 space-y-3 ${
-                  theme === "dark" ? "bg-slate-950/90 border-slate-800" : "bg-slate-50 border-slate-200"
-                }`}>
-                  <span className={`text-[11px] font-bold block ${theme === "dark" ? "text-slate-300" : "text-slate-700"}`}>
-                    ثبت شماره تماس جهت مشاوره و فعال‌سازی پلن ویژه:
-                  </span>
-
-                  {leadSuccess ? (
-                    <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-xl text-xs text-center leading-relaxed">
-                      درخواست شما با موفقیت ثبت گردید. کارشناسان ما به زودی با شما تماس خواهند گرفت.
-                    </div>
-                  ) : (
-                    <form onSubmit={handleLeadSubmit} className="space-y-2.5 text-xs">
-                      {leadError && (
-                        <div className="p-2 bg-rose-500/10 border border-rose-500/20 text-rose-400 rounded-lg text-[11px]">
-                          {leadError}
-                        </div>
-                      )}
-                      <input
-                        type="tel"
-                        required
-                        value={leadPhone}
-                        onChange={(e) => setLeadPhone(e.target.value)}
-                        placeholder="شماره موبایل: 09123456789"
-                        className={`w-full border rounded-xl px-3.5 py-2.5 font-mono focus:outline-none focus:border-amber-400 ${
-                          theme === "dark"
-                            ? "bg-slate-900 border-slate-800 text-white placeholder:text-slate-600"
-                            : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                        }`}
-                        dir="ltr"
-                      />
-                      <input
-                        type="text"
-                        value={leadName}
-                        onChange={(e) => setLeadName(e.target.value)}
-                        placeholder="نام یا عنوان کسب‌وکار (اختیاری)"
-                        className={`w-full border rounded-xl px-3.5 py-2 focus:outline-none focus:border-amber-400 text-[11px] ${
-                          theme === "dark"
-                            ? "bg-slate-900 border-slate-800 text-white placeholder:text-slate-600"
-                            : "bg-white border-slate-300 text-slate-900 placeholder:text-slate-400"
-                        }`}
-                      />
-                      <button
-                        type="submit"
-                        disabled={leadLoading}
-                        className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-2.5 rounded-xl transition shadow text-xs flex items-center justify-center gap-2"
-                      >
-                        {leadLoading ? "در حال ثبت درخواست..." : "درخواست تماس کارشناس ویژه"}
-                      </button>
-                    </form>
-                  )}
-                </div>
+              {/* Direct Purchase Button (Replaced Lead Phone Form) */}
+              <div className="pt-6 space-y-2">
+                <Link
+                  href="/login"
+                  className="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black py-3.5 rounded-xl transition text-center text-xs shadow-lg shadow-amber-500/20 block"
+                >
+                  خرید و فعال‌سازی آنلاین پلن ویژه
+                </Link>
+                <span className={`text-[10px] block text-center ${theme === "dark" ? "text-slate-500" : "text-slate-400"}`}>
+                  پرداخت کارت‌به‌کارت آنی • ارتقای خودکار ۱۰ دقیقه‌ای
+                </span>
               </div>
             </div>
           </MobileAutoScrollCarousel>

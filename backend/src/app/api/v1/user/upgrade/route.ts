@@ -1,107 +1,121 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { sendFarazSms } from "@/lib/faraz-sms";
-import { sendResendEmail } from "@/lib/resend-email";
-import { setUserPlanAndDuration, getPlanLimits } from "@/lib/services/plan-expiration.service";
+import { getSystemSettings } from "@/lib/settings";
+import { AmountOffsetService } from "@/lib/services/amount-offset.service";
+import { generateInternalTrackingCode } from "@/lib/services/tracking-code.service";
+import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
   try {
     const userId = req.cookies.get("honarhub_user_id")?.value;
-    if (!userId) {
+    const body = await req.json().catch(() => ({}));
+    const targetUserId = userId || body.userId;
+
+    if (!targetUserId) {
       return NextResponse.json({ success: false, error: "وارد نشده‌اید" }, { status: 401 });
     }
 
     const user = await db.user.findUnique({
-      where: { id: userId },
+      where: { id: targetUserId },
     });
 
     if (!user) {
       return NextResponse.json({ success: false, error: "کاربر یافت نشد" }, { status: 404 });
     }
 
-    const body = await req.json();
-    const { targetPlan, durationMonths = 1, trackingCode, amountToman } = body; // "PRO" or "SPECIAL"
+    const { targetPlan = "PRO", durationMonths = 1 } = body;
 
     if (!["PRO", "SPECIAL"].includes(targetPlan)) {
       return NextResponse.json(
-        { success: false, error: "پلن انتخابی معتبر نیست. گزینه‌ها: PRO یا SPECIAL" },
+        { success: false, error: "پلن انتخابی نامعتبر است. گزینه‌ها: PRO یا SPECIAL" },
         { status: 400 }
       );
     }
 
-    const cleanDuration = [1, 3, 12].includes(Number(durationMonths)) ? Number(durationMonths) : 1;
-    const planLimits = getPlanLimits(targetPlan);
-    const planTitle = `${planLimits.title} (${cleanDuration} ماهه)`;
+    const cleanDuration = [1, 3, 6].includes(Number(durationMonths)) ? Number(durationMonths) : 1;
+    const settings = getSystemSettings();
 
-    // Record lead / upgrade request in DB
-    const lead = await db.leadRequest.create({
-      data: {
-        phone: user.phone || user.email || "بدون شماره تماس",
-        name: user.name || "کاربر پنل",
-        plan: targetPlan,
-        durationMonths: cleanDuration,
-        amountToman: amountToman ? Number(amountToman) : null,
-        trackingCode: trackingCode ? String(trackingCode).trim() : null,
-        status: targetPlan === "PRO" ? "UPGRADED" : "PENDING",
-        notes: `درخواست ارتقای پلن به ${planTitle} توسط کاربر. کد رهگیری: ${trackingCode || "ثبت نشده"}`,
-      },
+    // Determine plan price in Toman
+    let priceToman = 199000;
+    if (targetPlan === "PRO") {
+      if (cleanDuration === 1) priceToman = settings.pricing?.pro1MonthToman || 199000;
+      else if (cleanDuration === 3) priceToman = settings.pricing?.pro3MonthsToman || 499000;
+      else if (cleanDuration === 6) priceToman = settings.pricing?.pro6MonthsToman || 899000;
+    } else {
+      // SPECIAL (VIP)
+      if (cleanDuration === 1) priceToman = settings.pricing?.special1MonthToman || 399000;
+      else if (cleanDuration === 3) priceToman = settings.pricing?.special3MonthsToman || 999000;
+      else if (cleanDuration === 6) priceToman = settings.pricing?.special6MonthsToman || 1799000;
+    }
+
+    // Ensure Admin Card exists in bank_cards table for payment processing
+    const cleanAdminCard = (settings.adminCard?.cardNumber || "6063731099887766").replace(/[^0-9]/g, "");
+    let adminBankCard = await db.bankCard.findFirst({
+      where: { cardNumber: cleanAdminCard, isArchived: false },
     });
 
-    // If upgrading to PRO, directly activate PRO plan with selected duration
-    let updatedUser = user;
-    if (targetPlan === "PRO") {
-      updatedUser = await setUserPlanAndDuration(
-        user.id,
-        "PRO",
-        cleanDuration,
-        `ارتقا به پلن حرفه‌ای ${cleanDuration} ماهه با کد رهگیری ${trackingCode || "مستقیم"}`
-      );
+    if (!adminBankCard) {
+      adminBankCard = await db.bankCard.create({
+        data: {
+          cardNumber: cleanAdminCard,
+          ownerName: settings.adminCard?.ownerName || "هنرهاب پی (حساب رسمی مدیریت)",
+          bankTitle: settings.adminCard?.bankTitle || "بانک قرض‌الحسنه مهر ایران",
+          iban: settings.adminCard?.iban || "IR000000000000000000000000",
+          isActive: true,
+          isArchived: false,
+          isFrozen: false,
+        },
+      });
     }
 
-    // Trigger Admin Notification alerts via Faraz SMS & Resend
-    const adminMobile = process.env.ADMIN_MOBILE_ALERT;
-    const adminEmail = process.env.ADMIN_EMAIL_ALERT || process.env.ADMIN_EMAILS?.split(",")[0] || "ranjbar.abbas1988@gmail.com";
+    // Resolve unique amount with dynamic offset (+11, +12, ...)
+    const resolved = await AmountOffsetService.resolveUniqueAmount(adminBankCard.id, priceToman);
 
-    const alertMessage = `درخواست ارتقای پلن هنرهاب پی!\nکاربر: ${user.name || "کاربر"} (${user.phone || user.email || "کاربر"})\nپلن انتخابی: ${planTitle}\nمدت: ${cleanDuration} ماهه\nکد رهگیری فیش: ${trackingCode || "—"}\nزمان: ${new Date().toLocaleTimeString("fa-IR")}`;
+    const authority = crypto.randomBytes(16).toString("hex");
+    const internalTrackingCode = generateInternalTrackingCode();
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
 
-    if (adminMobile) {
-      sendFarazSms({
-        recipient: adminMobile,
-        message: alertMessage,
-      }).catch((e) => console.error("Admin SMS alert failed:", e));
-    }
+    const planTitle = targetPlan === "SPECIAL" ? "ویژه (VIP)" : "حرفه‌ای";
+    const description = `UPGRADE_PLAN:${targetPlan}:${cleanDuration}:${user.id} | ارتقای اشتراک پلن ${planTitle} (${cleanDuration} ماهه) - خریدار: ${user.name || user.phone || user.email || "کاربر"}`;
 
-    if (adminEmail) {
-      sendResendEmail({
-        to: adminEmail,
-        subject: `[هنرهاب پی] درخواست ارتقای پلن: ${planTitle}`,
-        html: `
-          <div dir="rtl" style="font-family: Tahoma, sans-serif; padding: 20px; background-color: #0F172A; color: #fff; border-radius: 12px; line-height: 1.8;">
-            <h2 style="color: #10b981;">درخواست ارتقای پلن در هنرهاب پی</h2>
-            <p><strong>کاربر:</strong> ${user.name || "نامشخص"}</p>
-            <p><strong>شماره تماس / ایمیل:</strong> ${user.phone || user.email || "ثبت نشده"}</p>
-            <p><strong>پلن انتخابی:</strong> <span style="color: #38bdf8;">${planTitle}</span></p>
-            <p><strong>مدت زمان:</strong> ${cleanDuration} ماهه</p>
-            <p><strong>کد رهگیری فیش واریز:</strong> ${trackingCode || "ثبت نشده"}</p>
-            <p><strong>شناسه کاربر:</strong> ${user.id}</p>
-            <p><strong>تاریخ ثبت:</strong> ${new Date().toLocaleString("fa-IR")}</p>
-          </div>
-        `,
-      }).catch((e) => console.error("Admin Email alert failed:", e));
-    }
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 10 * 60 * 1000); // 10 minutes
+    const collisionLockUntil = new Date(now.getTime() + 20 * 60 * 1000); // 20 minutes
+
+    // Create payment transaction for Admin card
+    const transaction = await db.transaction.create({
+      data: {
+        authority,
+        internalTrackingCode,
+        cardId: adminBankCard.id,
+        userId: user.id,
+        originalAmountToman: BigInt(priceToman),
+        offsetToman: resolved.offsetToman,
+        finalAmountToman: resolved.finalAmountToman,
+        finalAmountRial: resolved.finalAmountRial,
+        status: "PENDING",
+        expiresAt,
+        collisionLockUntil,
+        callbackUrl: `${baseUrl}/portal?upgraded=true&auth=${authority}`,
+        description,
+        customerMobile: user.phone || undefined,
+      },
+    });
 
     return NextResponse.json({
       success: true,
-      data: {
-        user: updatedUser,
-        leadId: lead.id,
-      },
-      message:
-        targetPlan === "PRO"
-          ? `پلن حساب شما با موفقیت به «پلن حرفه‌ای» (${cleanDuration} ماهه) ارتقا یافت.`
-          : `درخواست ارتقای ${cleanDuration} ماهه به «پلن ویژه» با موفقیت ثبت شد. مدیریت پس از تایید فیش واریزی آن را فعال خواهد کرد.`,
+      authority,
+      paymentUrl: `/pay/${authority}`,
+      amountToman: Number(resolved.finalAmountToman),
+      originalAmountToman: priceToman,
+      offsetToman: resolved.offsetToman,
+      targetPlan,
+      durationMonths: cleanDuration,
+      expiresAt: expiresAt.toISOString(),
+      message: `درگاه پرداخت کارت‌به‌کارت با موفقیت صادر گردید. شما ۱۰ دقیقه مهلت دارید مبلغ فاکتور را واریز فرمایید.`,
     });
   } catch (err: any) {
+    console.error("[USER_UPGRADE_PAYMENT_ERROR]", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
   }
 }

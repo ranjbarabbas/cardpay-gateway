@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
 import { dispatchDepositNotifications } from "@/lib/notifications";
+import { checkAndProcessPlanUpgradeTransaction } from "@/lib/services/plan-expiration.service";
 
 export async function POST(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
@@ -77,6 +78,11 @@ export async function POST(req: NextRequest) {
       cardId: tx.cardId,
       userId: tx.userId || undefined,
     }).catch((err) => console.error("Manual reconcile deposit notification failed:", err));
+
+    // Auto-process Plan Upgrade if this was an upgrade payment
+    checkAndProcessPlanUpgradeTransaction(tx.id).catch((err) =>
+      console.error("Manual reconcile plan upgrade processing failed:", err)
+    );
 
     return NextResponse.json({
       success: true,

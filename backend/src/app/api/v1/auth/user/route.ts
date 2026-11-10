@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import {
   expireOverduePendingTransactions,
   checkAndEnforcePlanExpirations,
+  checkAndProcessPlanUpgradeTransaction,
 } from "@/lib/services/plan-expiration.service";
 import { getSystemSettings } from "@/lib/settings";
 
@@ -116,6 +117,21 @@ export async function GET(req: NextRequest) {
 
     // 2. Automatically check and enforce subscription plan expirations & freeze extra cards
     await checkAndEnforcePlanExpirations();
+
+    // 3. If returning from an upgrade checkout, ensure the plan upgrade is immediately processed
+    const authParam = req.nextUrl.searchParams.get("auth");
+    if (authParam) {
+      const upgradeTx = await db.transaction.findFirst({
+        where: {
+          authority: authParam,
+          userId,
+          status: { in: ["PAID", "MANUALLY_VERIFIED"] },
+        },
+      });
+      if (upgradeTx) {
+        await checkAndProcessPlanUpgradeTransaction(upgradeTx.id);
+      }
+    }
 
     const user = await db.user.findUnique({
       where: { id: userId },

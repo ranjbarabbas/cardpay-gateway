@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { checkAndProcessPlanUpgradeTransaction } from "@/lib/services/plan-expiration.service";
 
 export async function POST(req: NextRequest) {
   try {
@@ -64,6 +65,11 @@ export async function POST(req: NextRequest) {
             : "Payment has not been completed or verified yet",
       });
     }
+
+    // If this transaction was for plan upgrade, ensure it is processed immediately
+    checkAndProcessPlanUpgradeTransaction(tx.id).catch((err) =>
+      console.error("[PAYMENT_VERIFY_PLAN_UPGRADE_ERROR]", err)
+    );
 
     return NextResponse.json({
       success: true,

@@ -277,3 +277,38 @@ export async function setUserPlanAndDuration(
 
   return updatedUser;
 }
+
+/**
+ * Checks if a transaction is a Plan Upgrade purchase, and if so, automatically upgrades the user.
+ */
+export async function checkAndProcessPlanUpgradeTransaction(transactionId: string): Promise<boolean> {
+  try {
+    const tx = await db.transaction.findUnique({
+      where: { id: transactionId },
+    });
+    if (!tx || !tx.description || !tx.description.includes("UPGRADE_PLAN:")) {
+      return false;
+    }
+    const match = tx.description.match(/UPGRADE_PLAN:(PRO|SPECIAL):([136]):([a-zA-Z0-9_-]+)/);
+    if (!match) return false;
+
+    const targetPlan = match[1];
+    const durationMonths = parseInt(match[2], 10);
+    const userId = match[3] || tx.userId;
+
+    if (!userId) return false;
+
+    await setUserPlanAndDuration(
+      userId,
+      targetPlan,
+      durationMonths,
+      `ارتقای خودکار پس از پرداخت موفقیت‌آمیز فاکتور واریز کارت به کارت (کد رهگیری: ${tx.internalTrackingCode || tx.authority})`
+    );
+    console.log(`[PLAN_UPGRADE_AUTO_SUCCESS] User ${userId} upgraded to ${targetPlan} for ${durationMonths} months via Tx ${tx.id}`);
+    return true;
+  } catch (err) {
+    console.error("[PLAN_UPGRADE_AUTO_ERROR]", err);
+    return false;
+  }
+}
+

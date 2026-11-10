@@ -12,10 +12,12 @@ export interface SystemSettings {
   pricing: {
     pro1MonthToman: number;
     pro3MonthsToman: number;
-    pro12MonthsToman: number;
+    pro6MonthsToman: number;
+    pro12MonthsToman?: number;
     special1MonthToman: number;
     special3MonthsToman: number;
-    special12MonthsToman: number;
+    special6MonthsToman: number;
+    special12MonthsToman?: number;
   };
   sms: {
     provider: "farazsms";
@@ -60,10 +62,10 @@ const defaultSettings: SystemSettings = {
   pricing: {
     pro1MonthToman: 199000,
     pro3MonthsToman: 499000,
-    pro12MonthsToman: 1690000,
+    pro6MonthsToman: 899000,
     special1MonthToman: 399000,
     special3MonthsToman: 999000,
-    special12MonthsToman: 3490000,
+    special6MonthsToman: 1799000,
   },
   sms: {
     provider: "farazsms",

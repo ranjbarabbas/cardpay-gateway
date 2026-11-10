@@ -1,6 +1,7 @@
 import { db } from "../db";
 import { bankParserRegistry } from "./parsers";
 import { dispatchDepositNotifications } from "../notifications";
+import { checkAndProcessPlanUpgradeTransaction } from "./plan-expiration.service";
 
 export interface SmsIngestInput {
   sender: string;
@@ -232,6 +233,11 @@ export class SmsMatcherService {
         cardId: matchedTx.cardId,
         userId: matchedTx.userId || undefined,
       }).catch((err) => console.error("Deposit notification dispatch failed:", err));
+
+      // Auto-process Plan Upgrade if this was an upgrade payment
+      checkAndProcessPlanUpgradeTransaction(matchedTx.id).catch((err) =>
+        console.error("Auto plan upgrade processing failed:", err)
+      );
 
       return {
         matched: true,

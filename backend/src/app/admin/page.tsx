@@ -103,10 +103,10 @@ export default function AdminDashboard() {
     pricing: {
       pro1MonthToman: 199000,
       pro3MonthsToman: 499000,
-      pro12MonthsToman: 1690000,
+      pro6MonthsToman: 899000,
       special1MonthToman: 399000,
       special3MonthsToman: 999000,
-      special12MonthsToman: 3490000,
+      special6MonthsToman: 1799000,
     },
     sms: {
       provider: "farazsms",
@@ -2250,14 +2250,14 @@ export default function AdminDashboard() {
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-slate-400 block mb-1">۱۲ ماهه:</label>
+                            <label className="text-[11px] text-slate-400 block mb-1">۶ ماهه:</label>
                             <input
                               type="number"
-                              value={systemSettings.pricing?.pro12MonthsToman || 1690000}
+                              value={systemSettings.pricing?.pro6MonthsToman || 899000}
                               onChange={(e) =>
                                 setSystemSettings({
                                   ...systemSettings,
-                                  pricing: { ...systemSettings.pricing, pro12MonthsToman: Number(e.target.value) },
+                                  pricing: { ...systemSettings.pricing, pro6MonthsToman: Number(e.target.value) },
                                 })
                               }
                               className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
@@ -2298,14 +2298,14 @@ export default function AdminDashboard() {
                             />
                           </div>
                           <div>
-                            <label className="text-[11px] text-slate-400 block mb-1">۱۲ ماهه:</label>
+                            <label className="text-[11px] text-slate-400 block mb-1">۶ ماهه:</label>
                             <input
                               type="number"
-                              value={systemSettings.pricing?.special12MonthsToman || 3490000}
+                              value={systemSettings.pricing?.special6MonthsToman || 1799000}
                               onChange={(e) =>
                                 setSystemSettings({
                                   ...systemSettings,
-                                  pricing: { ...systemSettings.pricing, special12MonthsToman: Number(e.target.value) },
+                                  pricing: { ...systemSettings.pricing, special6MonthsToman: Number(e.target.value) },
                                 })
                               }
                               className="w-full bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-white font-mono text-xs"
