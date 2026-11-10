@@ -1,15 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getGoogleOAuthCredentials } from "@/lib/auth-admin";
+import { getGoogleOAuthCredentials, getGoogleRedirectUri } from "@/lib/auth-admin";
 
 // GET /api/v1/auth/google - Initiate Google OAuth2 Consent Flow
 export async function GET(req: NextRequest) {
   const { clientId } = getGoogleOAuthCredentials();
-  const url = new URL(req.url);
-  const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
-  const proto = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
-  const origin = `${proto}://${host}`;
-
-  const redirectUri = `${origin}/api/v1/auth/google/callback`;
+  const redirectUri = getGoogleRedirectUri(req);
 
   const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
   googleAuthUrl.searchParams.set("client_id", clientId);

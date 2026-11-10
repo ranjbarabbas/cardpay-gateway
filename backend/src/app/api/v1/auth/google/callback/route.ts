@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminEmails, getGoogleOAuthCredentials } from "@/lib/auth-admin";
+import { getAdminEmails, getGoogleOAuthCredentials, getGoogleRedirectUri } from "@/lib/auth-admin";
 
 // GET /api/v1/auth/google/callback - Handle Google OAuth2 Code Exchange
 export async function GET(req: NextRequest) {
@@ -8,9 +8,9 @@ export async function GET(req: NextRequest) {
   const error = url.searchParams.get("error");
 
   const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
-  const proto = req.headers.get("x-forwarded-proto") || (host.includes("localhost") ? "http" : "https");
+  const proto = req.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
   const origin = `${proto}://${host}`;
-  const redirectUri = `${origin}/api/v1/auth/google/callback`;
+  const redirectUri = getGoogleRedirectUri(req);
 
   if (error || !code) {
     const errorMsg = error === "access_denied" ? "انصراف از ورود با گوگل" : (error || "کد احراز هویت گوگل دریافت نشد");

@@ -95,6 +95,30 @@ export function getGoogleOAuthCredentials(): { clientId: string; clientSecret: s
   };
 }
 
+/**
+ * Get Google OAuth Redirect URI consistently
+ */
+export function getGoogleRedirectUri(req?: NextRequest): string {
+  if (process.env.GOOGLE_REDIRECT_URI) {
+    return process.env.GOOGLE_REDIRECT_URI.trim();
+  }
+
+  // If request is provided, inspect host
+  if (req) {
+    const url = new URL(req.url);
+    const host = req.headers.get("x-forwarded-host") || req.headers.get("host") || url.host;
+    const proto = req.headers.get("x-forwarded-proto") || (host.includes("localhost") || host.includes("127.0.0.1") ? "http" : "https");
+    return `${proto}://${host}/api/v1/auth/google/callback`;
+  }
+
+  const appUrl = (process.env.NEXT_PUBLIC_APP_URL || "").trim().replace(/\/$/, "");
+  if (appUrl) {
+    return `${appUrl}/api/v1/auth/google/callback`;
+  }
+
+  return "http://localhost:3050/api/v1/auth/google/callback";
+}
+
 export function verifyAdminAuth(req: NextRequest): boolean {
   // 1. Verify via Admin Cookie Session
   const session = req.cookies.get("honarhub_admin_session")?.value;
