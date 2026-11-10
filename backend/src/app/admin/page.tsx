@@ -33,6 +33,8 @@ import {
   Archive,
   RotateCcw,
   Users,
+  Database,
+  AlertTriangle,
   LogOut,
   Settings,
   LayoutDashboard,
@@ -133,6 +135,8 @@ export default function AdminDashboard() {
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [settingsFeedback, setSettingsFeedback] = useState<string | null>(null);
+  const [dbHealth, setDbHealth] = useState<{ connected: boolean; error?: string; latencyMs?: number; provider?: string } | null>(null);
+  const [dbChecking, setDbChecking] = useState(false);
 
   // Test SMS / Email States
   const [testSmsRecipient, setTestSmsRecipient] = useState("09120000000");
@@ -222,6 +226,15 @@ export default function AdminDashboard() {
   const loadData = async () => {
     setLoading(true);
     try {
+      // Check system health & database connectivity
+      const healthRes = await fetch("/api/v1/health").catch(() => null);
+      if (healthRes) {
+        const hData = await healthRes.json().catch(() => null);
+        if (hData?.database) {
+          setDbHealth(hData.database);
+        }
+      }
+
       // Load overview / core collections in parallel
       const [cRes, dRes, uRes, lRes, txRes, sRes] = await Promise.all([
         fetch("/api/v1/admin/cards", { headers }).catch(() => null),
@@ -232,12 +245,19 @@ export default function AdminDashboard() {
         fetch("/api/v1/admin/settings", { headers }).catch(() => null),
       ]);
 
-      if (cRes?.ok) {
-        const cData = await cRes.json();
-        if (cData.success) {
-          setCards(cData.data);
-          if (cData.data.length > 0 && !testCardId) {
-            setTestCardId(cData.data[0].id);
+      if (cRes) {
+        if (cRes.ok) {
+          const cData = await cRes.json();
+          if (cData.success) {
+            setCards(cData.data);
+            if (cData.data.length > 0 && !testCardId) {
+              setTestCardId(cData.data[0].id);
+            }
+          }
+        } else {
+          const errData = await cRes.json().catch(() => null);
+          if (errData?.error && (errData.error.includes("پایگاه داده") || errData.error.includes("database"))) {
+            setDbHealth({ connected: false, error: errData.error });
           }
         }
       }
@@ -259,7 +279,10 @@ export default function AdminDashboard() {
       }
       if (sRes?.ok) {
         const sData = await sRes.json();
-        if (sData.success) setSystemSettings(sData.data);
+        if (sData.success) {
+          setSystemSettings(sData.data);
+          if (sData.dbHealth) setDbHealth(sData.dbHealth);
+        }
       }
 
       // Load senders
@@ -450,11 +473,14 @@ export default function AdminDashboard() {
         body: JSON.stringify(systemSettings),
       });
       const data = await res.json();
+      if (data.dbHealth) {
+        setDbHealth(data.dbHealth);
+      }
       if (data.success) {
-        setSettingsFeedback("تنظیمات فراز اس‌ام‌اس و Resend با موفقیت ذخیره گردید.");
+        setSettingsFeedback("تنظیمات با موفقیت ذخیره و در سامانه اعمال گردید.");
         setTimeout(() => setSettingsFeedback(null), 4000);
       } else {
-        alert("خطا در ذخیره تنظیمات: " + data.error);
+        alert(data.error || "خطا در ذخیره تنظیمات");
       }
     } catch (err: any) {
       alert("خطای ارتباط: " + err.message);
@@ -869,6 +895,21 @@ export default function AdminDashboard() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2.5">
+            {/* Live Database Status Indicator */}
+            {dbHealth && (
+              <div
+                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold border transition ${
+                  dbHealth.connected
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                    : "bg-rose-500/10 border-rose-500/40 text-rose-300 animate-pulse"
+                }`}
+                title={dbHealth.connected ? `متصل به دیتابیس (${dbHealth.latencyMs ?? "<5"}ms)` : `خطا: ${dbHealth.error}`}
+              >
+                <div className={`w-2 h-2 rounded-full ${dbHealth.connected ? "bg-emerald-400" : "bg-rose-400 animate-ping"}`} />
+                <span>{dbHealth.connected ? `دیتابیس: متصل (${dbHealth.latencyMs ?? "<5"}ms)` : "دیتابیس: قطع!"}</span>
+              </div>
+            )}
+
             {/* Merchant Live API Key Indicator */}
             <div className="hidden lg:flex items-center gap-2 bg-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 text-xs">
               <Key className="w-3.5 h-3.5 text-emerald-400" />
@@ -924,6 +965,41 @@ export default function AdminDashboard() {
 
       {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-6 space-y-6">
+
+        {/* Database Offline Critical Alert Banner */}
+        {dbHealth && !dbHealth.connected && (
+          <div className="bg-rose-950/80 border-2 border-rose-500/80 text-white p-5 rounded-3xl shadow-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-pulse">
+            <div className="flex items-start gap-3">
+              <AlertTriangle className="w-6 h-6 text-rose-400 shrink-0 mt-0.5" />
+              <div>
+                <h3 className="font-black text-sm text-rose-200">
+                  ⚠️ هشدار بحرانی: ارتباط با سرور پایگاه داده برقرار نیست!
+                </h3>
+                <p className="text-xs text-rose-300 mt-1 leading-relaxed">
+                  {dbHealth.error || "سرور دیتابیس در دسترس نیست. لطفاً اتصال سرور پایگاه داده در کولیفای (کانتینر PostgreSQL) و متغیر DATABASE_URL را بررسی فرمایید."}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={async () => {
+                setDbChecking(true);
+                try {
+                  const res = await fetch("/api/v1/health");
+                  const d = await res.json();
+                  if (d?.database) setDbHealth(d.database);
+                } finally {
+                  setDbChecking(false);
+                  loadData();
+                }
+              }}
+              disabled={dbChecking}
+              className="bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shrink-0 flex items-center gap-2 shadow"
+            >
+              <RefreshCw className={`w-4 h-4 ${dbChecking ? "animate-spin" : ""}`} />
+              <span>{dbChecking ? "در حال بررسی..." : "تلاش مجدد اتصال دیتابیس"}</span>
+            </button>
+          </div>
+        )}
 
         {/* Modern Segmented Navigation Tabs */}
         <nav className="flex overflow-x-auto gap-1.5 p-1.5 bg-slate-900/90 border border-slate-800/90 rounded-2xl shadow-xl no-scrollbar">
@@ -2080,6 +2156,75 @@ export default function AdminDashboard() {
                 </div>
               )}
 
+              {/* Live Infrastructure & Diagnostic Status */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 p-4 bg-slate-950/70 border border-slate-800 rounded-2xl text-xs">
+                {/* Database Connectivity */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Database className={`w-4 h-4 ${dbHealth?.connected ? "text-emerald-400" : "text-rose-400"}`} />
+                    <div>
+                      <span className="font-bold text-white block">پایگاه داده ({dbHealth?.provider || "PostgreSQL"})</span>
+                      <span className="text-[11px] text-slate-400">
+                        {dbHealth?.connected ? `متصل (${dbHealth.latencyMs ?? "<5"}ms)` : "قطع / بدون دسترسی"}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    dbHealth?.connected ? "bg-emerald-500/20 text-emerald-300" : "bg-rose-500/20 text-rose-300 animate-pulse"
+                  }`}>
+                    {dbHealth?.connected ? "ONLINE" : "OFFLINE"}
+                  </span>
+                </div>
+
+                {/* Faraz SMS Status */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <MessageSquare className="w-4 h-4 text-teal-400" />
+                    <div>
+                      <span className="font-bold text-white block">فراز اس‌ام‌اس</span>
+                      <span className="text-[11px] text-slate-400">
+                        {systemSettings.sms?.apiKey && !systemSettings.sms.apiKey.includes("demo")
+                          ? (systemSettings.sms.enabled ? "آماده ارسال عملیاتی" : "غیرفعال شده")
+                          : "کلید API تنظیم نشده"}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    systemSettings.sms?.apiKey && !systemSettings.sms.apiKey.includes("demo") && systemSettings.sms.enabled
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-amber-500/20 text-amber-300"
+                  }`}>
+                    {systemSettings.sms?.apiKey && !systemSettings.sms.apiKey.includes("demo") && systemSettings.sms.enabled
+                      ? "READY"
+                      : "PENDING"}
+                  </span>
+                </div>
+
+                {/* Resend Email Status */}
+                <div className="flex items-center justify-between p-3 rounded-xl bg-slate-900 border border-slate-800">
+                  <div className="flex items-center gap-2">
+                    <Mail className="w-4 h-4 text-sky-400" />
+                    <div>
+                      <span className="font-bold text-white block">سرویس ایمیل Resend</span>
+                      <span className="text-[11px] text-slate-400">
+                        {systemSettings.email?.apiKey && systemSettings.email.apiKey.startsWith("re_") && !systemSettings.email.apiKey.includes("demo")
+                          ? (systemSettings.email.enabled ? "آماده ارسال عملیاتی" : "غیرفعال شده")
+                          : "کلید API تنظیم نشده"}
+                      </span>
+                    </div>
+                  </div>
+                  <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                    systemSettings.email?.apiKey && systemSettings.email.apiKey.startsWith("re_") && !systemSettings.email.apiKey.includes("demo") && systemSettings.email.enabled
+                      ? "bg-emerald-500/20 text-emerald-300"
+                      : "bg-amber-500/20 text-amber-300"
+                  }`}>
+                    {systemSettings.email?.apiKey && systemSettings.email.apiKey.startsWith("re_") && !systemSettings.email.apiKey.includes("demo") && systemSettings.email.enabled
+                      ? "READY"
+                      : "PENDING"}
+                  </span>
+                </div>
+              </div>
+
               {/* Sub-tabs for Settings */}
               <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3">
                 <button
@@ -2526,19 +2671,42 @@ export default function AdminDashboard() {
 
                       {testSmsResult && (
                         <div
-                          className={`p-4 rounded-xl border font-mono text-xs space-y-1.5 ${
+                          className={`p-4 rounded-xl border text-xs space-y-2 ${
                             testSmsResult.success
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                               : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                           }`}
                         >
-                          <div className="font-bold font-sans">
-                            {testSmsResult.success ? "✅ ارسال پیامک با موفقیت انجام شد" : "❌ خطا در ارسال پیامک"}
+                          <div className="font-bold font-sans flex items-center gap-2">
+                            {testSmsResult.success ? (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span>ارسال پیامک تستی به سرور فراز با موفقیت انجام شد</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                                <span>خطا در ارسال پیامک تستی</span>
+                              </>
+                            )}
                           </div>
-                          <div>وضعیت: {testSmsResult.data?.status || "SUCCESS"}</div>
-                          <div>شناسه پیگیری فراز: {testSmsResult.data?.gatewayTrackingId || "FRZ-OK"}</div>
-                          {testSmsResult.data?.message && (
-                            <p className="font-sans text-[11px] pt-1">{testSmsResult.data.message}</p>
+                          {testSmsResult.success ? (
+                            <div className="font-mono text-[11px] space-y-1">
+                              <div>وضعیت: تحویل داده شده به وب‌سرویس فراز</div>
+                              {testSmsResult.data?.gatewayTrackingId && (
+                                <div>شناسه پیگیری فراز: {testSmsResult.data.gatewayTrackingId}</div>
+                              )}
+                              {testSmsResult.message && (
+                                <p className="font-sans text-[11px] pt-1 text-emerald-200">{testSmsResult.message}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] font-sans leading-relaxed space-y-1">
+                              <p className="font-bold text-rose-200">علت خطا:</p>
+                              <p className="bg-rose-950/60 p-2.5 rounded-lg border border-rose-500/20 text-rose-300 font-mono text-[11px]">
+                                {testSmsResult.error || "خطای ناشناخته از وب‌سرویس فراز اس‌ام‌اس"}
+                              </p>
+                            </div>
                           )}
                         </div>
                       )}
@@ -2680,17 +2848,43 @@ export default function AdminDashboard() {
 
                       {testEmailResult && (
                         <div
-                          className={`p-4 rounded-xl border font-mono text-xs space-y-1.5 ${
+                          className={`p-4 rounded-xl border text-xs space-y-2 ${
                             testEmailResult.success
                               ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
                               : "bg-rose-500/10 border-rose-500/30 text-rose-300"
                           }`}
                         >
-                          <div className="font-bold font-sans">
-                            {testEmailResult.success ? "✅ ارسال ایمیل تستی با موفقیت ثبت شد" : "❌ خطا در ارسال ایمیل"}
+                          <div className="font-bold font-sans flex items-center gap-2">
+                            {testEmailResult.success ? (
+                              <>
+                                <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                                <span>ارسال ایمیل آزمایشی به سرور Resend با موفقیت انجام شد</span>
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                                <span>خطا در ارسال ایمیل آزمایشی</span>
+                              </>
+                            )}
                           </div>
-                          <div>سرویس: {testEmailResult.data?.provider}</div>
-                          <div>شناسه رهگیری Resend: {testEmailResult.data?.resendId}</div>
+                          {testEmailResult.success ? (
+                            <div className="font-mono text-[11px] space-y-1">
+                              <div>سرویس: {testEmailResult.data?.provider || "Resend"}</div>
+                              {testEmailResult.data?.resendId && (
+                                <div>شناسه پیگیری Resend: {testEmailResult.data.resendId}</div>
+                              )}
+                              {testEmailResult.message && (
+                                <p className="font-sans text-[11px] pt-1 text-emerald-200">{testEmailResult.message}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <div className="text-[11px] font-sans leading-relaxed space-y-1">
+                              <p className="font-bold text-rose-200">علت خطا:</p>
+                              <p className="bg-rose-950/60 p-2.5 rounded-lg border border-rose-500/20 text-rose-300 font-mono text-[11px]">
+                                {testEmailResult.error || "عدم تایید تحویل ایمیل توسط وب‌سرویس Resend"}
+                              </p>
+                            </div>
+                          )}
                         </div>
                       )}
                     </div>

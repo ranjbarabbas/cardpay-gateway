@@ -79,6 +79,16 @@ export async function POST(req: NextRequest) {
       html: htmlContent,
     });
 
+    if (!sendResult.success) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: `خطا در ارسال ایمیل: ${sendResult.error || "عدم امکان ارسال از طریق وب‌سرویس Resend"}`,
+        },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json({
       success: true,
       message: `کد تایید با موفقیت به ایمیل ${cleanEmail} ارسال گردید.`,
