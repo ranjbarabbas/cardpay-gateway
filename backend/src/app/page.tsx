@@ -241,7 +241,7 @@ export default function Home() {
             >
               پول مستقیماً در حساب بانکی شما؛
             </span>
-            <span className="whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 drop-shadow-sm">
+            <span className="inline-block py-1.5 leading-normal whitespace-nowrap text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 drop-shadow-sm">
               بدون اینماد، بدون تاخیر و کاملاً آنی
             </span>
           </h1>

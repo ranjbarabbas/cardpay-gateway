@@ -26,6 +26,8 @@ import {
   Star,
   Zap,
   TrendingUp,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
@@ -35,6 +37,8 @@ export default function UserPortalPage() {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [txPage, setTxPage] = useState(1);
+  const TX_PER_PAGE = 10;
 
   // Card modal state
   const [showCardModal, setShowCardModal] = useState(false);
@@ -669,62 +673,143 @@ export default function UserPortalPage() {
         </div>
 
         {/* Section 4: Recent Transactions */}
-        <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-white flex items-center gap-2">
-              <Clock className="w-4 h-4 text-emerald-400" />
-              <span>آخرین تراکنش‌های ثبت‌شده</span>
-            </h2>
-            <span className="text-xs text-slate-500">{toPersianDigits(10)} تراکنش اخیر</span>
-          </div>
+        {(() => {
+          const allTx = user?.transactions || [];
+          const totalTxPages = Math.max(1, Math.ceil(allTx.length / TX_PER_PAGE));
+          const safeTxPage = Math.min(txPage, totalTxPages);
+          const paginatedTx = allTx.slice((safeTxPage - 1) * TX_PER_PAGE, safeTxPage * TX_PER_PAGE);
 
-          {user?.transactions?.length === 0 ? (
-            <div className="text-center py-8 text-xs text-slate-500">
-              هنوز تراکنشی برای حساب شما ثبت نشده است. با ساخت لینک تستی بالا می‌توانید اولین تراکنش را ایجاد نمایید.
+          return (
+            <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 md:p-8 space-y-4">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <h2 className="text-base font-bold text-white flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-emerald-400" />
+                  <span>تراکنش‌های ثبت‌شده</span>
+                  {allTx.length > 0 && (
+                    <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-[11px] font-mono px-2.5 py-0.5 rounded-full font-bold">
+                      {toPersianDigits(allTx.length)} تراکنش
+                    </span>
+                  )}
+                </h2>
+                <span className="text-xs text-slate-400 bg-slate-900 px-3 py-1 rounded-xl border border-slate-800">
+                  نمایش بسته‌های {toPersianDigits(10)} تایی • صفحه {toPersianDigits(safeTxPage)} از {toPersianDigits(totalTxPages)}
+                </span>
+              </div>
+
+              {allTx.length === 0 ? (
+                <div className="text-center py-8 text-xs text-slate-500">
+                  هنوز تراکنشی برای حساب شما ثبت نشده است. با ساخت لینک تستی بالا می‌توانید اولین تراکنش را ایجاد نمایید.
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  <div className="border border-slate-800 rounded-2xl overflow-x-auto">
+                    <table className="w-full text-right text-xs">
+                      <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
+                        <tr>
+                          <th className="p-3">شناسه پیگیری (لینک پرداخت)</th>
+                          <th className="p-3">مبلغ پایه</th>
+                          <th className="p-3">آفست</th>
+                          <th className="p-3">مبلغ نهایی پرداختی</th>
+                          <th className="p-3">وضعیت</th>
+                          <th className="p-3">کارت مقصد</th>
+                          <th className="p-3">تاریخ</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-800/60 font-mono">
+                        {paginatedTx.map((tx: any) => (
+                          <tr key={tx.id} className="hover:bg-slate-900/40 transition-colors">
+                            <td className="p-3">
+                              <Link
+                                href={`/pay/${tx.authority}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="کلیک کنید تا صفحه پرداخت این تراکنش باز شود"
+                                className="inline-flex items-center gap-1.5 text-emerald-400 hover:text-emerald-300 font-bold hover:underline transition-colors group"
+                              >
+                                <span className="font-mono text-xs">
+                                  {toPersianDigits(tx.internalTrackingCode || tx.authority.slice(0, 14))}
+                                </span>
+                                <ExternalLink className="w-3.5 h-3.5 text-slate-500 group-hover:text-emerald-300 transition-colors shrink-0" />
+                              </Link>
+                            </td>
+                            <td className="p-3 text-slate-300">{formatPersianNumber(tx.originalAmountToman)} ت</td>
+                            <td className="p-3 text-teal-400 font-bold">+{toPersianDigits(tx.offsetToman)} ت</td>
+                            <td className="p-3 text-emerald-400 font-bold">{formatPersianNumber(tx.finalAmountToman)} ت</td>
+                            <td className="p-3">
+                              <span
+                                className={`px-2 py-0.5 rounded-full text-[11px] font-sans font-bold ${
+                                  tx.status === "PAID"
+                                    ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                                    : tx.status === "PENDING"
+                                    ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
+                                    : "bg-slate-800 text-slate-400"
+                                }`}
+                              >
+                                {tx.status === "PAID" ? "پرداخت شده" : tx.status === "PENDING" ? "در انتظار پرداخت" : tx.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-slate-400 font-sans">{tx.card?.ownerName || "—"}</td>
+                            <td className="p-3 text-slate-500 font-sans text-[11px]">
+                              {toPersianDigits(new Date(tx.createdAt).toLocaleDateString("fa-IR"))}{" "}
+                              {toPersianDigits(new Date(tx.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }))}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Pagination Controls */}
+                  {totalTxPages > 1 && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2 px-1 text-xs">
+                      <span className="text-slate-400">
+                        نمایش ردیف {toPersianDigits((safeTxPage - 1) * TX_PER_PAGE + 1)} تا{" "}
+                        {toPersianDigits(Math.min(safeTxPage * TX_PER_PAGE, allTx.length))} از مجموع{" "}
+                        <strong className="text-white">{toPersianDigits(allTx.length)}</strong> تراکنش
+                      </span>
+
+                      <div className="flex items-center gap-1.5">
+                        <button
+                          onClick={() => setTxPage((p) => Math.max(1, p - 1))}
+                          disabled={safeTxPage === 1}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
+                        >
+                          <ChevronRight className="w-4 h-4" />
+                          <span>قبلی</span>
+                        </button>
+
+                        <div className="flex items-center gap-1">
+                          {Array.from({ length: totalTxPages }, (_, i) => i + 1).map((p) => (
+                            <button
+                              key={p}
+                              onClick={() => setTxPage(p)}
+                              className={`w-8 h-8 rounded-xl text-xs font-bold transition flex items-center justify-center ${
+                                safeTxPage === p
+                                  ? "bg-emerald-500 text-slate-950 shadow-md shadow-emerald-500/20 font-black"
+                                  : "bg-slate-900 border border-slate-800 text-slate-400 hover:text-white hover:bg-slate-800"
+                              }`}
+                            >
+                              {toPersianDigits(p)}
+                            </button>
+                          ))}
+                        </div>
+
+                        <button
+                          onClick={() => setTxPage((p) => Math.min(totalTxPages, p + 1))}
+                          disabled={safeTxPage === totalTxPages}
+                          className="px-3 py-1.5 rounded-xl bg-slate-900 border border-slate-800 text-slate-300 hover:bg-slate-800 disabled:opacity-30 disabled:cursor-not-allowed flex items-center gap-1 transition"
+                        >
+                          <span>بعدی</span>
+                          <ChevronLeft className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="border border-slate-800 rounded-2xl overflow-x-auto">
-              <table className="w-full text-right text-xs">
-                <thead className="bg-slate-900/80 text-slate-400 border-b border-slate-800">
-                  <tr>
-                    <th className="p-3">شناسه پیگیری</th>
-                    <th className="p-3">مبلغ پایه</th>
-                    <th className="p-3">آفست</th>
-                    <th className="p-3">مبلغ نهایی پرداختی</th>
-                    <th className="p-3">وضعیت</th>
-                    <th className="p-3">کارت مقصد</th>
-                    <th className="p-3">تاریخ</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60 font-mono">
-                  {user?.transactions?.map((tx: any) => (
-                    <tr key={tx.id} className="hover:bg-slate-900/40">
-                      <td className="p-3 text-slate-300 font-bold">{toPersianDigits(tx.internalTrackingCode || tx.authority.slice(0, 14))}</td>
-                      <td className="p-3 text-slate-300">{formatPersianNumber(tx.originalAmountToman)} ت</td>
-                      <td className="p-3 text-teal-400 font-bold">+{toPersianDigits(tx.offsetToman)} ت</td>
-                      <td className="p-3 text-emerald-400 font-bold">{formatPersianNumber(tx.finalAmountToman)} ت</td>
-                      <td className="p-3">
-                        <span className={`px-2 py-0.5 rounded-full text-[11px] font-sans font-bold ${
-                          tx.status === "PAID"
-                            ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
-                            : tx.status === "PENDING"
-                            ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
-                            : "bg-slate-800 text-slate-400"
-                        }`}>
-                          {tx.status === "PAID" ? "پرداخت شده" : tx.status === "PENDING" ? "در انتظار پرداخت" : tx.status}
-                        </span>
-                      </td>
-                      <td className="p-3 text-slate-400 font-sans">{tx.card?.ownerName || "—"}</td>
-                      <td className="p-3 text-slate-500 font-sans text-[11px]">
-                        {toPersianDigits(new Date(tx.createdAt).toLocaleDateString("fa-IR"))} {toPersianDigits(new Date(tx.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }))}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          );
+        })()}
       </main>
 
       {/* Card Registration / Edit Modal */}
