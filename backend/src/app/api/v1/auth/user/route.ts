@@ -6,29 +6,302 @@ import {
   checkAndProcessPlanUpgradeTransaction,
 } from "@/lib/services/plan-expiration.service";
 import { getSystemSettings } from "@/lib/settings";
+import {
+  parseIdentifier,
+  sendOtp,
+  verifyOtpCode,
+  hashPassword,
+  verifyPassword,
+} from "@/lib/auth-user";
 
-// POST /api/v1/auth/user - Login or Register with Phone or Email
+async function buildUserAuthResponse(user: any, message: string = "ورود موفقیت‌آمیز بود.") {
+  let userDevices = user.devices || [];
+  if (userDevices.length === 0) {
+    const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36).substring(4)}`;
+    const newDevice = await db.device.create({
+      data: {
+        name: `گوشی همراه ${user.name || "کاربر"}`,
+        apiKey: deviceApiKey,
+        userId: user.id,
+        isActive: true,
+      },
+    });
+    userDevices = [newDevice];
+  }
+
+  const response = NextResponse.json({
+    success: true,
+    message,
+    data: {
+      id: user.id,
+      name: user.name,
+      phone: user.phone,
+      email: user.email,
+      isEmailVerified: user.isEmailVerified,
+      emailNotifyDeposit: user.emailNotifyDeposit,
+      hasPassword: Boolean(user.password),
+      plan: user.plan,
+      role: user.role,
+      apiKey: user.apiKey,
+      activeCardsCount: user.cards?.length || 0,
+      activeDevicesCount: userDevices.length,
+    },
+  });
+
+  // Set cookie for session persistence (30 days)
+  response.cookies.set("honarhub_user_id", user.id, {
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+    httpOnly: false,
+    sameSite: "lax",
+  });
+
+  return response;
+}
+
+// POST /api/v1/auth/user - Unified HonarHub Login, Register, OTP & Password Flow
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { phone, email, name } = body;
+    const body = await req.json().catch(() => ({}));
+    const { action, phone, email, name, identifier, password, code, newPassword } = body;
 
-    if (!phone && !email) {
+    // 1. Action: Check if user exists and has a password
+    if (action === "check") {
+      const rawId = identifier || phone || email;
+      if (!rawId) {
+        return NextResponse.json({ success: false, error: "لطفاً شماره موبایل یا ایمیل را وارد فرمایید." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const existingUser = await db.user.findFirst({
+        where: {
+          OR: [
+            ...(parsed.phone ? [{ phone: parsed.phone }] : []),
+            ...(parsed.email ? [{ email: parsed.email }] : []),
+          ],
+        },
+      });
+      return NextResponse.json({
+        success: true,
+        exists: Boolean(existingUser),
+        hasPassword: Boolean(existingUser?.password),
+        target: parsed.clean,
+        isEmail: parsed.isEmail,
+        name: existingUser?.name || null,
+      });
+    }
+
+    // 2. Action: Send OTP to Phone (via Faraz SMS) or Email (via Resend)
+    if (action === "send_otp") {
+      const rawId = identifier || phone || email;
+      if (!rawId) {
+        return NextResponse.json({ success: false, error: "شماره موبایل یا ایمیل الزامی است." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const existingUser = await db.user.findFirst({
+        where: {
+          OR: [
+            ...(parsed.phone ? [{ phone: parsed.phone }] : []),
+            ...(parsed.email ? [{ email: parsed.email }] : []),
+          ],
+        },
+      });
+      const otpRes = await sendOtp({
+        target: parsed.clean,
+        isEmail: parsed.isEmail,
+        type: body.type || "LOGIN_OTP",
+        recipientName: existingUser?.name || "کاربر گرامی",
+      });
+      return NextResponse.json({
+        success: true,
+        message: otpRes.message,
+        expiresAt: otpRes.expiresAt.toISOString(),
+      });
+    }
+
+    // 3. Action: Login with Password
+    if (action === "login_password") {
+      const rawId = identifier || phone || email;
+      if (!rawId || !password) {
+        return NextResponse.json({ success: false, error: "شناسه کاربری و کلمه عبور الزامی هستند." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const user = await db.user.findFirst({
+        where: {
+          OR: [
+            ...(parsed.phone ? [{ phone: parsed.phone }] : []),
+            ...(parsed.email ? [{ email: parsed.email }] : []),
+          ],
+        },
+        include: {
+          cards: { where: { isArchived: false } },
+          devices: true,
+        },
+      });
+      if (!user) {
+        return NextResponse.json({ success: false, error: "کاربری با این مشخصات یافت نشد." }, { status: 404 });
+      }
+      if (!user.password || !verifyPassword(password, user.password)) {
+        return NextResponse.json({ success: false, error: "کلمه عبور وارد شده نادرست است." }, { status: 401 });
+      }
+      return await buildUserAuthResponse(user, "ورود با کلمه عبور موفقیت‌آمیز بود.");
+    }
+
+    // 4. Action: Login with OTP (One-Time Password)
+    if (action === "login_otp") {
+      const rawId = identifier || phone || email;
+      if (!rawId || !code) {
+        return NextResponse.json({ success: false, error: "شناسه کاربری و کد تایید الزامی است." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const isValid = await verifyOtpCode(parsed.clean, code);
+      if (!isValid) {
+        return NextResponse.json({ success: false, error: "کد تایید وارد شده نادرست است یا منقضی شده است." }, { status: 400 });
+      }
+      let user = await db.user.findFirst({
+        where: {
+          OR: [
+            ...(parsed.phone ? [{ phone: parsed.phone }] : []),
+            ...(parsed.email ? [{ email: parsed.email }] : []),
+          ],
+        },
+        include: {
+          cards: { where: { isArchived: false } },
+          devices: true,
+        },
+      });
+      if (!user) {
+        const userApiKey = `hp_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
+        user = await db.user.create({
+          data: {
+            phone: parsed.phone,
+            email: parsed.email,
+            name: name || (parsed.phone ? `کاربر ${parsed.phone.slice(-4)}` : "کاربر هنرهاب"),
+            isEmailVerified: parsed.isEmail,
+            plan: "FREE",
+            role: "USER",
+            apiKey: userApiKey,
+          },
+          include: { cards: true, devices: true },
+        });
+      } else if (parsed.isEmail && !user.isEmailVerified) {
+        user = await db.user.update({
+          where: { id: user.id },
+          data: { isEmailVerified: true },
+          include: { cards: true, devices: true },
+        });
+      }
+      return await buildUserAuthResponse(user, "ورود با رمز یکبار مصرف با موفقیت انجام شد.");
+    }
+
+    // 5. Action: Register New User with OTP & Set Password for future logins
+    if (action === "register") {
+      const rawId = identifier || phone || email;
+      if (!rawId || !code || !password) {
+        return NextResponse.json({ success: false, error: "کد تایید و کلمه عبور الزامی است." }, { status: 400 });
+      }
+      if (password.length < 6) {
+        return NextResponse.json({ success: false, error: "کلمه عبور باید حداقل ۶ کاراکتر باشد." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const isValid = await verifyOtpCode(parsed.clean, code);
+      if (!isValid) {
+        return NextResponse.json({ success: false, error: "کد تایید وارد شده نامعتبر یا منقضی شده است." }, { status: 400 });
+      }
+
+      let existingUser = await db.user.findFirst({
+        where: {
+          OR: [
+            ...(parsed.phone ? [{ phone: parsed.phone }] : []),
+            ...(parsed.email ? [{ email: parsed.email }] : []),
+          ],
+        },
+        include: { cards: true, devices: true },
+      });
+
+      if (existingUser) {
+        existingUser = await db.user.update({
+          where: { id: existingUser.id },
+          data: {
+            password: hashPassword(password),
+            name: name?.trim() || existingUser.name,
+            isEmailVerified: parsed.isEmail ? true : existingUser.isEmailVerified,
+          },
+          include: { cards: true, devices: true },
+        });
+        return await buildUserAuthResponse(existingUser, "کلمه عبور با موفقیت ثبت گردید و وارد پنل شدید.");
+      }
+
+      const userApiKey = `hp_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
+      const newUser = await db.user.create({
+        data: {
+          phone: parsed.phone,
+          email: parsed.email,
+          password: hashPassword(password),
+          name: name?.trim() || (parsed.phone ? `کاربر ${parsed.phone.slice(-4)}` : "کاربر هنرهاب"),
+          isEmailVerified: parsed.isEmail,
+          plan: "FREE",
+          role: "USER",
+          apiKey: userApiKey,
+        },
+        include: { cards: true, devices: true },
+      });
+      return await buildUserAuthResponse(newUser, "ثبت‌نام شما با موفقیت تکمیل شد و به پنل خوش‌آمدید.");
+    }
+
+    // 6. Action: Reset or Change Password
+    if (action === "reset_password") {
+      const rawId = identifier || phone || email;
+      const targetPass = newPassword || password;
+      if (!rawId || !code || !targetPass) {
+        return NextResponse.json({ success: false, error: "شناسه، کد تایید و کلمه عبور جدید الزامی است." }, { status: 400 });
+      }
+      if (targetPass.length < 6) {
+        return NextResponse.json({ success: false, error: "کلمه عبور جدید باید حداقل ۶ کاراکتر باشد." }, { status: 400 });
+      }
+      const parsed = parseIdentifier(rawId);
+      const isValid = await verifyOtpCode(parsed.clean, code);
+      if (!isValid) {
+        return NextResponse.json({ success: false, error: "کد تایید وارد شده نادرست است یا منقضی شده است." }, { status: 400 });
+      }
+      const user = await db.user.findFirst({
+        where: {
+          OR: [
+            ...(parsed.phone ? [{ phone: parsed.phone }] : []),
+            ...(parsed.email ? [{ email: parsed.email }] : []),
+          ],
+        },
+        include: { cards: true, devices: true },
+      });
+      if (!user) {
+        return NextResponse.json({ success: false, error: "کاربر یافت نشد." }, { status: 404 });
+      }
+      const updated = await db.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashPassword(targetPass),
+          isEmailVerified: parsed.isEmail ? true : user.isEmailVerified,
+        },
+        include: { cards: true, devices: true },
+      });
+      return await buildUserAuthResponse(updated, "کلمه عبور با موفقیت به‌روزرسانی شد.");
+    }
+
+    // 7. Fallback: Legacy Direct Login (if no action supplied)
+    if (!phone && !email && !identifier) {
       return NextResponse.json(
         { success: false, error: "لطفاً شماره موبایل یا ایمیل خود را وارد نمایید." },
         { status: 400 }
       );
     }
 
-    const cleanPhone = phone ? phone.replace(/[^0-9]/g, "").trim() : null;
-    const cleanEmail = email ? email.toLowerCase().trim() : null;
+    const rawLegacyId = identifier || phone || email;
+    const parsedLegacy = parseIdentifier(rawLegacyId);
 
-    // Find existing user by phone or email
-    let user = await db.user.findFirst({
+    let legacyUser = await db.user.findFirst({
       where: {
         OR: [
-          ...(cleanPhone ? [{ phone: cleanPhone }] : []),
-          ...(cleanEmail ? [{ email: cleanEmail }] : []),
+          ...(parsedLegacy.phone ? [{ phone: parsedLegacy.phone }] : []),
+          ...(parsedLegacy.email ? [{ email: parsedLegacy.email }] : []),
         ],
       },
       include: {
@@ -37,14 +310,13 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    if (!user) {
-      // Create new user in FREE plan
+    if (!legacyUser) {
       const userApiKey = `hp_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36)}`;
-      user = await db.user.create({
+      legacyUser = await db.user.create({
         data: {
-          phone: cleanPhone,
-          email: cleanEmail,
-          name: name || (cleanPhone ? `کاربر ${cleanPhone.slice(-4)}` : "کاربر هنرهاب"),
+          phone: parsedLegacy.phone,
+          email: parsedLegacy.email,
+          name: name || (parsedLegacy.phone ? `کاربر ${parsedLegacy.phone.slice(-4)}` : "کاربر هنرهاب"),
           plan: "FREE",
           role: "USER",
           apiKey: userApiKey,
@@ -56,48 +328,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Ensure companion sync device is automatically provisioned for the user
-    let userDevices = user.devices || [];
-    if (userDevices.length === 0) {
-      const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36).substring(4)}`;
-      const newDevice = await db.device.create({
-        data: {
-          name: `گوشی همراه ${user.name || "کاربر"}`,
-          apiKey: deviceApiKey,
-          userId: user.id,
-          isActive: true,
-        },
-      });
-      userDevices = [newDevice];
-    }
-
-    const response = NextResponse.json({
-      success: true,
-      message: "ورود موفقیت‌آمیز بود.",
-      data: {
-        id: user.id,
-        name: user.name,
-        phone: user.phone,
-        email: user.email,
-        isEmailVerified: user.isEmailVerified,
-        emailNotifyDeposit: user.emailNotifyDeposit,
-        plan: user.plan,
-        role: user.role,
-        apiKey: user.apiKey,
-        activeCardsCount: user.cards?.length || 0,
-        activeDevicesCount: userDevices.length,
-      },
-    });
-
-    // Set cookie for session persistence
-    response.cookies.set("honarhub_user_id", user.id, {
-      path: "/",
-      maxAge: 60 * 60 * 24 * 30, // 30 days
-      httpOnly: false, // Accessible to client portal UI
-      sameSite: "lax",
-    });
-
-    return response;
+    return await buildUserAuthResponse(legacyUser, "ورود موفقیت‌آمیز بود.");
   } catch (err: any) {
     console.error("Auth user error:", err);
     return NextResponse.json({ success: false, error: err.message }, { status: 500 });
