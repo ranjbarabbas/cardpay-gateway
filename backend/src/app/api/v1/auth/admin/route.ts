@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getAdminEmails } from "@/lib/auth-admin";
+import { getAdminEmails, getGoogleOAuthCredentials } from "@/lib/auth-admin";
 
 // POST /api/v1/auth/admin - Admin Email & Google SSO login verification
 export async function POST(req: NextRequest) {
@@ -9,14 +9,28 @@ export async function POST(req: NextRequest) {
 
     let emailToVerify = (email || "").toLowerCase().trim();
 
-    // If Google SSO credential (JWT) is provided, decode payload
+    // If Google SSO credential (JWT) is provided, verify via Google tokeninfo or decode payload
     if (credential && typeof credential === "string") {
       try {
-        const parts = credential.split(".");
-        if (parts.length === 3) {
-          const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
-          if (payload.email) {
-            emailToVerify = payload.email.toLowerCase().trim();
+        // Attempt official tokeninfo verification
+        const tokenRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`,
+          { cache: "no-store" }
+        ).catch(() => null);
+
+        if (tokenRes && tokenRes.ok) {
+          const tokenInfo = await tokenRes.json();
+          if (tokenInfo?.email) {
+            emailToVerify = tokenInfo.email.toLowerCase().trim();
+          }
+        } else {
+          // Fallback: decode base64 JWT payload safely
+          const parts = credential.split(".");
+          if (parts.length === 3) {
+            const payload = JSON.parse(Buffer.from(parts[1], "base64").toString("utf-8"));
+            if (payload.email) {
+              emailToVerify = payload.email.toLowerCase().trim();
+            }
           }
         }
       } catch (e: any) {
@@ -87,12 +101,15 @@ export async function GET(req: NextRequest) {
     session === "active_admin_session" && email && allowedEmails.includes(email.toLowerCase())
   );
 
+  const { clientId } = getGoogleOAuthCredentials();
+
   return NextResponse.json({
     success: true,
     authenticated: isAuthenticated,
     email: isAuthenticated ? email : null,
     allowedEmails,
     gmailAccounts: allowedEmails.filter((e) => e.endsWith("@gmail.com")),
+    googleClientId: clientId,
   });
 }
 

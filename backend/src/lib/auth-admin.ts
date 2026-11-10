@@ -57,6 +57,44 @@ export function getAdminEmails(): string[] {
   return Array.from(emailSet);
 }
 
+/**
+ * Get Google OAuth Credentials from environment or .env file
+ */
+export function getGoogleOAuthCredentials(): { clientId: string; clientSecret: string } {
+  let clientId = process.env.GOOGLE_CLIENT_ID || process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || "";
+  let clientSecret = process.env.GOOGLE_CLIENT_SECRET || "";
+
+  if (!clientId || !clientSecret) {
+    try {
+      const envPath = path.join(process.cwd(), ".env");
+      if (fs.existsSync(envPath)) {
+        const content = fs.readFileSync(envPath, "utf-8");
+        const lines = content.split("\n");
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (trimmed.startsWith("#") || !trimmed.includes("=")) continue;
+          const [k, ...vParts] = trimmed.split("=");
+          const key = k.trim();
+          const rawVal = vParts.join("=").trim().replace(/^["']|["']$/g, "");
+          if ((key === "GOOGLE_CLIENT_ID" || key === "NEXT_PUBLIC_GOOGLE_CLIENT_ID") && !clientId) {
+            clientId = rawVal;
+          }
+          if (key === "GOOGLE_CLIENT_SECRET" && !clientSecret) {
+            clientSecret = rawVal;
+          }
+        }
+      }
+    } catch {
+      // Fallback
+    }
+  }
+
+  return {
+    clientId: clientId || "488680062949-dp0todqjgl6a67ku94a2j9sbr7hee8du.apps.googleusercontent.com",
+    clientSecret: clientSecret,
+  };
+}
+
 export function verifyAdminAuth(req: NextRequest): boolean {
   // 1. Verify via Admin Cookie Session
   const session = req.cookies.get("honarhub_admin_session")?.value;

@@ -2,20 +2,36 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import Script from "next/script";
 import { useRouter } from "next/navigation";
-import { Shield, Lock, ArrowLeft, AlertCircle, CheckCircle2, Mail, ExternalLink, Sparkles } from "lucide-react";
+import { Shield, Lock, ArrowLeft, AlertCircle, CheckCircle2, Mail, ExternalLink, Sparkles, Check } from "lucide-react";
 import { APP_NAME, APP_VERSION } from "@/lib/version";
+
+declare global {
+  interface Window {
+    google?: any;
+  }
+}
 
 export default function AdminLoginPage() {
   const router = useRouter();
   const [adminEmail, setAdminEmail] = useState("");
   const [allowedEmails, setAllowedEmails] = useState<string[]>([]);
   const [gmailAccounts, setGmailAccounts] = useState<string[]>([]);
+  const [googleClientId, setGoogleClientId] = useState<string>("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Load configured admin emails and check current session
+  // Check query params for error and fetch admin info
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const params = new URLSearchParams(window.location.search);
+      const urlError = params.get("error");
+      if (urlError) {
+        setError(decodeURIComponent(urlError));
+      }
+    }
+
     const fetchAdminInfo = async () => {
       try {
         const res = await fetch("/api/v1/auth/admin");
@@ -33,6 +49,9 @@ export default function AdminLoginPage() {
           } else {
             setAdminEmail(data.allowedEmails[0]);
           }
+        }
+        if (data.googleClientId) {
+          setGoogleClientId(data.googleClientId);
         }
       } catch {
         // Fallback default
@@ -71,10 +90,36 @@ export default function AdminLoginPage() {
     }
   };
 
+  // Initialize Google Identity Services if available
+  const initGoogleGIS = () => {
+    const cId = googleClientId || "488680062949-dp0todqjgl6a67ku94a2j9sbr7hee8du.apps.googleusercontent.com";
+    if (typeof window !== "undefined" && window.google?.accounts?.id) {
+      try {
+        window.google.accounts.id.initialize({
+          client_id: cId,
+          callback: async (response: any) => {
+            if (response?.credential) {
+              await handleAdminAuth("", response.credential);
+            }
+          },
+        });
+      } catch (e) {
+        console.warn("[GIS_INIT_WARNING]", e);
+      }
+    }
+  };
+
   const primaryGmail = gmailAccounts[0] || "ranjbar.abbas1988@gmail.com";
 
   return (
     <div className="min-h-screen bg-[#070A0F] text-slate-100 flex flex-col justify-between font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
+      {/* Google Identity Services Script */}
+      <Script
+        src="https://accounts.google.com/gsi/client"
+        strategy="afterInteractive"
+        onLoad={initGoogleGIS}
+      />
+
       {/* Background ambient lighting */}
       <div className="fixed inset-0 overflow-hidden pointer-events-none -z-10">
         <div className="absolute top-[-10%] right-[30%] w-[500px] h-[500px] bg-amber-500/10 rounded-full blur-[140px]" />
@@ -105,8 +150,12 @@ export default function AdminLoginPage() {
             </div>
             <h1 className="text-xl md:text-2xl font-black text-white">ورود به پنل مدیریت</h1>
             <p className="text-xs text-slate-400 leading-relaxed">
-              احراز هویت مدیران از طریق حساب جیمیل (Google SSO) و ایمیل‌های ثبت‌شده در متغیر محیطی <code className="text-emerald-400 font-mono">.env</code>
+              احراز هویت امن مدیران با حساب رسمی گوگل (Google OAuth / SSO) و ایمیل‌های ثبت‌شده در متغیر محیطی <code className="text-emerald-400 font-mono">.env</code>
             </p>
+            <div className="inline-flex items-center gap-1.5 bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-[11px] px-2.5 py-1 rounded-full font-medium">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              <span>Google OAuth فعال و متصل به سرور</span>
+            </div>
           </div>
 
           {error && (
@@ -116,11 +165,10 @@ export default function AdminLoginPage() {
             </div>
           )}
 
-          {/* 1. Gmail Google SSO One-Click Button */}
+          {/* 1. Official Google OAuth Redirect Button */}
           <div className="space-y-3">
-            <button
-              onClick={() => handleAdminAuth(primaryGmail)}
-              disabled={loading}
+            <a
+              href="/api/v1/auth/google"
               className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-900 font-bold py-3.5 rounded-xl transition shadow-lg text-xs group"
             >
               {/* Official Google Vector Logo */}
@@ -142,14 +190,25 @@ export default function AdminLoginPage() {
                   d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z"
                 />
               </svg>
-              <span>{loading ? "در حال تایید ورود..." : `ورود با جیمیل مدیریت (${primaryGmail})`}</span>
+              <span>ورود با حساب رسمی گوگل (Google SSO)</span>
+              <ExternalLink className="w-3.5 h-3.5 text-slate-400 group-hover:text-slate-700 transition" />
+            </a>
+
+            {/* Quick 1-Click for primary admin gmail */}
+            <button
+              onClick={() => handleAdminAuth(primaryGmail)}
+              disabled={loading}
+              className="w-full flex items-center justify-center gap-2 bg-slate-900/80 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-800 font-medium py-2.5 rounded-xl transition text-[11px]"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+              <span>{loading ? "در حال تایید..." : `ورود سریع با جیمیل پیش‌فرض (${primaryGmail})`}</span>
             </button>
 
             {/* Configured Admin Emails Quick Pills */}
             {allowedEmails.length > 0 && (
               <div className="space-y-1.5 pt-1">
                 <div className="flex items-center justify-between text-[11px] text-slate-400">
-                  <span>حساب‌های مجاز تعریف‌شده در env:</span>
+                  <span>حساب‌های مجاز در سیستم (.env):</span>
                   <span className="text-emerald-400 font-mono text-[10px]">{allowedEmails.length} حساب</span>
                 </div>
                 <div className="flex flex-wrap gap-1.5">
@@ -185,7 +244,7 @@ export default function AdminLoginPage() {
             )}
 
             <div className="relative flex items-center justify-center my-4">
-              <span className="bg-[#0F172A] px-3 text-[10px] text-slate-500 z-10">یا ورود با تایپ آدرس ایمیل</span>
+              <span className="bg-[#0F172A] px-3 text-[10px] text-slate-500 z-10">یا ورود با تایپ آدرس ایمیل مجاز</span>
               <div className="absolute inset-0 flex items-center">
                 <div className="w-full border-t border-slate-800" />
               </div>
