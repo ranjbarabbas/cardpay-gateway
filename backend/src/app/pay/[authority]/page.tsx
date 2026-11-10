@@ -15,6 +15,8 @@ import {
   RotateCcw,
   CheckCircle2,
   Lock,
+  XCircle,
+  AlertCircle,
 } from "lucide-react";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
 
@@ -22,7 +24,7 @@ export const dynamic = "force-dynamic";
 
 interface PaymentDetails {
   authority: string;
-  status: "PENDING" | "PAID" | "EXPIRED" | "MISMATCHED" | "MANUALLY_VERIFIED";
+  status: "PENDING" | "PAID" | "EXPIRED" | "MISMATCHED" | "MANUALLY_VERIFIED" | "CANCELLED";
   remainingSeconds: number;
   originalAmountToman: number;
   offsetToman: number;
@@ -47,6 +49,8 @@ function CheckoutContent({ authority }: { authority: string }) {
   const [copiedAmount, setCopiedAmount] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(600);
   const [redirectCountdown, setRedirectCountdown] = useState<number>(10);
+  const [isCancelling, setIsCancelling] = useState(false);
+  const [cancelCountdown, setCancelCountdown] = useState(5);
   const [isSimulating, setIsSimulating] = useState(false);
   const [simResult, setSimResult] = useState<string | null>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
@@ -131,6 +135,49 @@ function CheckoutContent({ authority }: { authority: string }) {
       return () => clearInterval(timer);
     }
   }, [details?.status, details?.callbackUrl, authority]);
+
+  // Auto redirect on user cancellation with 5-second countdown
+  useEffect(() => {
+    if (details?.status === "CANCELLED" && details.callbackUrl) {
+      setCancelCountdown(5);
+      const timer = setInterval(() => {
+        setCancelCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            try {
+              const url = new URL(details.callbackUrl);
+              url.searchParams.set("authority", authority);
+              url.searchParams.set("status", "cancelled");
+              url.searchParams.set("error", "user_cancelled");
+              window.location.href = url.toString();
+            } catch {
+              window.location.href = details.callbackUrl;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [details?.status, details?.callbackUrl, authority]);
+
+  const handleCancelPayment = async () => {
+    if (isCancelling || !details) return;
+    const confirmCancel = window.confirm("آیا از انصراف و لغو پرداخت اطمینان دارید؟");
+    if (!confirmCancel) return;
+
+    setIsCancelling(true);
+    try {
+      await fetch(`/api/v1/payment/cancel/${authority}`, {
+        method: "POST",
+      });
+    } catch {
+      // Continue to local cancelled state
+    }
+
+    setDetails((prev) => (prev ? { ...prev, status: "CANCELLED" } : null));
+  };
 
   const copyToClipboard = (text: string, type: "card" | "amount") => {
     navigator.clipboard.writeText(text);
@@ -283,7 +330,65 @@ ${details.payableAmountRial.toLocaleString()}+
     );
   }
 
-  // 2. Expired State
+  // 2. Cancelled State
+  if (details.status === "CANCELLED") {
+    const cancelCallbackUrl = (() => {
+      try {
+        const url = new URL(details.callbackUrl);
+        url.searchParams.set("authority", authority);
+        url.searchParams.set("status", "cancelled");
+        url.searchParams.set("error", "user_cancelled");
+        return url.toString();
+      } catch {
+        return details.callbackUrl;
+      }
+    })();
+
+    return (
+      <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 font-sans" dir="rtl">
+        <div className="bg-slate-900/95 backdrop-blur-xl border border-rose-500/30 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-20 h-20 bg-rose-500/10 text-rose-400 border border-rose-500/20 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-rose-500/20">
+            <XCircle className="w-10 h-10" />
+          </div>
+
+          <div className="space-y-2">
+            <h1 className="text-xl font-bold text-rose-400">پرداخت توسط شما لغو گردید</h1>
+            <p className="text-slate-400 text-xs leading-relaxed">
+              عملیات پرداخت لغو شد و هیچ‌گونه وجهی از حساب شما کسر نگردید.
+            </p>
+          </div>
+
+          <div className="p-3 bg-rose-500/10 border border-rose-500/20 rounded-xl text-rose-300 text-xs flex items-center justify-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+            <span>خطا: انصراف و لغو پرداخت توسط کاربر</span>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+              <div className="w-2 h-2 rounded-full bg-rose-500 animate-pulse"></div>
+              <span>
+                در حال انتقال خودکار به وب‌سایت مقصد تا{" "}
+                <span className="font-mono font-bold text-rose-400 px-1 text-sm">
+                  {toPersianDigits(cancelCountdown)}
+                </span>{" "}
+                ثانیه دیگر...
+              </span>
+            </div>
+
+            <a
+              href={cancelCallbackUrl}
+              className="inline-flex items-center justify-center gap-2 w-full bg-slate-800 hover:bg-slate-700 text-white text-sm font-semibold py-3.5 rounded-2xl transition border border-slate-700 shadow-md"
+            >
+              <span>بازگشت فوری به وب‌سایت مقصد</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // 3. Expired State
   if (details.status === "EXPIRED" || secondsLeft <= 0) {
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 font-sans" dir="rtl">
@@ -460,6 +565,19 @@ ${details.payableAmountRial.toLocaleString()}+
             <p className="text-[11px] text-emerald-400 font-medium">
               بعد از پرداخت به صورت خودکار تراکنش تایید خواهد شد.
             </p>
+          </div>
+
+          {/* Cancel Payment Option */}
+          <div className="pt-1">
+            <button
+              type="button"
+              onClick={handleCancelPayment}
+              disabled={isCancelling}
+              className="w-full bg-slate-950/80 hover:bg-rose-500/10 hover:border-rose-500/30 text-slate-400 hover:text-rose-300 border border-slate-800 rounded-2xl py-3 text-xs font-semibold transition flex items-center justify-center gap-2 group"
+            >
+              <XCircle className="w-4 h-4 text-slate-500 group-hover:text-rose-400 transition" />
+              <span>{isCancelling ? "در حال لغو پرداخت..." : "انصراف و لغو پرداخت"}</span>
+            </button>
           </div>
         </div>
 
