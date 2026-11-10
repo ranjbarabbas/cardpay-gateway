@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { getSandboxTransaction } from "@/lib/sandbox";
 
 export async function GET(
   req: NextRequest,
@@ -7,6 +8,35 @@ export async function GET(
 ) {
   try {
     const { authority } = await params;
+
+    // Check Sandbox In-Memory Store
+    const sandboxTx = getSandboxTransaction(authority);
+    if (sandboxTx) {
+      const now = new Date();
+      const remainingSeconds = Math.max(
+        0,
+        Math.floor((sandboxTx.expiresAt.getTime() - now.getTime()) / 1000)
+      );
+
+      return NextResponse.json({
+        success: true,
+        isSandbox: true,
+        data: {
+          authority: sandboxTx.authority,
+          status: sandboxTx.status,
+          remainingSeconds,
+          originalAmountToman: sandboxTx.originalAmountToman,
+          offsetToman: sandboxTx.offsetToman,
+          payableAmountToman: sandboxTx.payableAmountToman,
+          payableAmountRial: sandboxTx.payableAmountRial,
+          expiresAt: sandboxTx.expiresAt.toISOString(),
+          paidAt: sandboxTx.paidAt ? sandboxTx.paidAt.toISOString() : null,
+          trackingCode: sandboxTx.internalTrackingCode,
+          callbackUrl: sandboxTx.callbackUrl,
+          card: sandboxTx.card,
+        },
+      });
+    }
 
     const tx = await db.transaction.findFirst({
       where: {

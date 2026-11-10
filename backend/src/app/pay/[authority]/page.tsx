@@ -54,6 +54,7 @@ function CheckoutContent({ authority }: { authority: string }) {
   const [isSimulating, setIsSimulating] = useState(false);
   const [simResult, setSimResult] = useState<string | null>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
+  const [isSandbox, setIsSandbox] = useState(false);
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -66,8 +67,17 @@ function CheckoutContent({ authority }: { authority: string }) {
         host.startsWith("10.") ||
         host === "[::1]"
       );
+
+      const params = new URLSearchParams(window.location.search);
+      if (
+        params.get("sandbox") === "true" ||
+        authority.startsWith("hp_sandbox_") ||
+        authority.includes("sandbox")
+      ) {
+        setIsSandbox(true);
+      }
     }
-  }, []);
+  }, [authority]);
 
   // Fetch status
   const fetchStatus = async () => {
@@ -77,6 +87,9 @@ function CheckoutContent({ authority }: { authority: string }) {
       if (!data.success) {
         setError(data.error || "تراکنش مورد نظر یافت نشد یا معتبر نیست.");
         return;
+      }
+      if (data.isSandbox || authority.startsWith("hp_sandbox_") || authority.includes("sandbox")) {
+        setIsSandbox(true);
       }
       setDetails(data.data);
       setSecondsLeft(data.data.remainingSeconds);
@@ -197,13 +210,29 @@ function CheckoutContent({ authority }: { authority: string }) {
     return toPersianDigits(formatted);
   };
 
-  // Simulate deposit directly for testing
+  // Simulate deposit directly for testing / sandbox
   const handleSimulatePayment = async () => {
     if (!details) return;
     setIsSimulating(true);
     setSimResult(null);
 
     try {
+      if (isSandbox) {
+        const res = await fetch("/api/v1/payment/simulate-sandbox", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ authority, action: "PAID" }),
+        });
+        const data = await res.json();
+        if (data.success) {
+          setSimResult("✅ واریز شبیه‌سازی شد! تراکنش با موفقیت تایید و وضعیت به پرداخت‌شده تغییر یافت.");
+          fetchStatus();
+        } else {
+          setSimResult("خطا در شبیه‌سازی سندباکس: " + data.error);
+        }
+        return;
+      }
+
       const accountNum = details.card.accountNumber || "111122223333444455";
       const sampleText = `${accountNum}
 ${details.payableAmountRial.toLocaleString()}+
@@ -424,6 +453,19 @@ ${details.payableAmountRial.toLocaleString()}+
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
       <div className="max-w-md w-full space-y-4 my-6">
 
+        {/* Sandbox Warning Banner */}
+        {isSandbox && (
+          <div className="bg-amber-500/15 border-2 border-amber-500/40 rounded-3xl p-4 text-center space-y-2 shadow-xl shadow-amber-500/10">
+            <div className="flex items-center justify-center gap-2 text-amber-400 font-bold text-sm">
+              <Sparkles className="w-4 h-4 text-amber-400" />
+              <span>محیط تست و سندباکس درگاه پرداخت (Sandbox Test Mode)</span>
+            </div>
+            <p className="text-[11px] text-amber-200/90 leading-relaxed font-normal">
+              این صفحه به صورت آزمایشی ایجاد گردیده است. هیچ‌گونه تراکنش مالی واقعی انجام نمی‌شود و نیازی به واریز وجه واقعی نیست. برای ارزیابی فرآیند پرداخت و بازگشت به سایت شما، از پنل شبیه‌ساز پایین صفحه استفاده فرمایید.
+            </p>
+          </div>
+        )}
+
         {/* Header Security Badge */}
         <div className="flex items-center justify-between px-2 text-xs">
           <div className="flex items-center gap-2 text-emerald-400 font-medium">
@@ -581,25 +623,47 @@ ${details.payableAmountRial.toLocaleString()}+
           </div>
         </div>
 
-        {/* Sandbox & Interactive Simulator Drawer - Localhost / Local Dev Only */}
-        {isLocalhost && (
-          <div className="bg-slate-900/60 border border-slate-800/80 rounded-2xl p-4 text-xs space-y-2 text-center">
-            <div className="flex items-center justify-between text-slate-400">
-              <span className="flex items-center gap-1.5 text-[11px] font-medium text-emerald-400">
-                <Play className="w-3.5 h-3.5" />
-                لابراتوار تست و ارزیابی درگاه (Sandbox):
+        {/* Sandbox & Interactive Simulator Drawer - Available in Sandbox or Localhost */}
+        {(isLocalhost || isSandbox) && (
+          <div className="bg-slate-900/90 border-2 border-emerald-500/30 rounded-3xl p-5 text-xs space-y-3 text-center shadow-xl shadow-emerald-500/5">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
+                <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
+                <span>لابراتوار شبیه‌ساز تراکنش (Sandbox):</span>
               </span>
+              <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-mono">
+                {isSandbox ? "سندباکس فعال" : "توسعه محلی"}
+              </span>
+            </div>
+
+            <p className="text-[11px] text-slate-400 text-right leading-relaxed">
+              جهت ارزیابی رفتار وب‌سایت خود در زمان دریافت وضعیت‌های مختلف، یکی از گزینه‌های زیر را انتخاب نمایید:
+            </p>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <button
+                type="button"
                 onClick={handleSimulatePayment}
                 disabled={isSimulating}
-                className="bg-emerald-600/90 hover:bg-emerald-600 disabled:opacity-50 text-white text-[11px] font-semibold px-3 py-1.5 rounded-xl transition flex items-center gap-1 shadow-sm"
+                className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
-                {isSimulating ? <RotateCcw className="w-3 h-3 animate-spin" /> : <CheckCircle2 className="w-3 h-3" />}
-                <span>شبیه‌سازی خودکار واریز این تراکنش</span>
+                {isSimulating ? <RotateCcw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
+                <span>شبیه‌سازی واریز موفق</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleCancelPayment}
+                disabled={isCancelling}
+                className="bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 hover:border-rose-500/40 border border-slate-700 text-slate-300 font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5"
+              >
+                <XCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>شبیه‌سازی انصراف</span>
               </button>
             </div>
+
             {simResult && (
-              <p className="text-[11px] text-emerald-300 font-medium bg-emerald-950/40 border border-emerald-500/20 rounded-xl p-2 mt-2">
+              <p className="text-xs text-emerald-300 font-medium bg-emerald-950/60 border border-emerald-500/30 rounded-xl p-2.5 text-right leading-relaxed animate-in fade-in">
                 {simResult}
               </p>
             )}

@@ -60,7 +60,7 @@ const ENDPOINTS: EndpointDoc[] = [
     auth: "Merchant API Key (Header: x-api-key)",
     headers: [
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
-      { key: "x-api-key", value: "cp_sec_art_hub_2026_live", desc: "کلید وب‌سرویس پذیرنده (از فایل .env یا پنل ادمین)" },
+      { key: "x-api-key", value: "hp_sandbox_test_key_2026", desc: "کلید اختصاصی محیط آزمایشی سندباکس (تست بدون اثر بر دیتابیس)" },
     ],
     params: [
       {
@@ -141,7 +141,7 @@ const ENDPOINTS: EndpointDoc[] = [
     auth: "Optional / Merchant API Key (Header: x-api-key)",
     headers: [
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
-      { key: "x-api-key", value: "cp_sec_art_hub_2026_live", desc: "کلید وب‌سرویس پذیرنده (اختیاری جهت رهگیری اختصاصی)" },
+      { key: "x-api-key", value: "hp_sandbox_test_key_2026", desc: "کلید آزمایشی سندباکس (اختیاری جهت تست بدون دیتابیس)" },
       { key: "Accept", value: "application/json", desc: "فرمت پاسخ دریافتی" },
     ],
     params: [
@@ -274,7 +274,7 @@ const ENDPOINTS: EndpointDoc[] = [
     auth: "Optional Merchant API Key (Header: x-api-key)",
     headers: [
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
-      { key: "x-api-key", value: "cp_sec_art_hub_2026_live", desc: "کلید وب‌سرویس پذیرنده" },
+      { key: "x-api-key", value: "hp_sandbox_test_key_2026", desc: "کلید وب‌سرویس آزمایشی سندباکس" },
     ],
     params: [
       {
@@ -403,7 +403,7 @@ export default function DocsPage() {
 
   // Playground state for selected endpoint
   const [testPayload, setTestPayload] = useState<string>(ENDPOINTS[0].requestSample);
-  const [playgroundApiKey, setPlaygroundApiKey] = useState<string>("");
+  const [playgroundApiKey, setPlaygroundApiKey] = useState<string>("hp_sandbox_test_key_2026");
   const [liveResponse, setLiveResponse] = useState<any>(null);
   const [liveStatusCode, setLiveStatusCode] = useState<number | null>(null);
   const [liveLatency, setLiveLatency] = useState<number | null>(null);
@@ -450,13 +450,19 @@ export default function DocsPage() {
       };
 
       const customKey = playgroundApiKey.trim();
+      const effectiveKey = customKey || "hp_sandbox_test_key_2026";
+
       if (selectedEndpoint.id === "sms-receive") {
-        headersObj["x-device-key"] = customKey || "dev_sec_99182345";
+        const devKey = customKey || "dev_sandbox_device_key_2026";
+        headersObj["x-device-key"] = devKey;
+        headersObj["Authorization"] = `Bearer ${devKey}`;
       } else {
-        const effectiveKey = customKey || "cp_sec_art_hub_2026_live";
         headersObj["x-api-key"] = effectiveKey;
         headersObj["Authorization"] = `Bearer ${effectiveKey}`;
       }
+
+      // Mark request as Sandbox Mode
+      headersObj["x-sandbox-mode"] = "true";
 
       let options: RequestInit = {
         method: selectedEndpoint.method,
@@ -1050,27 +1056,35 @@ export default function DocsPage() {
                 <Terminal className="w-4 h-4 text-emerald-400" />
                 <span className="text-xs font-bold text-white">تست زنده API (Live Playground)</span>
               </div>
-              <span className="text-[10px] font-mono text-emerald-400 bg-emerald-500/10 px-2 py-0.5 rounded-full border border-emerald-500/20">
-                Interactive
+              <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1">
+                <Sparkles className="w-2.5 h-2.5" />
+                <span>Sandbox Mode</span>
               </span>
             </div>
 
-            <p className="text-[11px] text-slate-400 leading-relaxed">
-              شما می‌توانید درخواست را به صورت واقعی علیه سرور فعال اجرا کرده و پاسخ زنده دریافت کنید:
-            </p>
+            {/* Sandbox Notice Banner */}
+            <div className="bg-amber-500/10 border border-amber-500/25 rounded-2xl p-3 text-right space-y-1">
+              <div className="flex items-center gap-1.5 text-amber-400 text-xs font-bold">
+                <Shield className="w-3.5 h-3.5" />
+                <span>محیط ایزوله سندباکس و آزمایشی</span>
+              </div>
+              <p className="text-[11px] text-slate-300 leading-relaxed font-normal">
+                درخواست‌ها در محیط شبیه‌ساز اجرا شده و هیچ تغییری در دیتابیس عملیاتی ثبت نمی‌شود. کلید پیش‌فرض تست: <code className="text-amber-300 font-mono font-bold bg-slate-950 px-1 py-0.5 rounded">hp_sandbox_test_key_2026</code>
+              </p>
+            </div>
 
             {/* API Key Header Input */}
             <div className="space-y-1">
               <label className="text-[10px] font-mono text-slate-400 flex items-center justify-between">
                 <span>Header x-api-key:</span>
-                <span className="text-[9px] text-emerald-400 font-sans">اختیاری (پیش‌فرض روی دستور فعال است)</span>
+                <span className="text-[9px] text-amber-400 font-sans">کلید سندباکس فعال است</span>
               </label>
               <input
                 type="text"
                 value={playgroundApiKey}
                 onChange={(e) => setPlaygroundApiKey(e.target.value)}
-                placeholder="YOUR_X-API-KEY"
-                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 font-mono text-xs text-emerald-300 placeholder:text-slate-600 focus:outline-none focus:border-emerald-500 transition"
+                placeholder="hp_sandbox_test_key_2026"
+                className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 font-mono text-xs text-amber-300 placeholder:text-slate-600 focus:outline-none focus:border-amber-500 transition"
                 dir="ltr"
               />
             </div>
@@ -1091,24 +1105,24 @@ export default function DocsPage() {
             <button
               onClick={handleRunPlayground}
               disabled={liveLoading}
-              className="w-full flex items-center justify-center gap-2 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold py-2.5 rounded-xl transition shadow-lg shadow-emerald-600/20"
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-slate-950 text-xs font-black py-2.5 rounded-xl transition shadow-lg shadow-emerald-500/20"
             >
               {liveLoading ? (
                 <>
                   <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                  <span>در حال ارسال درخواست...</span>
+                  <span>در حال ارسال درخواست تست...</span>
                 </>
               ) : (
                 <>
                   <Send className="w-3.5 h-3.5" />
-                  <span>ارسال درخواست تست به سرور</span>
+                  <span>ارسال درخواست تست به سرور (سندباکس)</span>
                 </>
               )}
             </button>
 
             {/* Live Response Box */}
             {liveResponse && (
-              <div className="space-y-2 pt-2 animate-in fade-in duration-150">
+              <div className="space-y-2.5 pt-2 animate-in fade-in duration-150">
                 <div className="flex items-center justify-between text-[11px] font-mono">
                   <div className="flex items-center gap-2">
                     <span className="text-slate-400">Status:</span>
@@ -1121,11 +1135,36 @@ export default function DocsPage() {
                     >
                       {liveStatusCode}
                     </span>
+                    {liveResponse?.isSandbox && (
+                      <span className="bg-amber-500/10 text-amber-400 text-[10px] px-1.5 py-0.5 rounded font-sans">
+                        سندباکس
+                      </span>
+                    )}
                   </div>
                   {liveLatency && (
                     <span className="text-slate-500">{liveLatency} ms</span>
                   )}
                 </div>
+
+                {/* Open Test Payment Gateway Button */}
+                {liveResponse?.data?.paymentUrl && (
+                  <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-3 space-y-2 text-center animate-in zoom-in-95">
+                    <a
+                      href={liveResponse.data.paymentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center justify-center gap-2 w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-black text-xs py-3 rounded-xl transition shadow-lg shadow-amber-500/25 group"
+                    >
+                      <Sparkles className="w-4 h-4 text-slate-950" />
+                      <span>مشاهده درگاه پرداخت تستی (سندباکس)</span>
+                      <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-[-2px] transition-transform" />
+                    </a>
+                    <p className="text-[10px] text-amber-200/90 leading-relaxed text-right">
+                      💡 روی دکمه بالا کلیک کنید تا درگاه پرداخت تستی باز شود؛ می‌توانید واریز یا انصراف را شبیه‌سازی کنید و بازگشت خودکار به سایت خود را ارزیابی نمایید.
+                    </p>
+                  </div>
+                )}
+
                 <pre
                   className="p-3 bg-slate-950 border border-slate-800 rounded-xl font-mono text-[10px] text-slate-200 overflow-x-auto max-h-56 leading-relaxed"
                   dir="ltr"

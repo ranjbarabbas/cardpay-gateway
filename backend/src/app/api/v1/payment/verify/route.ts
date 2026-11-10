@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { checkAndProcessPlanUpgradeTransaction } from "@/lib/services/plan-expiration.service";
+import { isSandboxRequest, getSandboxTransaction, sandboxStore } from "@/lib/sandbox";
 
 export async function POST(req: NextRequest) {
   try {
@@ -14,6 +15,33 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Either authority or trackingCode is required for verification." },
         { status: 400 }
       );
+    }
+
+    // -------------------------------------------------------------
+    // Sandbox Verification Handler
+    // -------------------------------------------------------------
+    if (
+      isSandboxRequest(req) ||
+      rawAuthority?.includes("sandbox") ||
+      rawTrackingCode?.includes("SANDBOX") ||
+      (rawAuthority && sandboxStore.has(rawAuthority)) ||
+      (rawTrackingCode && sandboxStore.has(rawTrackingCode))
+    ) {
+      const sandboxTx = getSandboxTransaction(rawAuthority || rawTrackingCode || "test");
+      return NextResponse.json({
+        success: true,
+        isSandbox: true,
+        status: "PAID",
+        message: "تراکنش با موفقیت تایید گردید (محیط آزمایشی سندباکس).",
+        data: {
+          authority: sandboxTx?.authority || rawAuthority || "hp_sandbox_mock",
+          trackingCode: sandboxTx?.internalTrackingCode || rawTrackingCode || "PAY-SANDBOX-14050817",
+          amountToman: sandboxTx?.payableAmountToman || (Number(amount) || 50015),
+          paidAt: new Date().toISOString(),
+          cardLast4: "7766",
+          bankTitle: "بانک قرض‌الحسنه مهر ایران",
+        },
+      });
     }
 
     const tx = await db.transaction.findFirst({

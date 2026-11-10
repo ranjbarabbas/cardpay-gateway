@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
+import { isSandboxRequest, updateSandboxStatus, sandboxStore } from "@/lib/sandbox";
 
 export async function POST(
   req: NextRequest,
@@ -7,6 +8,22 @@ export async function POST(
 ) {
   try {
     const { authority } = await params;
+
+    // Check Sandbox Cancel
+    if (
+      isSandboxRequest(req) ||
+      authority.includes("sandbox") ||
+      sandboxStore.has(authority)
+    ) {
+      updateSandboxStatus(authority, "CANCELLED");
+      return NextResponse.json({
+        success: true,
+        isSandbox: true,
+        message: "تراکنش در محیط سندباکس لغو گردید.",
+        status: "CANCELLED",
+      });
+    }
+
     const tx = await db.transaction.findFirst({
       where: {
         OR: [

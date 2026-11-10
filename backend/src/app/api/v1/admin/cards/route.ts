@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
+import { isSandboxRequest } from "@/lib/sandbox";
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
@@ -24,6 +25,28 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  // -------------------------------------------------------------
+  // Sandbox Card Upsert Simulation (No DB pollution)
+  // -------------------------------------------------------------
+  if (isSandboxRequest(req)) {
+    const body = await req.json().catch(() => ({}));
+    return NextResponse.json({
+      success: true,
+      isSandbox: true,
+      message: "کارت بانکی در محیط سندباکس با موفقیت شبیه‌سازی گردید (هیچ رکوردی در دیتابیس عملیاتی ثبت نشد).",
+      data: {
+        id: `sandbox_card_${Date.now().toString(36)}`,
+        ownerName: body.ownerName || "امیر رضایی (سندباکس)",
+        cardNumber: body.cardNumber || "6037991987654321",
+        accountNumber: body.accountNumber || "987654321012345678",
+        bankSlug: body.bankSlug || "mehr_iran",
+        bankTitle: body.bankTitle || "بانک قرض‌الحسنه مهر ایران",
+        isActive: true,
+        createdAt: new Date().toISOString(),
+      },
+    });
+  }
+
   if (!verifyAdminAuth(req)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }

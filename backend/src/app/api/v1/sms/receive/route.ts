@@ -1,10 +1,35 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { SmsMatcherService } from "@/lib/services/sms-matcher.service";
+import { isSandboxRequest, isSandboxKey } from "@/lib/sandbox";
 
 export async function POST(req: NextRequest) {
   try {
     const authHeader = req.headers.get("authorization");
+    const deviceHeader = req.headers.get("x-device-key");
+    const apiKey = (authHeader?.replace("Bearer ", "") || deviceHeader || "").trim();
+
+    // -------------------------------------------------------------
+    // Sandbox Device SMS Reception Simulation
+    // -------------------------------------------------------------
+    if (isSandboxRequest(req) || isSandboxKey(apiKey)) {
+      const body = await req.json().catch(() => ({}));
+      return NextResponse.json({
+        success: true,
+        isSandbox: true,
+        message: "پیامک بانکی در محیط سندباکس دریافت و با موفقیت شبیه‌سازی شد.",
+        data: {
+          matched: true,
+          status: "MATCHED",
+          sender: body.sender || "B.QMEHRIRAN",
+          parsedAmountToman: 50015,
+          parsedAccount: "111122223333444455",
+          referenceCode: `REF${Date.now().toString().slice(-6)}`,
+          receivedAt: new Date().toISOString(),
+        },
+      });
+    }
+
     if (!authHeader || !authHeader.startsWith("Bearer ")) {
       return NextResponse.json(
         { success: false, error: "Missing or invalid Authorization header" },
@@ -12,11 +37,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const apiKey = authHeader.replace("Bearer ", "").trim();
+    const deviceApiKey = authHeader.replace("Bearer ", "").trim();
 
     // Verify Device
     const device = await db.device.findUnique({
-      where: { apiKey },
+      where: { apiKey: deviceApiKey },
     });
 
     if (!device || !device.isActive) {

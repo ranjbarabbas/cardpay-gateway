@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db, formatFriendlyDbError } from "@/lib/db";
 import { AmountOffsetService } from "@/lib/services/amount-offset.service";
 import { generateInternalTrackingCode } from "@/lib/services/tracking-code.service";
+import { isSandboxRequest, createSandboxTransaction } from "@/lib/sandbox";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -31,6 +32,40 @@ export async function POST(req: NextRequest) {
         { success: false, error: "callbackUrl is required." },
         { status: 400 }
       );
+    }
+
+    // -----------------------------------------------------------------
+    // Sandbox / Test Mode Handler (Isolated from Production Database)
+    // -----------------------------------------------------------------
+    if (isSandboxRequest(req)) {
+      const sandboxTx = createSandboxTransaction({
+        amount: Number(amount),
+        callbackUrl,
+        webhookUrl,
+        customerMobile,
+        description,
+      });
+
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
+      const paymentUrl = `${baseUrl}/pay/${sandboxTx.authority}?sandbox=true`;
+
+      return NextResponse.json({
+        success: true,
+        isSandbox: true,
+        message:
+          "درخواست پرداخت در محیط آزمایشی (سندباکس) ایجاد گردید. هیچ تغییری در دیتابیس عملیاتی ثبت نشده است.",
+        data: {
+          authority: sandboxTx.authority,
+          trackingCode: sandboxTx.internalTrackingCode,
+          paymentUrl,
+          originalAmountToman: sandboxTx.originalAmountToman,
+          offsetToman: sandboxTx.offsetToman,
+          payableAmountToman: sandboxTx.payableAmountToman,
+          payableAmountRial: sandboxTx.payableAmountRial,
+          expiresAt: sandboxTx.expiresAt.toISOString(),
+          card: sandboxTx.card,
+        },
+      });
     }
 
     // Determine target card: Supports cardId/cartId, cardNumber/cartNumber, bankSlug, or auto-select default
