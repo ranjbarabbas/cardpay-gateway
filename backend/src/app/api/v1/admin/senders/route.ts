@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
+import { analyzeBankSmsStructure, IRANIAN_BANKS } from "@/lib/bank-utils";
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
@@ -52,7 +53,37 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  return NextResponse.json({ success: true, data: senders });
+  // Calculate smart similarity suggestions for unapproved/pending senders
+  const enrichedSenders = senders.map((s) => {
+    let suggestion: any = null;
+    if (s.sampleMessage) {
+      try {
+        const analysis = analyzeBankSmsStructure(s.sampleMessage);
+        suggestion = {
+          patternType: analysis.patternType,
+          isDeposit: analysis.isDeposit,
+          amountToman: analysis.amountToman,
+          suggestedBank: analysis.suggestedBank,
+          similarityScores: analysis.similarityScores,
+        };
+      } catch (err) {
+        // ignore
+      }
+    }
+
+    const matchedBank = IRANIAN_BANKS.find(
+      (b) => b.id === s.bankSlug || b.id.replace(/-/g, "_") === s.bankSlug
+    );
+
+    return {
+      ...s,
+      bankNameFa: matchedBank?.nameFa || s.bankSlug,
+      bankLogo: matchedBank?.logo,
+      smartSuggestion: suggestion,
+    };
+  });
+
+  return NextResponse.json({ success: true, data: enrichedSenders });
 }
 
 export async function POST(req: NextRequest) {

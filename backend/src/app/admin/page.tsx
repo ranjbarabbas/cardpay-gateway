@@ -47,12 +47,14 @@ import {
   ChevronRight,
   ChevronLeft,
   MessageSquareCode,
+  BrainCircuit,
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
 import {
   IRANIAN_BANKS,
   BankInfo,
+  BankSmsTemplate,
   getBankByCardNumber,
   isValidIranianCardNumber,
   isValidIranianIban,
@@ -212,6 +214,13 @@ export default function AdminDashboard() {
   const [testBankSmsText, setTestBankSmsText] = useState<string>("");
   const [testBankSmsResult, setTestBankSmsResult] = useState<any>(null);
   const [testBankSmsLoading, setTestBankSmsLoading] = useState(false);
+
+  // Smart SMS Analysis & Templates State
+  const [smartAnalysisLoading, setSmartAnalysisLoading] = useState(false);
+  const [smartAnalysisResult, setSmartAnalysisResult] = useState<any>(null);
+  const [newTemplateTitle, setNewTemplateTitle] = useState("");
+  const [newTemplateType, setNewTemplateType] = useState<"CARD_TO_CARD" | "POL" | "PAYA" | "SIGN_BASED" | "GENERAL">("SIGN_BASED");
+  const [quickSenderInput, setQuickSenderInput] = useState("");
 
   // New Device Form
   const [newDeviceName, setNewDeviceName] = useState("");
@@ -528,15 +537,42 @@ export default function AdminDashboard() {
   };
 
   // Bank SMS Formats Actions
+  const reloadBankSmsFormats = async () => {
+    try {
+      const res = await fetch("/api/v1/admin/sms-formats", { headers });
+      if (res?.ok) {
+        const d = await res.json();
+        if (d.success && Array.isArray(d.data)) {
+          setBankSmsFormats(d.data);
+        }
+      }
+      const resPending = await fetch("/api/v1/admin/senders?status=PENDING_REVIEW", { headers });
+      if (resPending?.ok) {
+        const d = await resPending.json();
+        if (d.success) setPendingSenders(d.data);
+      }
+      const resApproved = await fetch("/api/v1/admin/senders?status=APPROVED", { headers });
+      if (resApproved?.ok) {
+        const d = await resApproved.json();
+        if (d.success) setApprovedSenders(d.data);
+      }
+    } catch (err) {
+      console.error("Failed to reload bank sms formats", err);
+    }
+  };
+
   const handleSelectBank = (bankId: string) => {
     setSelectedBankId(bankId);
     setSmsFormatFeedback(null);
     setTestBankSmsResult(null);
+    setSmartAnalysisResult(null);
     const bank = bankSmsFormats.find((b) => b.id === bankId);
     if (bank) {
       setActiveBankCardSms(bank.sampleSmsCard || "");
       setActiveBankPolSms(bank.sampleSmsPol || "");
-      setTestBankSmsText(bank.sampleSmsCard || "");
+      const sample = bank.templates?.[0]?.sampleText || bank.sampleSmsCard || "";
+      setTestBankSmsText(sample);
+      setNewTemplateTitle("");
     }
   };
 
@@ -549,6 +585,7 @@ export default function AdminDashboard() {
         method: "POST",
         headers,
         body: JSON.stringify({
+          action: "SAVE_LEGACY",
           bankId: selectedBankId,
           sampleSmsCard: activeBankCardSms,
           sampleSmsPol: activeBankPolSms,
@@ -556,14 +593,8 @@ export default function AdminDashboard() {
       });
       const data = await res.json();
       if (data.success) {
-        setSmsFormatFeedback("الگوی پیامک‌های بانک مورد نظر با موفقیت ذخیره شد.");
-        setBankSmsFormats((prev) =>
-          prev.map((b) =>
-            b.id === selectedBankId
-              ? { ...b, sampleSmsCard: activeBankCardSms, sampleSmsPol: activeBankPolSms }
-              : b
-          )
-        );
+        setSmsFormatFeedback("الگوی پیامک‌های بانک با موفقیت ذخیره شد.");
+        await reloadBankSmsFormats();
         setTimeout(() => setSmsFormatFeedback(null), 4000);
       } else {
         alert("خطا در ذخیره الگوی پیامک: " + data.error);
@@ -572,6 +603,180 @@ export default function AdminDashboard() {
       alert("خطای ارتباط: " + err.message);
     } finally {
       setSmsFormatSaving(false);
+    }
+  };
+
+  const handleAnalyzeBankSms = async () => {
+    if (!testBankSmsText.trim()) return;
+    setSmartAnalysisLoading(true);
+    setSmartAnalysisResult(null);
+    try {
+      const res = await fetch("/api/v1/admin/sms-formats/analyze", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          text: testBankSmsText,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmartAnalysisResult(data.data);
+        const activeBank = bankSmsFormats.find((b) => b.id === selectedBankId);
+        const bName = activeBank?.nameFa || "بانک";
+        if (data.data.patternType === "SIGN_BASED") {
+          setNewTemplateTitle(`الگوی واریز علامتی (+) ${bName}`);
+          setNewTemplateType("SIGN_BASED");
+        } else if (data.data.type === "POL" || data.data.accountOrIban?.startsWith("IR")) {
+          setNewTemplateTitle(`الگوی واریز انتقال پل ${bName}`);
+          setNewTemplateType("POL");
+        } else {
+          setNewTemplateTitle(`الگوی واریز کارت‌به‌کارت ${bName}`);
+          setNewTemplateType("CARD_TO_CARD");
+        }
+      } else {
+        alert("خطا در تحلیل هوشمند پیامک: " + (data.error || "خطای ناشناخته"));
+      }
+    } catch (err: any) {
+      alert("خطای سرور: " + err.message);
+    } finally {
+      setSmartAnalysisLoading(false);
+    }
+  };
+
+  const handleSaveSmartTemplate = async (status: "CONFIRMED" | "PENDING") => {
+    if (!testBankSmsText.trim()) return;
+    setSmsFormatSaving(true);
+    setSmsFormatFeedback(null);
+    try {
+      const activeBank = bankSmsFormats.find((b) => b.id === selectedBankId);
+      const bName = activeBank?.nameFa || "بانک";
+      const title = newTemplateTitle.trim() || `${status === "CONFIRMED" ? "الگوی تایید شده" : "الگوی در انتظار"} ${bName}`;
+      const res = await fetch("/api/v1/admin/sms-formats", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "SAVE_TEMPLATE",
+          bankId: selectedBankId,
+          template: {
+            title,
+            type: newTemplateType,
+            sampleText: testBankSmsText.trim(),
+            status,
+          },
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmsFormatFeedback(
+          status === "CONFIRMED"
+            ? "الگو با موفقیت تایید نهایی شد و برای اپلیکیشن موبایل و وب فعال گردید."
+            : "الگو به عنوان پیش‌نویس (در انتظار تایید) ذخیره شد."
+        );
+        await reloadBankSmsFormats();
+        setTimeout(() => setSmsFormatFeedback(null), 4000);
+      } else {
+        alert("خطا: " + (data.error || "عملیات ناموفق بود"));
+      }
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setSmsFormatSaving(false);
+    }
+  };
+
+  const handleToggleTemplateStatus = async (templateId: string, currentStatus: "CONFIRMED" | "PENDING") => {
+    const newStatus = currentStatus === "CONFIRMED" ? "PENDING" : "CONFIRMED";
+    try {
+      const res = await fetch("/api/v1/admin/sms-formats", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "UPDATE_STATUS",
+          bankId: selectedBankId,
+          templateId,
+          newStatus,
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setSmsFormatFeedback(`وضعیت الگو به «${newStatus === "CONFIRMED" ? "تایید شده" : "در انتظار"}» تغییر یافت.`);
+        await reloadBankSmsFormats();
+        setTimeout(() => setSmsFormatFeedback(null), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleDeleteTemplate = async (templateId: string) => {
+    if (!confirm("آیا از حذف این الگوی پیامک اطمینان دارید؟")) return;
+    try {
+      const res = await fetch("/api/v1/admin/sms-formats", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          action: "DELETE_TEMPLATE",
+          bankId: selectedBankId,
+          templateId,
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setSmsFormatFeedback("الگو با موفقیت حذف شد.");
+        await reloadBankSmsFormats();
+        setTimeout(() => setSmsFormatFeedback(null), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleAddSenderForBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!quickSenderInput.trim()) return;
+    try {
+      const res = await fetch("/api/v1/admin/senders", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          senderId: quickSenderInput.trim(),
+          bankSlug: selectedBankId,
+          description: `سرخط رسمی پیامک‌های این بانک`,
+          status: "APPROVED",
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setQuickSenderInput("");
+        setSmsFormatFeedback("سرشماره با موفقیت ثبت و تایید گردید.");
+        await reloadBankSmsFormats();
+        setTimeout(() => setSmsFormatFeedback(null), 3000);
+      } else {
+        alert(d.error || "خطا در ثبت سرشماره");
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleApprovePendingSenderForBank = async (senderId: string) => {
+    try {
+      const res = await fetch(`/api/v1/admin/senders/${senderId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          status: "APPROVED",
+          bankSlug: selectedBankId,
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setSmsFormatFeedback("سرشماره تایید و به این بانک متصل شد.");
+        await reloadBankSmsFormats();
+        setTimeout(() => setSmsFormatFeedback(null), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message);
     }
   };
 
@@ -2313,6 +2518,7 @@ export default function AdminDashboard() {
                       })
                       .map((b) => {
                         const isSelected = selectedBankId === b.id;
+                        const confirmedCount = (b.templates || []).filter((t: any) => t.status === "CONFIRMED").length;
                         return (
                           <button
                             key={b.id}
@@ -2338,9 +2544,15 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                             <div className="text-left shrink-0">
-                              <span className="text-[9px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-slate-400 border border-slate-800">
-                                کد: {b.ibanCode[0] || "---"}
-                              </span>
+                              {confirmedCount > 0 ? (
+                                <span className="text-[9px] font-bold bg-emerald-950 border border-emerald-500/40 text-emerald-400 px-2 py-0.5 rounded-full">
+                                  ✓ {toPersianDigits(confirmedCount)} تایید شده
+                                </span>
+                              ) : (
+                                <span className="text-[9px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-slate-500 border border-slate-800">
+                                  کد: {b.ibanCode[0] || "---"}
+                                </span>
+                              )}
                             </div>
                           </button>
                         );
@@ -2374,173 +2586,492 @@ export default function AdminDashboard() {
                                 {activeBank.cardPrefixes.map((p) => (
                                   <span
                                     key={p}
-                                    className="bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono text-[10px] px-2 py-0.2 rounded-md font-bold"
+                                    className="bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono text-[10px] px-2 py-0.5 rounded-md font-bold"
                                     dir="ltr"
                                   >
                                     {p}
                                   </span>
                                 ))}
-                                <span className="bg-sky-950/60 border border-sky-500/30 text-sky-300 font-mono text-[10px] px-2 py-0.2 rounded-md font-bold mr-2">
+                                <span className="bg-sky-950/60 border border-sky-500/30 text-sky-300 font-mono text-[10px] px-2 py-0.5 rounded-md font-bold mr-1">
                                   کد شبا: {activeBank.ibanCode.join(", ")}
                                 </span>
                               </div>
                             </div>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={handleSaveBankSmsFormat}
-                            disabled={smsFormatSaving}
-                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 shrink-0"
-                          >
-                            <Check className="w-4 h-4" />
-                            <span>{smsFormatSaving ? "در حال ذخیره..." : "ذخیره الگوی این بانک"}</span>
-                          </button>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-emerald-400 font-mono font-bold">
+                              {toPersianDigits((activeBank.templates || []).filter((t: any) => t.status === "CONFIRMED").length)} الگو تایید شده
+                            </span>
+                            <span className="text-xs bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-amber-400 font-mono font-bold">
+                              {toPersianDigits((activeBank.templates || []).filter((t: any) => t.status === "PENDING").length)} در انتظار
+                            </span>
+                          </div>
                         </div>
 
-                        {/* Format Edit Form */}
-                        <form onSubmit={handleSaveBankSmsFormat} className="space-y-4">
-                          {/* Card-to-Card Deposit Pattern */}
-                          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
-                                <CreditCard className="w-4 h-4" />
-                                <span>۱. نمونه پیامک واریز کارت به کارت (سحاب / شتابی):</span>
-                              </label>
-                              <span className="text-[10px] text-slate-500">برای مبالغ تا سقف ۱۵ میلیون تومان</span>
-                            </div>
-                            <textarea
-                              rows={4}
-                              value={activeBankCardSms}
-                              onChange={(e) => setActiveBankCardSms(e.target.value)}
-                              placeholder="نمونه پیامک واریز کارت به کارت این بانک را وارد کنید..."
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 leading-relaxed font-sans"
-                            />
-                            <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
-                              <span>متغیرهای قابل استخراج:</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مبلغ</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">کارت</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">کد پیگیری</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مانده</span>
-                            </div>
-                          </div>
-
-                          {/* POL / Sheba Deposit Pattern */}
-                          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
-                            <div className="flex items-center justify-between">
-                              <label className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
-                                <Zap className="w-4 h-4" />
-                                <span>۲. نمونه پیامک واریز انتقال پل / شبا (سامانه پل):</span>
-                              </label>
-                              <span className="text-[10px] text-sky-400/90 font-mono">برای مبالغ بالای ۱۵ میلیون تا ۲۰۰ میلیون</span>
-                            </div>
-                            <textarea
-                              rows={4}
-                              value={activeBankPolSms}
-                              onChange={(e) => setActiveBankPolSms(e.target.value)}
-                              placeholder="نمونه پیامک واریز انتقال پل یا پایا به شماره شبا این بانک..."
-                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-sky-500 leading-relaxed font-sans"
-                            />
-                            <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
-                              <span>متغیرهای قابل استخراج:</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مبلغ</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">شماره شبا (IR)</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">کد ارجاع / پیگیری</span>
-                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مانده</span>
-                            </div>
-                          </div>
-                        </form>
-
-                        {/* Interactive Live SMS Parser Laboratory */}
-                        <div className="bg-slate-950/80 border-2 border-teal-500/30 rounded-2xl p-5 space-y-4 shadow-lg shadow-teal-500/5">
-                          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                        {/* Section 1: Registered Templates */}
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-3 gap-2">
                             <div className="flex items-center gap-2">
-                              <FlaskConical className="w-4 h-4 text-teal-400" />
-                              <span className="text-xs font-bold text-white">لابراتوار تست زنده و استخراج هوشمند پارامترها</span>
+                              <MessageSquareCode className="w-4 h-4 text-emerald-400" />
+                              <h4 className="text-xs font-bold text-white">الگوهای ثبت‌شده برای {activeBank.nameFa}</h4>
+                            </div>
+                            <span className="text-[11px] text-slate-400">
+                              مورد استفاده در سرور و اپلیکیشن اندروید (بدون نیاز به آپدیت APK)
+                            </span>
+                          </div>
+
+                          {(!activeBank.templates || activeBank.templates.length === 0) ? (
+                            <p className="text-xs text-slate-500 py-4 text-center">
+                              هنوز الگویی برای این بانک ثبت نشده است. از بخش زیر برای تحلیل و استخراج الگو استفاده فرمایید.
+                            </p>
+                          ) : (
+                            <div className="space-y-3">
+                              {activeBank.templates.map((tpl: any) => {
+                                const isConfirmed = tpl.status === "CONFIRMED";
+                                return (
+                                  <div
+                                    key={tpl.id}
+                                    className={`p-4 rounded-xl border transition ${
+                                      isConfirmed
+                                        ? "bg-slate-950/70 border-emerald-500/30 shadow-sm"
+                                        : "bg-slate-950/40 border-amber-500/30"
+                                    }`}
+                                  >
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-xs text-white">{tpl.title}</span>
+                                        <span
+                                          className={`text-[10px] px-2 py-0.5 rounded-md font-bold ${
+                                            tpl.patternType === "SIGN_BASED"
+                                              ? "bg-purple-950/80 text-purple-300 border border-purple-500/30"
+                                              : tpl.patternType === "KEYWORD_BASED"
+                                              ? "bg-teal-950/80 text-teal-300 border border-teal-500/30"
+                                              : "bg-blue-950/80 text-blue-300 border border-blue-500/30"
+                                          }`}
+                                        >
+                                          {tpl.patternType === "SIGN_BASED"
+                                            ? "واریز علامتی (+)"
+                                            : tpl.patternType === "KEYWORD_BASED"
+                                            ? "قالب کلیدواژه‌ای"
+                                            : "قالب ترکیبی"}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        {isConfirmed ? (
+                                          <span className="text-[10px] bg-emerald-500/10 text-emerald-300 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                            <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                                            <span>تایید نهایی شده (فعال)</span>
+                                          </span>
+                                        ) : (
+                                          <span className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-bold flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3 text-amber-400" />
+                                            <span>در انتظار تایید ادمین</span>
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {/* Sample Text Box */}
+                                    <pre className="bg-slate-900 border border-slate-800 p-2.5 rounded-lg text-slate-300 font-mono text-[11px] whitespace-pre-wrap leading-relaxed">
+                                      {tpl.sampleText}
+                                    </pre>
+
+                                    {/* Extracted preview tags */}
+                                    {tpl.extractedPreview && (
+                                      <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px]">
+                                        {tpl.extractedPreview.amountToman && (
+                                          <span className="bg-slate-900 px-2 py-0.5 rounded text-emerald-400 font-mono border border-slate-800">
+                                            مبلغ: {formatPersianNumber(tpl.extractedPreview.amountToman)} تومان
+                                          </span>
+                                        )}
+                                        {tpl.extractedPreview.balanceToman && (
+                                          <span className="bg-slate-900 px-2 py-0.5 rounded text-slate-300 font-mono border border-slate-800">
+                                            مانده: {formatPersianNumber(tpl.extractedPreview.balanceToman)} تومان
+                                          </span>
+                                        )}
+                                        {tpl.extractedPreview.accountOrCard && (
+                                          <span className="bg-slate-900 px-2 py-0.5 rounded text-sky-400 font-mono border border-slate-800" dir="ltr">
+                                            حساب/کارت: {tpl.extractedPreview.accountOrCard}
+                                          </span>
+                                        )}
+                                        {tpl.extractedPreview.trackingCode && (
+                                          <span className="bg-slate-900 px-2 py-0.5 rounded text-amber-400 font-mono border border-slate-800" dir="ltr">
+                                            پیگیری: {tpl.extractedPreview.trackingCode}
+                                          </span>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {/* Action buttons */}
+                                    <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 mt-2.5 text-xs">
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          setTestBankSmsText(tpl.sampleText);
+                                          handleAnalyzeBankSms();
+                                        }}
+                                        className="text-teal-400 hover:text-teal-300 flex items-center gap-1 font-bold text-[11px]"
+                                      >
+                                        <Sparkles className="w-3.5 h-3.5" />
+                                        <span>بارگذاری در لابراتوار هوشمند</span>
+                                      </button>
+
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleTemplateStatus(tpl.id, tpl.status)}
+                                          className={`px-2.5 py-1 rounded-lg font-bold text-[11px] transition ${
+                                            isConfirmed
+                                              ? "bg-slate-900 hover:bg-slate-800 text-amber-400 border border-slate-800"
+                                              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow"
+                                          }`}
+                                        >
+                                          {isConfirmed ? "تغییر به در انتظار" : "تایید نهایی این الگو"}
+                                        </button>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteTemplate(tpl.id)}
+                                          className="text-slate-500 hover:text-rose-400 p-1"
+                                          title="حذف الگو"
+                                        >
+                                          <Trash2 className="w-3.5 h-3.5" />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Section 2: Smart Extraction & AI Engine */}
+                        <div className="bg-slate-950/90 border-2 border-teal-500/30 rounded-2xl p-5 space-y-4 shadow-xl">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-3 gap-2">
+                            <div className="flex items-center gap-2">
+                              <Sparkles className="w-4 h-4 text-teal-400" />
+                              <h4 className="text-xs font-black text-white">
+                                استخراج داده‌های بانکی و تشخیص الگوریتم با هوش مصنوعی
+                              </h4>
                             </div>
                             <span className="text-[10px] bg-teal-500/10 text-teal-300 border border-teal-500/20 px-2 py-0.5 rounded-full font-mono">
-                              محیط آزمایشی Regex
+                              موتور هوشمند آفلاین
                             </span>
                           </div>
 
                           <p className="text-[11px] text-slate-400 leading-relaxed">
-                            متن یک پیامک واقعی واریزی از این بانک را در کادر زیر وارد کنید تا نحوه استخراج مبلغ، کد پیگیری و شماره کارت/شبا توسط سامانه به صورت زنده ارزیابی گردد:
+                            نمونه پیامک جدید یا ناشناخته را در کادر زیر قرار دهید. موتور هوشمند با تحلیل ساختار، توکن‌های عددی (+/-)، متغیرها و شباهت ساختاری با بانک‌ها، الگو را استخراج می‌کند بدون اینکه نیازی به اتصال اینترنت خارجی باشد.
                           </p>
 
-                          <div className="space-y-2">
+                          {/* Quick Sample Fillers */}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-[10px] text-slate-500">نمونه‌های سریع:</span>
+                            {selectedBankId === "mehr-iran" && (
+                              <button
+                                type="button"
+                                onClick={() => setTestBankSmsText("662179818703777001 \n1,000,000+\n1405/8/16-15:46\nمانده:1,420,000")}
+                                className="text-[10px] bg-purple-950/60 border border-purple-500/30 text-purple-300 px-2 py-1 rounded-lg hover:bg-purple-900/60 font-mono"
+                              >
+                                پیامک واقعی مهر ایران (+)
+                              </button>
+                            )}
+                            {activeBank.sampleSmsCard && (
+                              <button
+                                type="button"
+                                onClick={() => setTestBankSmsText(activeBank.sampleSmsCard || "")}
+                                className="text-[10px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-1 rounded-lg hover:bg-slate-800"
+                              >
+                                قالب سنتی کارت‌به‌کارت
+                              </button>
+                            )}
+                            {activeBank.sampleSmsPol && (
+                              <button
+                                type="button"
+                                onClick={() => setTestBankSmsText(activeBank.sampleSmsPol || "")}
+                                className="text-[10px] bg-slate-900 border border-slate-800 text-slate-300 px-2 py-1 rounded-lg hover:bg-slate-800"
+                              >
+                                قالب انتقال پل
+                              </button>
+                            )}
+                          </div>
+
+                          <div className="space-y-3">
                             <textarea
-                              rows={3}
+                              rows={4}
                               value={testBankSmsText}
                               onChange={(e) => setTestBankSmsText(e.target.value)}
-                              placeholder="متن پیامک آزمایشی واریز را اینجا وارد یا الصاق کنید..."
-                              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-teal-500 font-sans"
+                              placeholder="متن پیامک جدید یا آزمایشی را اینجا قرار دهید..."
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-teal-500 font-sans leading-relaxed"
                             />
 
                             <div className="flex justify-end">
                               <button
                                 type="button"
-                                onClick={handleTestBankSmsParser}
-                                disabled={testBankSmsLoading || !testBankSmsText.trim()}
-                                className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow"
+                                onClick={handleAnalyzeBankSms}
+                                disabled={smartAnalysisLoading || !testBankSmsText.trim()}
+                                className="bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-500 hover:from-teal-500 hover:to-emerald-400 disabled:opacity-50 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-teal-500/20"
                               >
-                                <RefreshCw className={`w-3.5 h-3.5 ${testBankSmsLoading ? "animate-spin" : ""}`} />
-                                <span>{testBankSmsLoading ? "در حال استخراج..." : "تست و تجزیه هوشمند پیامک"}</span>
+                                <Sparkles className={`w-4 h-4 ${smartAnalysisLoading ? "animate-spin" : ""}`} />
+                                <span>{smartAnalysisLoading ? "در حال تحلیل ساختار هوشمند..." : "استخراج داده‌های بانکی و تشخیص الگوریتم با هوش مصنوعی"}</span>
                               </button>
                             </div>
                           </div>
 
-                          {/* Test Parser Result Card */}
-                          {testBankSmsResult && (
-                            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3 animate-in fade-in">
-                              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
-                                <span className="text-xs font-bold text-white flex items-center gap-1.5">
-                                  {testBankSmsResult.isDeposit ? (
+                          {/* Smart Analysis Result Panel */}
+                          {smartAnalysisResult && (
+                            <div className="bg-slate-900/95 border border-teal-500/40 rounded-xl p-4 space-y-4 animate-in fade-in">
+                              <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
+                                <div className="flex items-center gap-2">
+                                  {smartAnalysisResult.isDeposit ? (
                                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                                   ) : (
                                     <XCircle className="w-4 h-4 text-rose-400" />
                                   )}
-                                  <span>
-                                    {testBankSmsResult.isDeposit
+                                  <span className="text-xs font-bold text-white">
+                                    {smartAnalysisResult.isDeposit
                                       ? "پیامک معتبر واریزی تشخیص داده شد"
                                       : "پیامک واریزی نیست"}
                                   </span>
-                                </span>
-                                <span className="text-[10px] font-mono bg-slate-950 px-2 py-0.5 rounded text-teal-400 border border-slate-800">
-                                  نوع: {testBankSmsResult.type || "نامشخص"}
-                                </span>
+                                </div>
+
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[10px] font-bold bg-teal-950 border border-teal-500/40 text-teal-300 px-2.5 py-0.5 rounded-full font-mono">
+                                    الگو: {smartAnalysisResult.patternType}
+                                  </span>
+                                </div>
                               </div>
 
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                              {/* Pattern explanation note */}
+                              {smartAnalysisResult.patternType === "SIGN_BASED" && (
+                                <div className="p-3 bg-purple-950/40 border border-purple-500/30 text-purple-200 rounded-xl text-xs flex items-center gap-2">
+                                  <Info className="w-4 h-4 text-purple-400 shrink-0" />
+                                  <span>
+                                    تشخیص الگوی علامتی (+): در این پیامک واژه «واریز» وجود ندارد اما مبلغ با علامت مثبت در خط دوم تشخیص داده شده و مانده حساب به درستی تفکیک گردید.
+                                  </span>
+                                </div>
+                              )}
+
+                              {/* Similarity Scores */}
+                              {smartAnalysisResult.similarityScores && smartAnalysisResult.similarityScores.length > 0 && (
+                                <div className="space-y-1.5">
+                                  <span className="text-[11px] font-bold text-slate-300 block">شباهت ساختاری با بانک‌ها:</span>
+                                  <div className="flex flex-wrap gap-2">
+                                    {smartAnalysisResult.similarityScores.slice(0, 3).map((s: any) => (
+                                      <span
+                                        key={s.bankId}
+                                        className="text-[10px] bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg text-slate-300"
+                                      >
+                                        <strong className="text-teal-400 font-mono">{toPersianDigits(s.score)}٪</strong> شباهت به {s.nameFa}
+                                      </span>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Extracted Parameters Grid */}
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
                                   <span className="text-[10px] text-slate-400 block mb-0.5">مبلغ واریزی (تومان):</span>
                                   <span className="font-bold text-emerald-400 font-mono text-sm">
-                                    {testBankSmsResult.amountToman ? `${formatPersianNumber(testBankSmsResult.amountToman)} ت` : "یافت نشد"}
+                                    {smartAnalysisResult.amountToman ? `${formatPersianNumber(smartAnalysisResult.amountToman)} ت` : "یافت نشد"}
                                   </span>
                                 </div>
 
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
                                   <span className="text-[10px] text-slate-400 block mb-0.5">مبلغ به ریال:</span>
                                   <span className="font-bold text-slate-200 font-mono text-xs">
-                                    {testBankSmsResult.amountRial ? formatPersianNumber(testBankSmsResult.amountRial) : "یافت نشد"}
+                                    {smartAnalysisResult.amountRial ? formatPersianNumber(smartAnalysisResult.amountRial) : "یافت نشد"}
                                   </span>
                                 </div>
 
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
-                                  <span className="text-[10px] text-slate-400 block mb-0.5">کد رهگیری / مرجع:</span>
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
+                                  <span className="text-[10px] text-slate-400 block mb-0.5">مانده حساب (تومان):</span>
+                                  <span className="font-bold text-sky-300 font-mono text-xs">
+                                    {smartAnalysisResult.balanceToman ? `${formatPersianNumber(smartAnalysisResult.balanceToman)} ت` : "یافت نشد"}
+                                  </span>
+                                </div>
+
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
+                                  <span className="text-[10px] text-slate-400 block mb-0.5">کارت یا شماره حساب:</span>
                                   <span className="font-bold text-amber-300 font-mono text-xs" dir="ltr">
-                                    {testBankSmsResult.trackingCode || "یافت نشد"}
+                                    {smartAnalysisResult.accountOrCard || "یافت نشد"}
                                   </span>
                                 </div>
+                              </div>
 
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
-                                  <span className="text-[10px] text-slate-400 block mb-0.5">کارت یا شبا:</span>
-                                  <span className="font-bold text-sky-300 font-mono text-xs" dir="ltr">
-                                    {testBankSmsResult.accountOrIban || testBankSmsResult.cardLast4 || "یافت نشد"}
-                                  </span>
+                              {/* Save & Confirm Form */}
+                              <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 space-y-3">
+                                <span className="text-xs font-bold text-white block">ثبت و تایید نهایی این الگو در سامانه:</span>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                  <div>
+                                    <label className="text-[10px] text-slate-400 block mb-1">عنوان الگو:</label>
+                                    <input
+                                      type="text"
+                                      value={newTemplateTitle}
+                                      onChange={(e) => setNewTemplateTitle(e.target.value)}
+                                      placeholder="مثال: الگوی واریز علامتی بانک مهر ایران"
+                                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-teal-500"
+                                    />
+                                  </div>
+
+                                  <div>
+                                    <label className="text-[10px] text-slate-400 block mb-1">نوع ساختار پیام:</label>
+                                    <select
+                                      value={newTemplateType}
+                                      onChange={(e) => setNewTemplateType(e.target.value as any)}
+                                      className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-teal-500 font-sans"
+                                    >
+                                      <option value="SIGN_BASED">واریز علامتی (+) بدون کلمه واریز</option>
+                                      <option value="CARD_TO_CARD">واریز کارت به کارت (سحاب / شتابی)</option>
+                                      <option value="POL">انتقال پل به شماره شبا</option>
+                                      <option value="PAYA">انتقال پایا / ساتنا</option>
+                                      <option value="GENERAL">عمومی</option>
+                                    </select>
+                                  </div>
+                                </div>
+
+                                <div className="flex flex-col sm:flex-row items-center justify-end gap-2 pt-2 border-t border-slate-800/80">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSmartTemplate("PENDING")}
+                                    disabled={smsFormatSaving}
+                                    className="w-full sm:w-auto bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs px-4 py-2 rounded-xl transition font-bold"
+                                  >
+                                    ذخیره به عنوان پیش‌نویس (در انتظار تایید)
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSaveSmartTemplate("CONFIRMED")}
+                                    disabled={smsFormatSaving}
+                                    className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs px-5 py-2 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-1.5"
+                                  >
+                                    <Check className="w-4 h-4" />
+                                    <span>{smsFormatSaving ? "در حال ذخیره..." : "تایید نهایی الگو و فعال‌سازی در سامانه"}</span>
+                                  </button>
                                 </div>
                               </div>
                             </div>
                           )}
+                        </div>
+
+                        {/* Section 3: Senders & Unknown SMS Registry */}
+                        <div className="bg-slate-900/60 border border-slate-800 rounded-2xl p-5 space-y-4">
+                          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                            <div className="flex items-center gap-2">
+                              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                              <h4 className="text-xs font-bold text-white">
+                                سرخط‌های پیامکی این بانک ({activeBank.nameFa})
+                              </h4>
+                            </div>
+                            <span className="text-[11px] text-slate-400">
+                              پیامک‌های دریافتی از این سرشماره‌ها با الگوهای این بانک پردازش می‌شوند
+                            </span>
+                          </div>
+
+                          {/* Approved Senders Badges */}
+                          <div className="space-y-2">
+                            <span className="text-[10px] text-slate-400 block">سرشماره‌های تایید شده:</span>
+                            <div className="flex flex-wrap items-center gap-2">
+                              {approvedSenders
+                                .filter((s) => {
+                                  const norm = s.bankSlug?.replace(/_/g, "-") || "";
+                                  return norm === activeBank.id || norm === activeBank.id.replace(/-/g, "_");
+                                })
+                                .map((s) => (
+                                  <span
+                                    key={s.id}
+                                    className="bg-slate-950 border border-emerald-500/40 text-emerald-300 font-mono font-bold text-xs px-3 py-1.5 rounded-xl flex items-center gap-1.5"
+                                  >
+                                    <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                                    <span dir="ltr">{s.senderId}</span>
+                                  </span>
+                                ))}
+                            </div>
+                          </div>
+
+                          {/* Quick Add Sender for this bank */}
+                          <form onSubmit={handleAddSenderForBank} className="flex gap-2">
+                            <input
+                              type="text"
+                              value={quickSenderInput}
+                              onChange={(e) => setQuickSenderInput(e.target.value)}
+                              placeholder="افزودن سرخط جدید (مثال: B.QMEHRIRAN یا 983000...)"
+                              className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-teal-500 font-mono"
+                              dir="ltr"
+                            />
+                            <button
+                              type="submit"
+                              disabled={!quickSenderInput.trim()}
+                              className="bg-slate-800 hover:bg-slate-700 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition"
+                            >
+                              افزودن سرخط
+                            </button>
+                          </form>
+
+                          {/* Pending Senders with similarity match to this bank */}
+                          {(() => {
+                            const matchingPending = pendingSenders.filter((s) => {
+                              const norm = s.bankSlug?.replace(/_/g, "-") || "";
+                              const suggested = s.smartSuggestion?.suggestedBank?.replace(/_/g, "-") || "";
+                              return (
+                                norm === activeBank.id ||
+                                norm === activeBank.id.replace(/-/g, "_") ||
+                                suggested === activeBank.id ||
+                                suggested === activeBank.id.replace(/-/g, "_")
+                              );
+                            });
+
+                            if (matchingPending.length === 0) return null;
+
+                            return (
+                              <div className="space-y-2 pt-2 border-t border-slate-800/80">
+                                <span className="text-xs font-bold text-amber-400 flex items-center gap-1.5">
+                                  <AlertCircle className="w-4 h-4" />
+                                  <span>سرخط‌های ناشناخته با شباهت ساختاری به این بانک:</span>
+                                </span>
+
+                                <div className="space-y-2">
+                                  {matchingPending.map((p) => {
+                                    const score = p.smartSuggestion?.similarityScores?.[0]?.score || 90;
+                                    return (
+                                      <div
+                                        key={p.id}
+                                        className="bg-amber-950/20 border border-amber-500/30 rounded-xl p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                      >
+                                        <div className="space-y-1 min-w-0">
+                                          <div className="flex items-center gap-2">
+                                            <span className="font-mono font-bold text-amber-300 text-xs" dir="ltr">
+                                              {p.senderId}
+                                            </span>
+                                            <span className="text-[10px] bg-amber-500/10 text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-full font-bold">
+                                              {toPersianDigits(score)}٪ شباهت ساختاری
+                                            </span>
+                                          </div>
+                                          {p.sampleMessage && (
+                                            <p className="text-[11px] text-slate-400 font-mono truncate" dir="ltr">
+                                              {p.sampleMessage}
+                                            </p>
+                                          )}
+                                        </div>
+
+                                        <button
+                                          type="button"
+                                          onClick={() => handleApprovePendingSenderForBank(p.id)}
+                                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition shadow shrink-0"
+                                        >
+                                          تایید و اتصال به {activeBank.nameFa}
+                                        </button>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            );
+                          })()}
                         </div>
                       </div>
                     );

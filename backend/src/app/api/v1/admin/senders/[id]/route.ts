@@ -13,13 +13,14 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body = await req.json();
-    const { status, description } = body;
+    const { status, description, bankSlug } = body;
 
     const updated = await db.trustedSender.update({
       where: { id },
       data: {
         ...(status ? { status, reviewedAt: new Date() } : {}),
         ...(description ? { description } : {}),
+        ...(bankSlug ? { bankSlug } : {}),
       },
     });
 

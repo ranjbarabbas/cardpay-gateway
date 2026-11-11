@@ -7,6 +7,27 @@
  * - Intelligent Bank SMS Regex Extraction for Card-to-Card and POL/PAYA
  */
 
+export interface BankSmsTemplate {
+  id: string;
+  title: string;
+  type: "CARD_TO_CARD" | "POL" | "PAYA" | "SIGN_BASED" | "GENERAL";
+  patternType: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID";
+  sampleText: string;
+  status: "CONFIRMED" | "PENDING";
+  confirmedAt?: string;
+  extractedPreview?: {
+    isDeposit: boolean;
+    amountToman?: number;
+    amountRial?: number;
+    balanceToman?: number;
+    balanceRial?: number;
+    accountOrCard?: string;
+    trackingCode?: string;
+    date?: string;
+    time?: string;
+  };
+}
+
 export interface BankInfo {
   id: string;
   nameFa: string;
@@ -17,6 +38,7 @@ export interface BankInfo {
   color: string;
   sampleSmsCard?: string;
   sampleSmsPol?: string;
+  templates?: BankSmsTemplate[];
 }
 
 export const IRANIAN_BANKS: BankInfo[] = [
@@ -30,6 +52,43 @@ export const IRANIAN_BANKS: BankInfo[] = [
     color: "#008080",
     sampleSmsCard: "بانک قرض‌الحسنه مهر ایران\nواریز کارت به کارت: ۱,۵۰۰,۰۱۵ ریال\nاز: ۶۰۳۷۹۹**۱۲۳۴\nبه: ۶۰۶۳۷۳**۷۷۶۶\nموجودی: ۲۵,۴۳۰,۵۰۰ ریال\nکد پیگیری: ۹۸۷۶۵۴۳۲۱\n۱۴۰۵/۰۸/۲۰ ۱۲:۳۰",
     sampleSmsPol: "بانک مهر ایران\nواریز انتقال پل: ۲۵۰,۰۰۰,۰۱۵ ریال\nشبا: IR120600000000111122223333\nارجاع: POL-44918237\nموجودی: ۲۷۵,۴۳۰,۵۰۰ ریال\n۱۴۰۵/۰۸/۲۰ ۱۲:۳۵",
+    templates: [
+      {
+        id: "tpl_mehr_sign_real",
+        title: "الگوی واریز علامتی (+) بانک مهر ایران (واقعی)",
+        type: "SIGN_BASED",
+        patternType: "SIGN_BASED",
+        sampleText: "662179818703777001 \n1,000,000+\n1405/8/16-15:46\nمانده:1,420,000",
+        status: "CONFIRMED",
+        confirmedAt: "2026-11-11T15:40:00Z",
+        extractedPreview: {
+          isDeposit: true,
+          amountRial: 1000000,
+          amountToman: 100000,
+          balanceRial: 1420000,
+          balanceToman: 142000,
+          accountOrCard: "662179818703777001",
+          date: "1405/8/16",
+          time: "15:46",
+        },
+      },
+      {
+        id: "tpl_mehr_c2c_default",
+        title: "قالب متنی سنتی کارت‌به‌کارت مهر ایران",
+        type: "CARD_TO_CARD",
+        patternType: "KEYWORD_BASED",
+        sampleText: "بانک قرض‌الحسنه مهر ایران\nواریز کارت به کارت: ۱,۵۰۰,۰۱۵ ریال\nاز: ۶۰۳۷۹۹**۱۲۳۴\nبه: ۶۰۶۳۷۳**۷۷۶۶\nموجودی: ۲۵,۴۳۰,۵۰۰ ریال\nکد پیگیری: ۹۸۷۶۵۴۳۲۱\n۱۴۰۵/۰۸/۲۰ ۱۲:۳۰",
+        status: "PENDING",
+      },
+      {
+        id: "tpl_mehr_pol_default",
+        title: "قالب متنی انتقال پل مهر ایران",
+        type: "POL",
+        patternType: "KEYWORD_BASED",
+        sampleText: "بانک مهر ایران\nواریز انتقال پل: ۲۵۰,۰۰۰,۰۱۵ ریال\nشبا: IR120600000000111122223333\nارجاع: POL-44918237\nموجودی: ۲۷۵,۴۳۰,۵۰۰ ریال\n۱۴۰۵/۰۸/۲۰ ۱۲:۳۵",
+        status: "PENDING",
+      },
+    ],
   },
   {
     id: "blu",
@@ -458,107 +517,134 @@ export function isValidIranianIban(iban: string): {
   return { valid: true, formatted: clean, bank };
 }
 
-/**
- * Intelligent Bank SMS Parser
- * Parses incoming raw text for deposit amounts, tracking codes, cards/IBANs, and balances
- */
-export function parseBankDepositSms(text: string): {
+export interface SmsAnalysisResult {
+  patternType: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID";
   isDeposit: boolean;
-  type: "CARD_TO_CARD" | "POL" | "PAYA" | "UNKNOWN";
-  amountRial?: number;
-  amountToman?: number;
-  trackingCode?: string;
-  cardLast4?: string;
-  accountOrIban?: string;
+  type: "CARD_TO_CARD" | "POL" | "PAYA" | "GENERAL" | "UNKNOWN";
+  amountRial: number;
+  amountToman: number;
   balanceRial?: number;
   balanceToman?: number;
-  detectedBank?: BankInfo | null;
-} {
-  if (!text) {
-    return { isDeposit: false, type: "UNKNOWN" };
+  accountOrCard?: string;
+  cardLast4?: string;
+  accountOrIban?: string;
+  trackingCode?: string;
+  date?: string;
+  time?: string;
+  confidenceScore: number;
+  detectedBank: BankInfo | null;
+  suggestedBank: {
+    bankId: string;
+    bankName: string;
+    similarityScore: number;
+    reason: string;
+  } | null;
+  similarityScores: Array<{
+    bankId: string;
+    bankName: string;
+    similarityScore: number;
+    reason: string;
+  }>;
+  generatedRules: {
+    amountPattern: string;
+    balancePattern?: string;
+    accountPattern?: string;
+  };
+}
+
+/**
+ * Intelligent Structural Inference Engine for Bank SMS (100% Offline, No External AI / No Internet Required)
+ * - Identifies mathematical sign-based (+/-) layouts (e.g. Mehr Iran, Resalat)
+ * - Identifies keyword-based multi-line layouts (e.g. Mellat, Melli, Saman, Blu)
+ * - Detects currency (Rial standard vs Toman)
+ * - Matches structural similarities across all Iranian bank templates
+ */
+export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
+  if (!rawText || !rawText.trim()) {
+    return {
+      patternType: "KEYWORD_BASED",
+      isDeposit: false,
+      type: "UNKNOWN",
+      amountRial: 0,
+      amountToman: 0,
+      confidenceScore: 0,
+      detectedBank: null,
+      suggestedBank: null,
+      similarityScores: [],
+      generatedRules: { amountPattern: "" },
+    };
   }
 
-  const normalized = text.replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) =>
-    String(d.charCodeAt(0) >= 0x06f0 ? d.charCodeAt(0) - 0x06f0 : d.charCodeAt(0) - 0x0660)
-  );
+  // Normalize Persian / Arabic digits to English
+  const normalized = rawText
+    .replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) =>
+      String(d.charCodeAt(0) >= 0x06f0 ? d.charCodeAt(0) - 0x06f0 : d.charCodeAt(0) - 0x0660)
+    )
+    .trim();
 
-  // Check deposit indicators
-  const isDeposit =
-    normalized.includes("واریز") ||
-    normalized.includes("بستانکار") ||
-    normalized.includes("+") ||
-    normalized.includes("افزایش");
+  const lines = normalized.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
-  // Determine transfer type
-  let type: "CARD_TO_CARD" | "POL" | "PAYA" | "UNKNOWN" = "UNKNOWN";
-  if (normalized.includes("پل") || normalized.includes("POL")) {
-    type = "POL";
-  } else if (normalized.includes("پایا") || normalized.includes("PAYA")) {
-    type = "PAYA";
-  } else if (normalized.includes("کارت") || normalized.includes("سحاب") || normalized.includes("شتاب")) {
-    type = "CARD_TO_CARD";
-  }
-
-  // Detect bank from text keywords
-  let detectedBank: BankInfo | null = null;
-  for (const b of IRANIAN_BANKS) {
-    if (normalized.includes(b.nameFa) || normalized.includes(b.nameEn)) {
-      detectedBank = b;
-      break;
-    }
-  }
-
-  // Extract amount
-  let amountRial: number | undefined;
-  let amountToman: number | undefined;
-
-  // Patterns for amounts like: "واریز: ۱,۵۰۰,۰۱۵ ریال" or "مبلغ: 25000000 تومان" or "+1,500,015"
-  const amountMatch =
-    normalized.match(/(?:واریز|مبلغ|بستانکار|\+)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i) ||
-    normalized.match(/([0-9,]+)\s*(ریال|تومان)/i);
-
-  if (amountMatch) {
-    const rawNum = parseInt(amountMatch[1].replace(/,/g, ""), 10);
-    const unit = amountMatch[2];
-    if (unit === "تومان") {
-      amountToman = rawNum;
-      amountRial = rawNum * 10;
-    } else {
-      // Default to Rial
-      amountRial = rawNum;
-      amountToman = Math.floor(rawNum / 10);
-    }
-  }
-
-  // Extract tracking code / reference
-  let trackingCode: string | undefined;
-  const trackMatch =
-    normalized.match(/(?:پیگیری|ارجاع|مرجع|رهگیری|کد|شناسه)\s*:?\s*([A-Za-z0-9-]+)/i) ||
-    normalized.match(/(?:ref|trace|track)\s*:?\s*([0-9]+)/i);
-
-  if (trackMatch && trackMatch[1]) {
-    trackingCode = trackMatch[1].trim();
-  }
-
-  // Extract card last 4 or account/IBAN
-  let cardLast4: string | undefined;
-  const cardMatch =
-    normalized.match(/(?:کارت|card)\s*:?\s*[\*xX]*(\d{4})/i) ||
-    normalized.match(/(\d{4})\*+/);
-  if (cardMatch) {
-    cardLast4 = cardMatch[1];
-  }
-
-  let accountOrIban: string | undefined;
-  const ibanMatch = normalized.match(/IR\d{24}/i);
-  if (ibanMatch) {
-    accountOrIban = ibanMatch[0].toUpperCase();
-  }
-
-  // Extract balance (مانده / موجودی)
+  let patternType: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID" = "KEYWORD_BASED";
+  let isDeposit = false;
+  let type: "CARD_TO_CARD" | "POL" | "PAYA" | "GENERAL" | "UNKNOWN" = "UNKNOWN";
+  let amountRial = 0;
+  let amountToman = 0;
   let balanceRial: number | undefined;
   let balanceToman: number | undefined;
-  const balMatch = normalized.match(/(?:مانده|موجودی)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i);
+  let accountOrCard: string | undefined;
+  let cardLast4: string | undefined;
+  let accountOrIban: string | undefined;
+  let trackingCode: string | undefined;
+  let date: string | undefined;
+  let time: string | undefined;
+  let amountRegexUsed = "";
+
+  // 1. Check for Sign-based pattern (+ or -)
+  // Format: "1,000,000+" or "+1,000,000" or "1000000+"
+  const plusSignMatch = normalized.match(/([0-9,]{3,})\s*\+/m) || normalized.match(/\+\s*([0-9,]{3,})/m);
+  const minusSignMatch = normalized.match(/([0-9,]{3,})\s*-/m) || normalized.match(/-\s*([0-9,]{3,})/m);
+
+  if (plusSignMatch) {
+    patternType = "SIGN_BASED";
+    isDeposit = true;
+    const rawNum = parseInt(plusSignMatch[1].replace(/,/g, ""), 10);
+    // Standard Core banking without unit is Rial
+    amountRial = rawNum;
+    amountToman = Math.floor(rawNum / 10);
+    amountRegexUsed = plusSignMatch[0];
+  } else if (minusSignMatch && !normalized.match(/[0-9]{4}\/[0-9]{1,2}\/[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}/)) {
+    patternType = "SIGN_BASED";
+    isDeposit = false;
+    const rawNum = parseInt(minusSignMatch[1].replace(/,/g, ""), 10);
+    amountRial = rawNum;
+    amountToman = Math.floor(rawNum / 10);
+    amountRegexUsed = minusSignMatch[0];
+  }
+
+  // 2. Keyword-based pattern if amount not extracted via sign
+  if (amountRial === 0) {
+    const isKeywordDeposit = /واریز|بستانکار|افزایش موجودی|شارژ/i.test(normalized);
+    if (isKeywordDeposit) isDeposit = true;
+
+    const amtMatch =
+      normalized.match(/(?:واریز|مبلغ|بستانکار)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i) ||
+      normalized.match(/([0-9,]+)\s*(ریال|تومان)/i);
+
+    if (amtMatch) {
+      const rawNum = parseInt(amtMatch[1].replace(/,/g, ""), 10);
+      amountRegexUsed = amtMatch[0];
+      if (amtMatch[2] === "تومان") {
+        amountToman = rawNum;
+        amountRial = rawNum * 10;
+      } else {
+        amountRial = rawNum;
+        amountToman = Math.floor(rawNum / 10);
+      }
+    }
+  }
+
+  // 3. Balance extraction (مانده / موجودی)
+  const balMatch = normalized.match(/(?:مانده|موجودی|موجود|balance)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i);
   if (balMatch) {
     const rawBal = parseInt(balMatch[1].replace(/,/g, ""), 10);
     if (balMatch[2] === "تومان") {
@@ -570,16 +656,208 @@ export function parseBankDepositSms(text: string): {
     }
   }
 
+  // 4. Account or Card / IBAN Extraction
+  const ibanMatch = normalized.match(/IR\d{24}/i);
+  if (ibanMatch) {
+    accountOrIban = ibanMatch[0].toUpperCase();
+    accountOrCard = accountOrIban;
+    type = "POL";
+  }
+
+  if (!accountOrCard) {
+    for (const line of lines) {
+      // Core account number (e.g. 10 to 24 digits pure, like 662179818703777001)
+      if (/^[0-9]{10,24}$/.test(line)) {
+        accountOrCard = line;
+        accountOrIban = line;
+        break;
+      }
+      // Masked card e.g. "۶۰۳۷۹۹**۱۲۳۴" or "606373****7766"
+      const cardMasked = line.match(/(?:[0-9]{4,6}[\*xX]+[0-9]{4}|[\*xX]{4,}[0-9]{4})/);
+      if (cardMasked) {
+        accountOrCard = cardMasked[0];
+        const lastDigits = line.match(/([0-9]{4})$/);
+        if (lastDigits) cardLast4 = lastDigits[1];
+        break;
+      }
+    }
+  }
+
+  if (!cardLast4) {
+    const cardMatch = normalized.match(/(?:کارت|card)\s*:?\s*[\*xX]*(\d{4})/i) || normalized.match(/(\d{4})\*+/);
+    if (cardMatch) cardLast4 = cardMatch[1];
+  }
+
+  // 5. Date and Time
+  // Format: "1405/8/16-15:46" or "1405/08/20 12:30"
+  const dtMatch = normalized.match(/([0-9]{4}\/[0-9]{1,2}\/[0-9]{1,2})(?:\s*[-:]\s*|\s+)([0-9]{1,2}:[0-9]{1,2})/);
+  if (dtMatch) {
+    date = dtMatch[1];
+    time = dtMatch[2];
+  }
+
+  // 6. Tracking / Reference Code
+  const trackMatch =
+    normalized.match(/(?:پیگیری|ارجاع|مرجع|رهگیری|شناسه|کد)\s*:?\s*([A-Za-z0-9-]+)/i) ||
+    normalized.match(/(?:ref|trace|track)\s*:?\s*([0-9]+)/i);
+  if (trackMatch && trackMatch[1]) {
+    trackingCode = trackMatch[1].trim();
+  }
+
+  // 7. Determine Transfer Type
+  if (type === "UNKNOWN") {
+    if (normalized.includes("پل") || normalized.includes("POL")) {
+      type = "POL";
+    } else if (normalized.includes("پایا") || normalized.includes("PAYA")) {
+      type = "PAYA";
+    } else if (normalized.includes("کارت") || normalized.includes("سحاب") || normalized.includes("شتاب") || cardLast4) {
+      type = "CARD_TO_CARD";
+    } else if (patternType === "SIGN_BASED") {
+      type = "GENERAL";
+    }
+  }
+
+  // 8. Detect Bank
+  let detectedBank: BankInfo | null = null;
+  for (const b of IRANIAN_BANKS) {
+    if (normalized.includes(b.nameFa) || normalized.includes(b.nameEn)) {
+      detectedBank = b;
+      break;
+    }
+  }
+
+  // 9. Calculate Bank Similarities & Suggestions
+  const similarityScores: Array<{
+    bankId: string;
+    bankName: string;
+    similarityScore: number;
+    reason: string;
+  }> = [];
+
+  for (const bank of IRANIAN_BANKS) {
+    let score = 0;
+    let reasons: string[] = [];
+
+    // Direct name match
+    if (normalized.includes(bank.nameFa) || normalized.includes(bank.nameEn)) {
+      score += 90;
+      reasons.push("تطابق صریح نام بانک در متن");
+    }
+
+    // Card prefix match
+    if (accountOrCard) {
+      const cleanAcc = accountOrCard.replace(/[^0-9]/g, "");
+      for (const prefix of bank.cardPrefixes) {
+        if (cleanAcc.startsWith(prefix)) {
+          score += 85;
+          reasons.push(`تطابق پیش‌شماره کارت (${prefix})`);
+          break;
+        }
+      }
+    }
+
+    // Pattern structure match
+    if (patternType === "SIGN_BASED") {
+      if (bank.id === "mehr-iran") {
+        score += 95;
+        reasons.push("الگوی نشانه‌محور علامتی (+) با شناسه حساب متمرکز ۱۸ رقمی (فرمت اختصاصی بانک مهر ایران)");
+      } else if (bank.id === "resalat") {
+        score += 80;
+        reasons.push("الگوی نشانه‌محور علامتی متداول در قرض‌الحسنه رسالت");
+      }
+    } else {
+      // Keyword matching
+      if (normalized.includes("واریز کارت به کارت") || normalized.includes("سحاب")) {
+        score += 40;
+        reasons.push("قالب متنی انتقال کارت به کارت شتاب");
+      }
+      if (normalized.includes("انتقال پل") || normalized.includes("شبا")) {
+        score += 40;
+        reasons.push("قالب متنی واریز سامانه پل");
+      }
+    }
+
+    if (score > 0) {
+      similarityScores.push({
+        bankId: bank.id,
+        bankName: bank.nameFa,
+        similarityScore: Math.min(score, 99),
+        reason: reasons.join(" + "),
+      });
+    }
+  }
+
+  // Sort similarity scores descending
+  similarityScores.sort((a, b) => b.similarityScore - a.similarityScore);
+
+  const suggestedBank = similarityScores.length > 0 ? similarityScores[0] : null;
+  if (!detectedBank && suggestedBank && suggestedBank.similarityScore >= 80) {
+    detectedBank = IRANIAN_BANKS.find((b) => b.id === suggestedBank.bankId) || null;
+  }
+
+  // Confidence score calculation
+  let confidenceScore = 60;
+  if (isDeposit) confidenceScore += 15;
+  if (amountRial > 0) confidenceScore += 15;
+  if (accountOrCard) confidenceScore += 5;
+  if (balanceRial) confidenceScore += 5;
+
   return {
+    patternType,
     isDeposit,
     type,
     amountRial,
     amountToman,
-    trackingCode,
-    cardLast4,
-    accountOrIban,
     balanceRial,
     balanceToman,
+    accountOrCard,
+    cardLast4,
+    accountOrIban,
+    trackingCode,
+    date,
+    time,
+    confidenceScore: Math.min(confidenceScore, 99),
     detectedBank,
+    suggestedBank,
+    similarityScores: similarityScores.slice(0, 5),
+    generatedRules: {
+      amountPattern: amountRegexUsed ? `/(?:${amountRegexUsed.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})/` : "",
+      balancePattern: balMatch ? `/(?:مانده|موجودی)\\s*:?\\s*([0-9,]+)/` : undefined,
+      accountPattern: accountOrCard ? `/${accountOrCard}/` : undefined,
+    },
+  };
+}
+
+/**
+ * Intelligent Bank SMS Parser
+ * Parses incoming raw text for deposit amounts, tracking codes, cards/IBANs, and balances
+ * (Enhanced with Token-based Structural Inference Engine)
+ */
+export function parseBankDepositSms(text: string): {
+  isDeposit: boolean;
+  type: "CARD_TO_CARD" | "POL" | "PAYA" | "GENERAL" | "UNKNOWN";
+  amountRial?: number;
+  amountToman?: number;
+  trackingCode?: string;
+  cardLast4?: string;
+  accountOrIban?: string;
+  balanceRial?: number;
+  balanceToman?: number;
+  detectedBank?: BankInfo | null;
+  patternType?: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID";
+} {
+  const result = analyzeBankSmsStructure(text);
+  return {
+    isDeposit: result.isDeposit,
+    type: result.type,
+    amountRial: result.amountRial > 0 ? result.amountRial : undefined,
+    amountToman: result.amountToman > 0 ? result.amountToman : undefined,
+    trackingCode: result.trackingCode,
+    cardLast4: result.cardLast4,
+    accountOrIban: result.accountOrIban || result.accountOrCard,
+    balanceRial: result.balanceRial,
+    balanceToman: result.balanceToman,
+    detectedBank: result.detectedBank,
+    patternType: result.patternType,
   };
 }
