@@ -8,6 +8,10 @@ const config: Config = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        sans: ["var(--font-vazirmatn)", "Vazirmatn", "system-ui", "-apple-system", "sans-serif"],
+        vazir: ["var(--font-vazirmatn)", "Vazirmatn", "sans-serif"],
+      },
       colors: {
         background: "var(--background)",
         foreground: "var(--foreground)",
