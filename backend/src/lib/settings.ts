@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { db } from "./db";
 
 export interface SystemSettings {
   adminCard: {
@@ -50,8 +51,9 @@ export interface SystemSettings {
 }
 
 const SETTINGS_FILE_PATH = path.join(process.cwd(), "system_settings.json");
+const DB_SETTINGS_KEY = "system_config";
 
-const defaultSettings: SystemSettings = {
+export const defaultSettings: SystemSettings = {
   adminCard: {
     ownerName: "هنرهاب پی (حساب رسمی مدیریت)",
     cardNumber: "6063731099887766",
@@ -97,44 +99,158 @@ const defaultSettings: SystemSettings = {
   updatedAt: new Date().toISOString(),
 };
 
+// Global in-memory cache to guarantee fast synchronous access
+let inMemorySettings: SystemSettings | null = null;
+
+function mergeWithDefaults(parsed: any): SystemSettings {
+  return {
+    ...defaultSettings,
+    ...parsed,
+    adminCard: { ...defaultSettings.adminCard, ...(parsed.adminCard || {}) },
+    pricing: { ...defaultSettings.pricing, ...(parsed.pricing || {}) },
+    sms: { ...defaultSettings.sms, ...(parsed.sms || {}) },
+    email: { ...defaultSettings.email, ...(parsed.email || {}) },
+    general: { ...defaultSettings.general, ...(parsed.general || {}) },
+    updatedAt: parsed.updatedAt || new Date().toISOString(),
+  };
+}
+
+/**
+ * Synchronous getter: Retrieves settings from memory or local disk file
+ */
 export function getSystemSettings(): SystemSettings {
+  if (inMemorySettings) {
+    return inMemorySettings;
+  }
+
   try {
     if (fs.existsSync(SETTINGS_FILE_PATH)) {
       const data = fs.readFileSync(SETTINGS_FILE_PATH, "utf-8");
-      const parsed = JSON.parse(data);
-      return {
-        ...defaultSettings,
-        ...parsed,
-        adminCard: { ...defaultSettings.adminCard, ...(parsed.adminCard || {}) },
-        pricing: { ...defaultSettings.pricing, ...(parsed.pricing || {}) },
-        sms: { ...defaultSettings.sms, ...parsed.sms },
-        email: { ...defaultSettings.email, ...parsed.email },
-        general: { ...defaultSettings.general, ...parsed.general },
-      };
+      if (data && data.trim()) {
+        const parsed = JSON.parse(data);
+        inMemorySettings = mergeWithDefaults(parsed);
+        return inMemorySettings;
+      }
     }
   } catch (err) {
-    console.error("Error reading system settings:", err);
+    console.warn("[SETTINGS] Error reading settings from local file cache:", err);
   }
-  return defaultSettings;
+
+  inMemorySettings = { ...defaultSettings };
+  return inMemorySettings;
 }
 
-export function saveSystemSettings(updates: Partial<SystemSettings>): SystemSettings {
+/**
+ * Asynchronous getter: Queries persistent database first, syncs to memory & disk
+ */
+export async function getSystemSettingsAsync(): Promise<SystemSettings> {
   try {
-    const current = getSystemSettings();
-    const updated: SystemSettings = {
-      ...current,
-      ...updates,
-      adminCard: { ...current.adminCard, ...(updates.adminCard || {}) },
-      pricing: { ...current.pricing, ...(updates.pricing || {}) },
-      sms: { ...current.sms, ...(updates.sms || {}) },
-      email: { ...current.email, ...(updates.email || {}) },
-      general: { ...current.general, ...(updates.general || {}) },
-      updatedAt: new Date().toISOString(),
-    };
-    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(updated, null, 2), "utf-8");
-    return updated;
-  } catch (err) {
-    console.error("Error saving system settings:", err);
-    throw err;
+    const record = await db.systemSetting.findUnique({
+      where: { key: DB_SETTINGS_KEY },
+    });
+
+    if (record && record.value) {
+      const parsed = JSON.parse(record.value);
+      const merged = mergeWithDefaults(parsed);
+      inMemorySettings = merged;
+
+      // Sync local disk file cache
+      try {
+        fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(merged, null, 2), "utf-8");
+      } catch (fileErr) {
+        // Disk write warning (non-fatal)
+      }
+
+      return merged;
+    }
+  } catch (dbErr: any) {
+    console.warn("[SETTINGS] Could not fetch settings from DB, falling back to local cache:", dbErr.message);
   }
+
+  return getSystemSettings();
+}
+
+/**
+ * Asynchronous saver: Persists settings to Database (Primary) AND Disk/Memory (Secondary)
+ */
+export async function saveSystemSettingsAsync(updates: Partial<SystemSettings>): Promise<SystemSettings> {
+  const current = getSystemSettings();
+  const updated: SystemSettings = {
+    ...current,
+    ...updates,
+    adminCard: { ...current.adminCard, ...(updates.adminCard || {}) },
+    pricing: { ...current.pricing, ...(updates.pricing || {}) },
+    sms: { ...current.sms, ...(updates.sms || {}) },
+    email: { ...current.email, ...(updates.email || {}) },
+    general: { ...current.general, ...(updates.general || {}) },
+    updatedAt: new Date().toISOString(),
+  };
+
+  // 1. Update in-memory cache
+  inMemorySettings = updated;
+
+  // 2. Write to local file cache
+  try {
+    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(updated, null, 2), "utf-8");
+  } catch (fileErr) {
+    console.warn("[SETTINGS] Error writing settings to local file cache:", fileErr);
+  }
+
+  // 3. Persist to PostgreSQL / SQLite database
+  try {
+    await db.systemSetting.upsert({
+      where: { key: DB_SETTINGS_KEY },
+      update: {
+        value: JSON.stringify(updated),
+      },
+      create: {
+        key: DB_SETTINGS_KEY,
+        value: JSON.stringify(updated),
+      },
+    });
+    console.log("[SETTINGS] System settings successfully persisted to database.");
+  } catch (dbErr: any) {
+    console.error("[SETTINGS] Error saving system settings to database:", dbErr);
+    throw dbErr;
+  }
+
+  return updated;
+}
+
+/**
+ * Synchronous saver (backward compatibility): Updates memory and file, and triggers background DB write
+ */
+export function saveSystemSettings(updates: Partial<SystemSettings>): SystemSettings {
+  const current = getSystemSettings();
+  const updated: SystemSettings = {
+    ...current,
+    ...updates,
+    adminCard: { ...current.adminCard, ...(updates.adminCard || {}) },
+    pricing: { ...current.pricing, ...(updates.pricing || {}) },
+    sms: { ...current.sms, ...(updates.sms || {}) },
+    email: { ...current.email, ...(updates.email || {}) },
+    general: { ...current.general, ...(updates.general || {}) },
+    updatedAt: new Date().toISOString(),
+  };
+
+  inMemorySettings = updated;
+
+  try {
+    fs.writeFileSync(SETTINGS_FILE_PATH, JSON.stringify(updated, null, 2), "utf-8");
+  } catch (err) {
+    console.error("[SETTINGS] Error saving system settings to disk:", err);
+  }
+
+  // Trigger background persistence to DB
+  db.systemSetting
+    .upsert({
+      where: { key: DB_SETTINGS_KEY },
+      update: { value: JSON.stringify(updated) },
+      create: { key: DB_SETTINGS_KEY, value: JSON.stringify(updated) },
+    })
+    .catch((dbErr) => {
+      console.warn("[SETTINGS] Background DB save failed:", dbErr.message);
+    });
+
+  return updated;
 }

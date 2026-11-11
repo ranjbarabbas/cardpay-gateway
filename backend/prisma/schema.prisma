@@ -214,3 +214,11 @@ model DiscrepancyTicket {
 
   @@map("discrepancy_tickets")
 }
+
+model SystemSetting {
+  key       String   @id // e.g. "system_config"
+  value     String   // Full JSON configuration
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyAdminAuth } from "@/lib/auth-admin";
-import { getSystemSettings, saveSystemSettings } from "@/lib/settings";
+import { getSystemSettingsAsync, saveSystemSettingsAsync, saveSystemSettings } from "@/lib/settings";
 import { db, formatFriendlyDbError } from "@/lib/db";
 
 async function checkDatabaseHealth() {
@@ -20,14 +20,14 @@ async function checkDatabaseHealth() {
   }
 }
 
-// GET /api/v1/admin/settings - Retrieve current configuration & DB health
+// GET /api/v1/admin/settings - Retrieve current configuration from DB & DB health
 export async function GET(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const settings = getSystemSettings();
+    const settings = await getSystemSettingsAsync();
     const dbHealth = await checkDatabaseHealth();
     return NextResponse.json({
       success: true,
@@ -39,24 +39,25 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// POST /api/v1/admin/settings - Update configuration
+// POST /api/v1/admin/settings - Update configuration and persist to database
 export async function POST(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
     return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   try {
-    const body = await req.json();
-    const updated = saveSystemSettings(body);
     const dbHealth = await checkDatabaseHealth();
+    const body = await req.json();
 
     if (!dbHealth.connected) {
+      // Save locally as temporary fallback, but alert user that DB is disconnected
+      const updated = saveSystemSettings(body);
       return NextResponse.json(
         {
           success: false,
           warning: true,
-          error: `هشدار بحرانی: تنظیمات ذخیره گردید اما پایگاه داده قطع است! (${dbHealth.error})`,
-          message: "تنظیمات در فایل سرور ذخیره شد، اما سرور پایگاه داده در دسترس نیست.",
+          error: `هشدار بحرانی: ارتباط با پایگاه داده برقرار نیست (${dbHealth.error}). تنظیمات فقط به صورت موقت ذخیره شد و در پایگاه داده پایدار ثبت نگردید!`,
+          message: "تنظیمات در فایل موقت ذخیره شد، اما سرور پایگاه داده در دسترس نیست.",
           data: updated,
           dbHealth,
         },
@@ -64,9 +65,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const updated = await saveSystemSettingsAsync(body);
+
     return NextResponse.json({
       success: true,
-      message: "تنظیمات سامانه با موفقیت ذخیره و اعمال شد.",
+      message: "تنظیمات سامانه با موفقیت در پایگاه داده پایدار و سرور ذخیره و اعمال شد.",
       data: updated,
       dbHealth,
     });

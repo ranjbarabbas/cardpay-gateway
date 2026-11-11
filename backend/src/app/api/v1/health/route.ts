@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, formatFriendlyDbError } from "@/lib/db";
-import { getSystemSettings } from "@/lib/settings";
+import { getSystemSettingsAsync } from "@/lib/settings";
 import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const settings = getSystemSettings();
+  const settings = await getSystemSettingsAsync();
   let dbStatus: {
     connected: boolean;
     latencyMs?: number;
