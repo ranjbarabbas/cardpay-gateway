@@ -3,6 +3,8 @@ import { db, formatFriendlyDbError } from "@/lib/db";
 import { AmountOffsetService } from "@/lib/services/amount-offset.service";
 import { generateInternalTrackingCode } from "@/lib/services/tracking-code.service";
 import { isSandboxRequest, createSandboxTransaction } from "@/lib/sandbox";
+import { getSystemSettingsAsync } from "@/lib/settings";
+import { getBankByCardNumber, getBankByIban } from "@/lib/bank-utils";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -28,6 +30,22 @@ export async function POST(req: NextRequest) {
     if (!callbackUrl) {
       return NextResponse.json(
         { success: false, error: "callbackUrl is required." },
+        { status: 400 }
+      );
+    }
+
+    const settings = await getSystemSettingsAsync();
+    const cardTransferLimit = settings.limits?.cardTransferLimitToman || 15000000;
+    const polTransferLimit = settings.limits?.polTransferLimitToman || 100000000;
+    const amountNum = Number(amount);
+
+    if (amountNum > polTransferLimit) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "POL_TRANSFER_LIMIT_EXCEEDED",
+          message: `مبلغ درخواستی (${amountNum.toLocaleString("fa-IR")} تومان) بیش از سقف مجاز سامانه انتقال پل (${(polTransferLimit / 1000000).toLocaleString("fa-IR")} میلیون تومان) است.`,
+        },
         { status: 400 }
       );
     }
@@ -122,6 +140,18 @@ export async function POST(req: NextRequest) {
           { status: 503 }
         );
       }
+    }
+
+    const isPol = amountNum > cardTransferLimit;
+    if (isPol && (!targetCard.iban || !targetCard.iban.trim())) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "CARD_TRANSFER_LIMIT_EXCEEDED",
+          message: "سقف کارت به کارت حداکثر ۱۵ میلیون تومان است. برای مبالغ بالاتر، ثبت شماره شبا در تنظیمات کارت بانکی الزامی است.",
+        },
+        { status: 400 }
+      );
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || req.nextUrl.origin;
@@ -237,12 +267,19 @@ export async function POST(req: NextRequest) {
 
     const paymentUrl = `${baseUrl}/pay/${authority}`;
 
+    const detectedBank = targetCard.cardNumber
+      ? getBankByCardNumber(targetCard.cardNumber)
+      : (targetCard.iban ? getBankByIban(targetCard.iban) : null);
+    const bankLogo = detectedBank?.logo || "/images/banks/mehriran.svg";
+    const resolvedBankTitle = targetCard.bankTitle || detectedBank?.nameFa || "بانک شتاب";
+
     return NextResponse.json({
       success: true,
       data: {
         authority: transaction.authority,
         trackingCode: transaction.internalTrackingCode,
         paymentUrl,
+        transferType: isPol ? "POL" : "CARD_TO_CARD",
         originalAmountToman: Number(transaction.originalAmountToman),
         offsetToman: transaction.offsetToman,
         payableAmountToman: Number(transaction.finalAmountToman),
@@ -251,8 +288,11 @@ export async function POST(req: NextRequest) {
         card: {
           ownerName: targetCard.ownerName,
           cardNumber: targetCard.cardNumber,
-          accountNumber: targetCard.accountNumber,
-          bankTitle: targetCard.bankTitle,
+          iban: targetCard.iban || null,
+          accountNumber: targetCard.accountNumber || null,
+          bankTitle: resolvedBankTitle,
+          bankLogo,
+          transferType: isPol ? "POL" : "CARD_TO_CARD",
         },
       },
     });

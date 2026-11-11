@@ -1,6 +1,6 @@
-export const WEB_APP_VERSION = "2.4.7";
-export const GATEWAY_CORE_VERSION = "2.4.7";
-export const APP_VERSION = "2.4.7"; // Web Platform & Gateway Core
+export const WEB_APP_VERSION = "2.4.8";
+export const GATEWAY_CORE_VERSION = "2.4.8";
+export const APP_VERSION = "2.4.8"; // Web Platform & Gateway Core
 export const ANDROID_APK_VERSION = "1.5.0"; // Native Android Companion Sync App
 export const ANDROID_APK_FILENAME = "honarhub-pay-sync.apk";
 export const APP_NAME = "هنرهاب پی";

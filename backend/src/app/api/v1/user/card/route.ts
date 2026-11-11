@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, formatFriendlyDbError } from "@/lib/db";
+import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
 
 // POST /api/v1/user/card - Register or update card for logged in user
 export async function POST(req: NextRequest) {
@@ -19,7 +20,7 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { ownerName, cardNumber, accountNumber, iban, bankTitle, bankSlug = "mehr_iran", replace = false } = body;
+    const { ownerName, cardNumber, accountNumber, iban, bankTitle, bankSlug, replace = false } = body;
 
     if (!ownerName || !cardNumber) {
       return NextResponse.json(
@@ -28,19 +29,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const cleanCard = cardNumber.replace(/[^0-9]/g, "");
-    if (cleanCard.length !== 16) {
+    const cleanCard = String(cardNumber).replace(/[^0-9]/g, "");
+    const cardValidation = isValidIranianCardNumber(cleanCard);
+    if (!cardValidation.valid) {
       return NextResponse.json(
-        { success: false, error: "شماره کارت باید دقیقاً ۱۶ رقم باشد." },
+        { success: false, error: cardValidation.error || "شماره کارت ۱۶ رقمی نامعتبر است." },
         { status: 400 }
       );
     }
 
-    const cleanIban = iban?.trim()
-      ? (iban.trim().toUpperCase().startsWith("IR") ? iban.trim().toUpperCase() : `IR${iban.trim().replace(/[^0-9]/g, "")}`)
-      : null;
+    // Auto-detect bank from card BIN
+    const detectedBank = getBankByCardNumber(cleanCard);
+    const resolvedBankTitle = bankTitle?.trim() || detectedBank?.nameFa || "بانک شتاب";
+    const resolvedBankSlug = detectedBank?.id?.replace(/-/g, "_") || bankSlug || "shetab";
 
-    const resolvedBankTitle = bankTitle?.trim() || "بانک قرض‌الحسنه مهر ایران";
+    // Validate IBAN if provided
+    let cleanIban: string | null = null;
+    if (iban && String(iban).trim()) {
+      const ibanValidation = isValidIranianIban(String(iban).trim());
+      if (!ibanValidation.valid) {
+        return NextResponse.json(
+          { success: false, error: ibanValidation.error || "شماره شبا نامعتبر است." },
+          { status: 400 }
+        );
+      }
+      cleanIban = ibanValidation.formatted || null;
+    }
 
     const isExistingUserCard = user.cards.some((c) => c.cardNumber === cleanCard);
 
@@ -86,7 +100,7 @@ export async function POST(req: NextRequest) {
         accountNumber: accountNumber?.trim() || null,
         iban: cleanIban,
         bankTitle: resolvedBankTitle,
-        bankSlug,
+        bankSlug: resolvedBankSlug,
         userId: user.id,
         isArchived: false,
         isActive: true,
@@ -97,7 +111,7 @@ export async function POST(req: NextRequest) {
         accountNumber: accountNumber?.trim() || null,
         iban: cleanIban,
         bankTitle: resolvedBankTitle,
-        bankSlug,
+        bankSlug: resolvedBankSlug,
         userId: user.id,
         isActive: true,
       },

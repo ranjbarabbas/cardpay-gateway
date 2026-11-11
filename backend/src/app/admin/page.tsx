@@ -46,9 +46,18 @@ import {
   ArrowUpRight,
   ChevronRight,
   ChevronLeft,
+  MessageSquareCode,
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
+import {
+  IRANIAN_BANKS,
+  BankInfo,
+  getBankByCardNumber,
+  isValidIranianCardNumber,
+  isValidIranianIban,
+  parseBankDepositSms,
+} from "@/lib/bank-utils";
 
 type AdminTab =
   | "overview"
@@ -57,6 +66,7 @@ type AdminTab =
   | "devices"
   | "senders"
   | "transactions"
+  | "sms-formats"
   | "settings"
   | "sandbox";
 
@@ -177,12 +187,31 @@ export default function AdminDashboard() {
   const [newCard, setNewCard] = useState({
     ownerName: "",
     cardNumber: "",
+    iban: "",
     accountNumber: "",
     bankSlug: "mehr_iran",
     bankTitle: "بانک قرض‌الحسنه مهر ایران",
     deviceId: "",
     userId: "",
   });
+
+  // Bank SMS Formats State
+  const [selectedBankId, setSelectedBankId] = useState<string>("mehr-iran");
+  const [bankSmsFormats, setBankSmsFormats] = useState<BankInfo[]>(IRANIAN_BANKS);
+  const [activeBankCardSms, setActiveBankCardSms] = useState<string>(
+    IRANIAN_BANKS[0].sampleSmsCard || ""
+  );
+  const [activeBankPolSms, setActiveBankPolSms] = useState<string>(
+    IRANIAN_BANKS[0].sampleSmsPol || ""
+  );
+  const [smsFormatSaving, setSmsFormatSaving] = useState(false);
+  const [smsFormatFeedback, setSmsFormatFeedback] = useState<string | null>(null);
+  const [bankSearchQuery, setBankSearchQuery] = useState("");
+
+  // Bank SMS Tester State
+  const [testBankSmsText, setTestBankSmsText] = useState<string>("");
+  const [testBankSmsResult, setTestBankSmsResult] = useState<any>(null);
+  const [testBankSmsLoading, setTestBankSmsLoading] = useState(false);
 
   // New Device Form
   const [newDeviceName, setNewDeviceName] = useState("");
@@ -311,6 +340,20 @@ export default function AdminDashboard() {
       if (tktRes?.ok) {
         const d = await tktRes.json();
         if (d.success) setTickets(d.data);
+      }
+
+      // Load Bank SMS Formats
+      const smsFormatRes = await fetch("/api/v1/admin/sms-formats", { headers }).catch(() => null);
+      if (smsFormatRes?.ok) {
+        const d = await smsFormatRes.json();
+        if (d.success && Array.isArray(d.data)) {
+          setBankSmsFormats(d.data);
+          const found = d.data.find((b: BankInfo) => b.id === selectedBankId) || d.data[0];
+          if (found) {
+            setActiveBankCardSms(found.sampleSmsCard || "");
+            setActiveBankPolSms(found.sampleSmsPol || "");
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to load admin dashboard data", err);
@@ -484,6 +527,76 @@ export default function AdminDashboard() {
     }
   };
 
+  // Bank SMS Formats Actions
+  const handleSelectBank = (bankId: string) => {
+    setSelectedBankId(bankId);
+    setSmsFormatFeedback(null);
+    setTestBankSmsResult(null);
+    const bank = bankSmsFormats.find((b) => b.id === bankId);
+    if (bank) {
+      setActiveBankCardSms(bank.sampleSmsCard || "");
+      setActiveBankPolSms(bank.sampleSmsPol || "");
+      setTestBankSmsText(bank.sampleSmsCard || "");
+    }
+  };
+
+  const handleSaveBankSmsFormat = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSmsFormatSaving(true);
+    setSmsFormatFeedback(null);
+    try {
+      const res = await fetch("/api/v1/admin/sms-formats", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          bankId: selectedBankId,
+          sampleSmsCard: activeBankCardSms,
+          sampleSmsPol: activeBankPolSms,
+        }),
+      });
+      const data = await res.json();
+      if (data.success) {
+        setSmsFormatFeedback("الگوی پیامک‌های بانک مورد نظر با موفقیت ذخیره شد.");
+        setBankSmsFormats((prev) =>
+          prev.map((b) =>
+            b.id === selectedBankId
+              ? { ...b, sampleSmsCard: activeBankCardSms, sampleSmsPol: activeBankPolSms }
+              : b
+          )
+        );
+        setTimeout(() => setSmsFormatFeedback(null), 4000);
+      } else {
+        alert("خطا در ذخیره الگوی پیامک: " + data.error);
+      }
+    } catch (err: any) {
+      alert("خطای ارتباط: " + err.message);
+    } finally {
+      setSmsFormatSaving(false);
+    }
+  };
+
+  const handleTestBankSmsParser = async () => {
+    if (!testBankSmsText.trim()) return;
+    setTestBankSmsLoading(true);
+    setTestBankSmsResult(null);
+    try {
+      const res = await fetch("/api/v1/admin/sms-formats/test", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          rawText: testBankSmsText,
+          bankId: selectedBankId,
+        }),
+      });
+      const data = await res.json();
+      setTestBankSmsResult(data.data || data);
+    } catch (err: any) {
+      setTestBankSmsResult({ success: false, error: err.message });
+    } finally {
+      setTestBankSmsLoading(false);
+    }
+  };
+
   const handleTestSms = async () => {
     setTestSmsLoading(true);
     setTestSmsResult(null);
@@ -541,6 +654,7 @@ export default function AdminDashboard() {
       setNewCard({
         ownerName: "",
         cardNumber: "",
+        iban: "",
         accountNumber: "",
         bankSlug: "mehr_iran",
         bankTitle: "بانک قرض‌الحسنه مهر ایران",
@@ -994,7 +1108,8 @@ export default function AdminDashboard() {
             { id: "devices", label: "دستگاه‌های اندروید", icon: Smartphone, count: devices.length },
             { id: "senders", label: "سرشماره‌های بانکی", icon: ShieldCheck, count: pendingSenders.length, alert: pendingSenders.length > 0 },
             { id: "transactions", label: "تراکنش‌ها و مغایرت", icon: Receipt, count: transactions.length },
-            { id: "settings", label: "تنظیمات پیامک و ایمیل", icon: Settings },
+            { id: "sms-formats", label: "فرمت پیامک‌های بانکی", icon: MessageSquareCode, count: IRANIAN_BANKS.length },
+            { id: "settings", label: "تنظیمات سامانه و مبالغ", icon: Settings },
             { id: "sandbox", label: "شبیه‌ساز و لابراتوار", icon: FlaskConical },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1485,7 +1600,7 @@ export default function AdminDashboard() {
                   <span>ثبت و اتصال کارت بانکی جدید</span>
                 </h3>
 
-                <div className="grid grid-cols-1 md:grid-cols-5 gap-3 text-xs">
+                <div className="grid grid-cols-1 md:grid-cols-6 gap-3 text-xs">
                   <div>
                     <label className="text-slate-400 block mb-1">نام صاحب حساب:</label>
                     <input
@@ -1499,26 +1614,77 @@ export default function AdminDashboard() {
                   </div>
 
                   <div>
-                    <label className="text-slate-400 block mb-1">شماره کارت ۱۶ رقمی:</label>
-                    <input
-                      type="text"
-                      placeholder="60637310..."
-                      value={newCard.cardNumber}
-                      onChange={(e) => setNewCard({ ...newCard, cardNumber: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
-                      required
-                    />
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-slate-400">شماره کارت ۱۶ رقمی:</label>
+                      {newCard.cardNumber.length === 16 && (
+                        <span className={`text-[10px] font-bold ${isValidIranianCardNumber(newCard.cardNumber).valid ? "text-emerald-400" : "text-rose-400"}`}>
+                          {isValidIranianCardNumber(newCard.cardNumber).valid ? "✓ معتبر" : "✕ نامعتبر"}
+                        </span>
+                      )}
+                    </div>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        maxLength={16}
+                        placeholder="60637310..."
+                        value={newCard.cardNumber}
+                        onChange={(e) => {
+                          const clean = e.target.value.replace(/\D/g, "");
+                          const detected = getBankByCardNumber(clean);
+                          setNewCard({
+                            ...newCard,
+                            cardNumber: clean,
+                            ...(detected ? { bankTitle: detected.nameFa, bankSlug: detected.id.replace(/-/g, "_") } : {}),
+                          });
+                        }}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                        dir="ltr"
+                        required
+                      />
+                    </div>
                   </div>
 
                   <div>
-                    <label className="text-slate-400 block mb-1">شماره حساب (اختیاری):</label>
+                    <div className="flex items-center justify-between mb-1">
+                      <label className="text-slate-400">شماره شبا (IBAN) (اختیاری):</label>
+                      {newCard.iban && (
+                        <span className={`text-[10px] font-bold ${isValidIranianIban(newCard.iban).valid ? "text-emerald-400" : "text-rose-400"}`}>
+                          {isValidIranianIban(newCard.iban).valid ? "✓ معتبر" : "✕ نامعتبر"}
+                        </span>
+                      )}
+                    </div>
                     <input
                       type="text"
-                      placeholder="111122223333444455"
-                      value={newCard.accountNumber}
-                      onChange={(e) => setNewCard({ ...newCard, accountNumber: e.target.value })}
-                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500"
+                      maxLength={26}
+                      placeholder="IR... یا ۲۴ رقم"
+                      value={newCard.iban}
+                      onChange={(e) => setNewCard({ ...newCard, iban: e.target.value.toUpperCase() })}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-emerald-500 text-xs"
+                      dir="ltr"
                     />
+                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                      برای مبالغ بالای ۱۵م انتقال پل تا ۲۰۰م
+                    </span>
+                  </div>
+
+                  <div>
+                    <label className="text-slate-400 block mb-1">عنوان نمایشی بانک (اختیاری):</label>
+                    <div className="relative flex items-center">
+                      <input
+                        type="text"
+                        placeholder="عنوان بانک"
+                        value={newCard.bankTitle}
+                        onChange={(e) => setNewCard({ ...newCard, bankTitle: e.target.value })}
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl pr-3 pl-8 py-2 text-white focus:outline-none focus:border-emerald-500 text-xs"
+                      />
+                      {getBankByCardNumber(newCard.cardNumber) && (
+                        <img
+                          src={getBankByCardNumber(newCard.cardNumber)!.logo}
+                          alt=""
+                          className="w-4 h-4 object-contain absolute left-2 top-2.5 bg-white/10 rounded-full p-0.5"
+                        />
+                      )}
+                    </div>
                   </div>
 
                   <div>
@@ -1589,12 +1755,26 @@ export default function AdminDashboard() {
                       <span>کاربر مالک: <strong className="text-white font-medium">{card.user?.name || card.user?.phone || "کاربر عمومی سیستم"}</strong></span>
                     </div>
 
-                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1 font-mono text-xs">
-                      <div className="text-emerald-400 font-bold tracking-wider">{card.cardNumber}</div>
+                    <div className="bg-slate-950 p-3 rounded-xl border border-slate-800/80 space-y-1.5 font-mono text-xs">
+                      <div className="flex items-center justify-between">
+                        <span className="text-emerald-400 font-bold tracking-wider">{card.cardNumber}</span>
+                        {getBankByCardNumber(card.cardNumber)?.logo && (
+                          <img
+                            src={getBankByCardNumber(card.cardNumber)!.logo}
+                            alt=""
+                            className="w-5 h-5 object-contain bg-white/10 rounded-full p-0.5"
+                          />
+                        )}
+                      </div>
+                      {card.iban && (
+                        <div className="text-sky-300 text-[11px] truncate" dir="ltr">شبا: {card.iban}</div>
+                      )}
                       {card.accountNumber && (
                         <div className="text-slate-400 text-[11px]">حساب: {card.accountNumber}</div>
                       )}
-                      <div className="text-slate-500 text-[10px] font-sans">{card.bankTitle}</div>
+                      <div className="text-slate-400 text-[11px] font-sans">
+                        {card.bankTitle || getBankByCardNumber(card.cardNumber)?.nameFa || "بانک شتاب"}
+                      </div>
                     </div>
 
                     <div className="flex items-center justify-between text-xs pt-1">
@@ -2068,6 +2248,309 @@ export default function AdminDashboard() {
           </div>
         )}
 
+        {/* TAB: BANK SMS FORMATS & CBI REGISTRY (فرمت پیامک‌های بانکی) */}
+        {activeTab === "sms-formats" && (
+          <div className="space-y-6">
+            <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-6 shadow-xl">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h2 className="text-lg font-black text-white flex items-center gap-2">
+                    <MessageSquareCode className="w-5 h-5 text-teal-400" />
+                    <span>فرمت پیامک‌های بانکی و سامانه انتقال پل</span>
+                  </h2>
+                  <p className="text-xs text-slate-400 mt-1">
+                    فهرست رسمی کلیه بانک‌ها و موسسات اعتباری تحت نظارت بانک مرکزی به همراه لوگو و پیشوندهای کارت جهت پردازش هوشمند پیامک‌های واریزی کارت به کارت و پل
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-xs bg-slate-900 border border-slate-800 px-3 py-1.5 rounded-xl text-emerald-400 font-mono font-bold">
+                    {toPersianDigits(bankSmsFormats.length)} بانک رسمی
+                  </span>
+                </div>
+              </div>
+
+              {smsFormatFeedback && (
+                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 rounded-xl text-xs flex items-center gap-2 animate-in fade-in">
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                  <span>{smsFormatFeedback}</span>
+                </div>
+              )}
+
+              {/* Two Column Layout: Bank Selector & Pattern Configuration */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Bank List / Search Sidebar (4 cols) */}
+                <div className="lg:col-span-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-300">انتخاب بانک از فهرست:</span>
+                    <span className="text-[11px] text-slate-500">لوگوی رسمی</span>
+                  </div>
+
+                  {/* Bank Search Input */}
+                  <div className="relative flex items-center">
+                    <input
+                      type="text"
+                      placeholder="جستجوی بانک، نام یا پیشوند..."
+                      value={bankSearchQuery}
+                      onChange={(e) => setBankSearchQuery(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-teal-500 text-xs pr-8"
+                    />
+                    <Search className="w-3.5 h-3.5 text-slate-500 absolute right-2.5 pointer-events-none" />
+                  </div>
+
+                  {/* Scrollable Banks List */}
+                  <div className="max-h-[560px] overflow-y-auto space-y-1.5 pr-1 no-scrollbar">
+                    {bankSmsFormats
+                      .filter((b) => {
+                        if (!bankSearchQuery.trim()) return true;
+                        const q = bankSearchQuery.trim().toLowerCase();
+                        return (
+                          b.nameFa.toLowerCase().includes(q) ||
+                          b.nameEn.toLowerCase().includes(q) ||
+                          b.cardPrefixes.some((p) => p.includes(q)) ||
+                          b.ibanCode.some((code) => code.includes(q))
+                        );
+                      })
+                      .map((b) => {
+                        const isSelected = selectedBankId === b.id;
+                        return (
+                          <button
+                            key={b.id}
+                            type="button"
+                            onClick={() => handleSelectBank(b.id)}
+                            className={`w-full text-right p-3 rounded-2xl border transition flex items-center justify-between gap-2.5 ${
+                              isSelected
+                                ? "bg-gradient-to-r from-teal-950/80 to-emerald-950/50 border-teal-500/60 shadow-lg text-white"
+                                : "bg-slate-950/60 border-slate-800/80 hover:bg-slate-900/80 text-slate-300"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <img
+                                src={b.logo}
+                                alt={b.nameFa}
+                                className="w-7 h-7 object-contain bg-white/10 rounded-full p-0.5 shrink-0"
+                              />
+                              <div className="min-w-0">
+                                <span className="font-bold text-xs block truncate text-slate-100">{b.nameFa}</span>
+                                <span className="text-[10px] text-slate-400 font-mono block truncate" dir="ltr">
+                                  {b.cardPrefixes.slice(0, 2).join(", ")}
+                                </span>
+                              </div>
+                            </div>
+                            <div className="text-left shrink-0">
+                              <span className="text-[9px] font-mono bg-slate-900 px-1.5 py-0.5 rounded text-slate-400 border border-slate-800">
+                                کد: {b.ibanCode[0] || "---"}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                  </div>
+                </div>
+
+                {/* Active Bank SMS Formats Editor & Test Lab (8 cols) */}
+                <div className="lg:col-span-8 space-y-6">
+                  {(() => {
+                    const activeBank = bankSmsFormats.find((b) => b.id === selectedBankId) || bankSmsFormats[0];
+                    if (!activeBank) return null;
+
+                    return (
+                      <div className="space-y-6">
+                        {/* Selected Bank Banner */}
+                        <div className="bg-gradient-to-r from-slate-900 via-slate-900/90 to-slate-950 border border-slate-800 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <img
+                              src={activeBank.logo}
+                              alt={activeBank.nameFa}
+                              className="w-12 h-12 object-contain bg-white/10 rounded-2xl p-1.5 shadow-md"
+                            />
+                            <div>
+                              <div className="flex items-center gap-2">
+                                <h3 className="font-black text-white text-base">{activeBank.nameFa}</h3>
+                                <span className="text-[11px] text-slate-400 font-sans">({activeBank.nameEn})</span>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1.5">
+                                <span className="text-[10px] text-slate-400">پیشوندهای کارت:</span>
+                                {activeBank.cardPrefixes.map((p) => (
+                                  <span
+                                    key={p}
+                                    className="bg-emerald-950/60 border border-emerald-500/30 text-emerald-300 font-mono text-[10px] px-2 py-0.2 rounded-md font-bold"
+                                    dir="ltr"
+                                  >
+                                    {p}
+                                  </span>
+                                ))}
+                                <span className="bg-sky-950/60 border border-sky-500/30 text-sky-300 font-mono text-[10px] px-2 py-0.2 rounded-md font-bold mr-2">
+                                  کد شبا: {activeBank.ibanCode.join(", ")}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={handleSaveBankSmsFormat}
+                            disabled={smsFormatSaving}
+                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-4 py-2.5 rounded-xl transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-1.5 shrink-0"
+                          >
+                            <Check className="w-4 h-4" />
+                            <span>{smsFormatSaving ? "در حال ذخیره..." : "ذخیره الگوی این بانک"}</span>
+                          </button>
+                        </div>
+
+                        {/* Format Edit Form */}
+                        <form onSubmit={handleSaveBankSmsFormat} className="space-y-4">
+                          {/* Card-to-Card Deposit Pattern */}
+                          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                                <CreditCard className="w-4 h-4" />
+                                <span>۱. نمونه پیامک واریز کارت به کارت (سحاب / شتابی):</span>
+                              </label>
+                              <span className="text-[10px] text-slate-500">برای مبالغ تا سقف ۱۵ میلیون تومان</span>
+                            </div>
+                            <textarea
+                              rows={4}
+                              value={activeBankCardSms}
+                              onChange={(e) => setActiveBankCardSms(e.target.value)}
+                              placeholder="نمونه پیامک واریز کارت به کارت این بانک را وارد کنید..."
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-emerald-500 leading-relaxed font-sans"
+                            />
+                            <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
+                              <span>متغیرهای قابل استخراج:</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مبلغ</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">کارت</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">کد پیگیری</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مانده</span>
+                            </div>
+                          </div>
+
+                          {/* POL / Sheba Deposit Pattern */}
+                          <div className="bg-slate-900/80 border border-slate-800 rounded-2xl p-4 space-y-2">
+                            <div className="flex items-center justify-between">
+                              <label className="text-xs font-bold text-sky-400 flex items-center gap-1.5">
+                                <Zap className="w-4 h-4" />
+                                <span>۲. نمونه پیامک واریز انتقال پل / شبا (سامانه پل):</span>
+                              </label>
+                              <span className="text-[10px] text-sky-400/90 font-mono">برای مبالغ بالای ۱۵ میلیون تا ۲۰۰ میلیون</span>
+                            </div>
+                            <textarea
+                              rows={4}
+                              value={activeBankPolSms}
+                              onChange={(e) => setActiveBankPolSms(e.target.value)}
+                              placeholder="نمونه پیامک واریز انتقال پل یا پایا به شماره شبا این بانک..."
+                              className="w-full bg-slate-950 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-sky-500 leading-relaxed font-sans"
+                            />
+                            <div className="flex flex-wrap items-center gap-1 text-[10px] text-slate-400">
+                              <span>متغیرهای قابل استخراج:</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مبلغ</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">شماره شبا (IR)</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">کد ارجاع / پیگیری</span>
+                              <span className="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300 font-mono">مانده</span>
+                            </div>
+                          </div>
+                        </form>
+
+                        {/* Interactive Live SMS Parser Laboratory */}
+                        <div className="bg-slate-950/80 border-2 border-teal-500/30 rounded-2xl p-5 space-y-4 shadow-lg shadow-teal-500/5">
+                          <div className="flex items-center justify-between border-b border-slate-800/80 pb-3">
+                            <div className="flex items-center gap-2">
+                              <FlaskConical className="w-4 h-4 text-teal-400" />
+                              <span className="text-xs font-bold text-white">لابراتوار تست زنده و استخراج هوشمند پارامترها</span>
+                            </div>
+                            <span className="text-[10px] bg-teal-500/10 text-teal-300 border border-teal-500/20 px-2 py-0.5 rounded-full font-mono">
+                              محیط آزمایشی Regex
+                            </span>
+                          </div>
+
+                          <p className="text-[11px] text-slate-400 leading-relaxed">
+                            متن یک پیامک واقعی واریزی از این بانک را در کادر زیر وارد کنید تا نحوه استخراج مبلغ، کد پیگیری و شماره کارت/شبا توسط سامانه به صورت زنده ارزیابی گردد:
+                          </p>
+
+                          <div className="space-y-2">
+                            <textarea
+                              rows={3}
+                              value={testBankSmsText}
+                              onChange={(e) => setTestBankSmsText(e.target.value)}
+                              placeholder="متن پیامک آزمایشی واریز را اینجا وارد یا الصاق کنید..."
+                              className="w-full bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs text-white focus:outline-none focus:border-teal-500 font-sans"
+                            />
+
+                            <div className="flex justify-end">
+                              <button
+                                type="button"
+                                onClick={handleTestBankSmsParser}
+                                disabled={testBankSmsLoading || !testBankSmsText.trim()}
+                                className="bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 disabled:opacity-50 text-white font-bold text-xs px-4 py-2 rounded-xl transition flex items-center gap-1.5 shadow"
+                              >
+                                <RefreshCw className={`w-3.5 h-3.5 ${testBankSmsLoading ? "animate-spin" : ""}`} />
+                                <span>{testBankSmsLoading ? "در حال استخراج..." : "تست و تجزیه هوشمند پیامک"}</span>
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Test Parser Result Card */}
+                          {testBankSmsResult && (
+                            <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-4 space-y-3 animate-in fade-in">
+                              <div className="flex items-center justify-between border-b border-slate-800/80 pb-2">
+                                <span className="text-xs font-bold text-white flex items-center gap-1.5">
+                                  {testBankSmsResult.isDeposit ? (
+                                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                                  ) : (
+                                    <XCircle className="w-4 h-4 text-rose-400" />
+                                  )}
+                                  <span>
+                                    {testBankSmsResult.isDeposit
+                                      ? "پیامک معتبر واریزی تشخیص داده شد"
+                                      : "پیامک واریزی نیست"}
+                                  </span>
+                                </span>
+                                <span className="text-[10px] font-mono bg-slate-950 px-2 py-0.5 rounded text-teal-400 border border-slate-800">
+                                  نوع: {testBankSmsResult.type || "نامشخص"}
+                                </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                  <span className="text-[10px] text-slate-400 block mb-0.5">مبلغ واریزی (تومان):</span>
+                                  <span className="font-bold text-emerald-400 font-mono text-sm">
+                                    {testBankSmsResult.amountToman ? `${formatPersianNumber(testBankSmsResult.amountToman)} ت` : "یافت نشد"}
+                                  </span>
+                                </div>
+
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                  <span className="text-[10px] text-slate-400 block mb-0.5">مبلغ به ریال:</span>
+                                  <span className="font-bold text-slate-200 font-mono text-xs">
+                                    {testBankSmsResult.amountRial ? formatPersianNumber(testBankSmsResult.amountRial) : "یافت نشد"}
+                                  </span>
+                                </div>
+
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                  <span className="text-[10px] text-slate-400 block mb-0.5">کد رهگیری / مرجع:</span>
+                                  <span className="font-bold text-amber-300 font-mono text-xs" dir="ltr">
+                                    {testBankSmsResult.trackingCode || "یافت نشد"}
+                                  </span>
+                                </div>
+
+                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/60">
+                                  <span className="text-[10px] text-slate-400 block mb-0.5">کارت یا شبا:</span>
+                                  <span className="font-bold text-sky-300 font-mono text-xs" dir="ltr">
+                                    {testBankSmsResult.accountOrIban || testBankSmsResult.cardLast4 || "یافت نشد"}
+                                  </span>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* TAB 7: SETTINGS (تنظیمات فراز اس‌ام‌اس و Resend) */}
         {activeTab === "settings" && (
           <div className="space-y-6">
@@ -2404,6 +2887,81 @@ export default function AdminDashboard() {
                             />
                           </div>
                         </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Transfer Limits Configuration */}
+                  <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Zap className="w-4 h-4 text-amber-400" />
+                        <div>
+                          <span className="font-bold text-white text-sm block">تنظیمات سقف مبالغ تراکنش (کارت به کارت و سامانه پل)</span>
+                          <span className="text-[11px] text-slate-400">
+                            مسیریابی هوشمند بین روش‌های انتقال کارت‌به‌کارت و انتقال بین‌بانکی پل با شماره شبا
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-amber-500/10 text-amber-300 border border-amber-500/30 px-2.5 py-0.5 rounded-full font-mono">
+                        هندلینگ خودکار بیزینس
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-emerald-400">۱. سقف انتقال کارت به کارت (تومان):</label>
+                          <span className="font-mono text-white text-xs font-bold">
+                            {formatPersianNumber(systemSettings.limits?.cardTransferLimitToman || 15000000)} تومان
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          step={1000000}
+                          value={systemSettings.limits?.cardTransferLimitToman ?? 15000000}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              limits: {
+                                ...(systemSettings.limits || {}),
+                                cardTransferLimitToman: Number(e.target.value),
+                              },
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-emerald-500"
+                        />
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          پیش‌فرض مصوب بانک مرکزی: ۱۵,۰۰۰,۰۰۰ تومان (۱۵ م). برای مبالغ بالاتر از این عدد، درگاه به صورت خودکار به درگاه سامانه پل (با شماره شبا) هدایت خواهد شد.
+                        </p>
+                      </div>
+
+                      <div className="bg-slate-950 p-4 rounded-xl border border-slate-800 space-y-2">
+                        <div className="flex items-center justify-between">
+                          <label className="font-bold text-sky-400">۲. سقف مجاز انتقال سامانه پل (تومان):</label>
+                          <span className="font-mono text-white text-xs font-bold">
+                            {formatPersianNumber(systemSettings.limits?.polTransferLimitToman || 100000000)} تومان
+                          </span>
+                        </div>
+                        <input
+                          type="number"
+                          step={10000000}
+                          max={200000000}
+                          value={systemSettings.limits?.polTransferLimitToman ?? 100000000}
+                          onChange={(e) =>
+                            setSystemSettings({
+                              ...systemSettings,
+                              limits: {
+                                ...(systemSettings.limits || {}),
+                                polTransferLimitToman: Number(e.target.value),
+                              },
+                            })
+                          }
+                          className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-2 text-white font-mono text-xs focus:outline-none focus:border-sky-500"
+                        />
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          پیش‌فرض سامانه پل: ۱۰۰,۰۰۰,۰۰۰ تومان (تا ۲۰۰ میلیون تومان امکان‌پذیر است). برای مبالغ بیش از ۱۵ م، ثبت شماره شبا در تنظیمات کارت بانکی الزامی است.
+                        </p>
                       </div>
                     </div>
                   </div>

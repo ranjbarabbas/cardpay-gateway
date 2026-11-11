@@ -51,12 +51,15 @@ export interface SandboxTransaction {
   webhookUrl?: string;
   customerMobile?: string;
   description?: string;
+  transferType?: "CARD_TO_CARD" | "POL";
   card: {
     ownerName: string;
     cardNumber: string;
-    accountNumber: string;
+    accountNumber?: string;
+    iban?: string;
     bankTitle: string;
     bankSlug: string;
+    bankLogo?: string;
   };
 }
 
@@ -91,6 +94,7 @@ export function createSandboxTransaction(params: {
   const offsetToman = 15; // Dynamic test offset
   const payableAmountToman = originalAmountToman + offsetToman;
   const payableAmountRial = payableAmountToman * 10;
+  const isPol = originalAmountToman > 15000000;
 
   const tx: SandboxTransaction = {
     authority,
@@ -105,13 +109,16 @@ export function createSandboxTransaction(params: {
     callbackUrl: params.callbackUrl || "https://honarhub.com/order/callback",
     webhookUrl: params.webhookUrl,
     customerMobile: params.customerMobile || "09120000000",
-    description: params.description || "تراکنش آزمایشی در محیط سندباکس هنرهاب پی",
+    description: params.description || (isPol ? "تراکنش آزمایشی انتقال سامانه پل (محیط سندباکس)" : "تراکنش آزمایشی کارت‌به‌کارت (محیط سندباکس)"),
+    transferType: isPol ? "POL" : "CARD_TO_CARD",
     card: {
       ownerName: "حساب آزمایشی هنرهاب پی (محیط سندباکس)",
       cardNumber: "6063731099887766",
       accountNumber: "111122223333444455",
+      iban: "IR820600000000111122223333",
       bankTitle: "بانک قرض‌الحسنه مهر ایران",
       bankSlug: "mehr_iran",
+      bankLogo: "/images/banks/mehriran.svg",
     },
   };
 

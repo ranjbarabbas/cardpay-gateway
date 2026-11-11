@@ -35,6 +35,7 @@ import {
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
+import { getBankByCardNumber, isValidIranianCardNumber, isValidIranianIban } from "@/lib/bank-utils";
 
 export default function UserPortalPage() {
   const router = useRouter();
@@ -746,7 +747,18 @@ export default function UserPortalPage() {
                     className="relative overflow-hidden bg-gradient-to-tr from-slate-900 via-[#132035] to-slate-900 border border-slate-700/80 rounded-2xl p-6 shadow-xl space-y-4"
                   >
                     <div className="flex items-center justify-between text-xs text-slate-400">
-                      <span className="font-bold text-emerald-400">{card.bankTitle}</span>
+                      <div className="flex items-center gap-2">
+                        {getBankByCardNumber(card.cardNumber)?.logo && (
+                          <img
+                            src={getBankByCardNumber(card.cardNumber)!.logo}
+                            alt=""
+                            className="w-5 h-5 object-contain bg-white/10 rounded-full p-0.5"
+                          />
+                        )}
+                        <span className="font-bold text-emerald-400">
+                          {card.bankTitle || getBankByCardNumber(card.cardNumber)?.nameFa || "بانک شتاب"}
+                        </span>
+                      </div>
                       <div className="flex items-center gap-2">
                         {card.isFrozen ? (
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/30">
@@ -774,12 +786,17 @@ export default function UserPortalPage() {
                         <span className="text-[10px] text-slate-400 block">صاحب کارت:</span>
                         <span className="font-bold">{card.ownerName}</span>
                       </div>
-                      {card.accountNumber && (
+                      {card.iban ? (
+                        <div className="text-left font-mono text-[11px] text-sky-300" dir="ltr">
+                          <span className="text-[9px] text-slate-400 block">شبا (انتقال پل):</span>
+                          <span>{card.iban}</span>
+                        </div>
+                      ) : card.accountNumber ? (
                         <div className="text-left font-mono">
                           <span className="text-[10px] text-slate-400 block">شماره حساب:</span>
                           <span>{toPersianDigits(card.accountNumber)}</span>
                         </div>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 ))}
@@ -976,6 +993,24 @@ export default function UserPortalPage() {
                     <ArrowRight className="w-3.5 h-3.5 rotate-180" />
                   </>
                 )}
+              </button>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-2 text-xs pt-1">
+              <span className="text-slate-400 text-[11px]">مبالغ نمونه جهت تست:</span>
+              <button
+                type="button"
+                onClick={() => setTestAmount("50,000")}
+                className="bg-slate-900 hover:bg-slate-800 text-slate-300 border border-slate-800 px-2.5 py-1 rounded-lg text-[11px] font-mono transition"
+              >
+                ۵۰,۰۰۰ تومان (کارت‌به‌کارت)
+              </button>
+              <button
+                type="button"
+                onClick={() => setTestAmount("25,000,000")}
+                className="bg-sky-950/60 hover:bg-sky-900/60 text-sky-300 border border-sky-500/30 px-2.5 py-1 rounded-lg text-[11px] font-mono transition font-bold"
+              >
+                ۲۵,۰۰۰,۰۰۰ تومان (انتقال پل - شبا)
               </button>
             </div>
 
@@ -1516,15 +1551,38 @@ export default function UserPortalPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium">
-                  شماره ۱۶ رقمی کارت بانکی <span className="text-rose-400 font-bold">*</span>:
-                </label>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-medium">
+                    شماره ۱۶ رقمی کارت بانکی <span className="text-rose-400 font-bold">*</span>:
+                  </label>
+                  {cardForm.cardNumber.length === 16 && (
+                    <span
+                      className={`text-[10px] font-bold ${
+                        isValidIranianCardNumber(cardForm.cardNumber).valid
+                          ? "text-emerald-400"
+                          : "text-rose-400"
+                      }`}
+                    >
+                      {isValidIranianCardNumber(cardForm.cardNumber).valid
+                        ? "✓ کارت معتبر"
+                        : "✕ نامعتبر (خطای چک‌سام)"}
+                    </span>
+                  )}
+                </div>
                 <input
                   type="text"
                   required
                   maxLength={16}
                   value={cardForm.cardNumber}
-                  onChange={(e) => setCardForm({ ...cardForm, cardNumber: e.target.value.replace(/[^0-9]/g, "") })}
+                  onChange={(e) => {
+                    const clean = e.target.value.replace(/[^0-9]/g, "");
+                    const detected = getBankByCardNumber(clean);
+                    setCardForm({
+                      ...cardForm,
+                      cardNumber: clean,
+                      ...(detected ? { bankTitle: detected.nameFa } : {}),
+                    });
+                  }}
                   placeholder="6037991987654321"
                   className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white font-mono focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
                   dir="ltr"
@@ -1532,7 +1590,22 @@ export default function UserPortalPage() {
               </div>
 
               <div className="space-y-1">
-                <label className="text-slate-300 font-medium">شماره شبا (اختیاری):</label>
+                <div className="flex items-center justify-between">
+                  <label className="text-slate-300 font-medium">شماره شبا (IBAN) (اختیاری):</label>
+                  {cardForm.iban.length >= 24 && (
+                    <span
+                      className={`text-[10px] font-bold ${
+                        isValidIranianIban("IR" + cardForm.iban).valid
+                          ? "text-emerald-400"
+                          : "text-rose-400"
+                      }`}
+                    >
+                      {isValidIranianIban("IR" + cardForm.iban).valid
+                        ? "✓ شبا معتبر"
+                        : "✕ شبا نامعتبر"}
+                    </span>
+                  )}
+                </div>
                 <div className="relative flex items-center">
                   <input
                     type="text"
@@ -1547,18 +1620,29 @@ export default function UserPortalPage() {
                     IR
                   </span>
                 </div>
-                <span className="text-[10px] text-slate-500 block">۲۴ رقم عددی بدون پیشوند IR</span>
+                <span className="text-[10px] text-slate-400 block leading-relaxed">
+                  نکته: برای مبالغ بالای ۱۵ میلیون تومان، انتقال پل تا ۲۰۰ میلیون تومان از طریق شماره شبا امکان‌پذیر است. (۲۴ رقم بدون IR)
+                </span>
               </div>
 
               <div className="space-y-1">
                 <label className="text-slate-300 font-medium">عنوان نمایشی بانک (اختیاری):</label>
-                <input
-                  type="text"
-                  value={cardForm.bankTitle}
-                  onChange={(e) => setCardForm({ ...cardForm, bankTitle: e.target.value })}
-                  placeholder="مثال: بانک قرض‌الحسنه مهر ایران یا بانک سامان"
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
-                />
+                <div className="relative flex items-center">
+                  <input
+                    type="text"
+                    value={cardForm.bankTitle}
+                    onChange={(e) => setCardForm({ ...cardForm, bankTitle: e.target.value })}
+                    placeholder="مثال: بانک قرض‌الحسنه مهر ایران یا بانک سامان"
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pr-4 pl-10 py-2.5 text-white focus:outline-none focus:border-emerald-500 placeholder:text-slate-600"
+                  />
+                  {getBankByCardNumber(cardForm.cardNumber) && (
+                    <img
+                      src={getBankByCardNumber(cardForm.cardNumber)!.logo}
+                      alt=""
+                      className="w-5 h-5 object-contain absolute left-3 top-3 bg-white/10 rounded-full p-0.5"
+                    />
+                  )}
+                </div>
               </div>
 
               {isReplaceMode ? (

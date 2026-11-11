@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
 import { isSandboxRequest } from "@/lib/sandbox";
+import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
 
 export async function GET(req: NextRequest) {
   if (!verifyAdminAuth(req)) {
@@ -58,8 +59,8 @@ export async function POST(req: NextRequest) {
       cardNumber,
       accountNumber,
       iban,
-      bankSlug = "mehr_iran",
-      bankTitle = "بانک قرض‌الحسنه مهر ایران",
+      bankSlug,
+      bankTitle,
       deviceId,
       merchantUserId,
       userId,
@@ -74,6 +75,30 @@ export async function POST(req: NextRequest) {
     }
 
     const cleanCard = cardNumber.replace(/[^0-9]/g, "");
+    const cardValidation = isValidIranianCardNumber(cleanCard);
+    if (!cardValidation.valid) {
+      return NextResponse.json(
+        { success: false, error: cardValidation.error || "شماره کارت ۱۶ رقمی نامعتبر است." },
+        { status: 400 }
+      );
+    }
+
+    const detectedBank = getBankByCardNumber(cleanCard);
+    const resolvedBankTitle = bankTitle?.trim() || detectedBank?.nameFa || "بانک شتاب";
+    const resolvedBankSlug = detectedBank?.id?.replace(/-/g, "_") || bankSlug || "shetab";
+
+    let cleanIban: string | null = null;
+    if (iban && String(iban).trim()) {
+      const ibanValidation = isValidIranianIban(String(iban).trim());
+      if (!ibanValidation.valid) {
+        return NextResponse.json(
+          { success: false, error: ibanValidation.error || "شماره شبا نامعتبر است." },
+          { status: 400 }
+        );
+      }
+      cleanIban = ibanValidation.formatted || null;
+    }
+
     const cleanUserId = (merchantUserId || userId) ? String(merchantUserId || userId).trim() : null;
 
     // If requested, safely archive user's previous active cards without deleting any history
@@ -97,9 +122,9 @@ export async function POST(req: NextRequest) {
       update: {
         ownerName,
         accountNumber: accountNumber ? accountNumber.trim() : null,
-        iban: iban ? iban.trim() : null,
-        bankSlug,
-        bankTitle,
+        iban: cleanIban,
+        bankSlug: resolvedBankSlug,
+        bankTitle: resolvedBankTitle,
         ...(cleanUserId ? { merchantUserId: cleanUserId, userId: cleanUserId } : {}),
         ...(deviceId ? { deviceId } : {}),
         isActive: true,
@@ -110,9 +135,9 @@ export async function POST(req: NextRequest) {
         ownerName,
         cardNumber: cleanCard,
         accountNumber: accountNumber ? accountNumber.trim() : null,
-        iban: iban ? iban.trim() : null,
-        bankSlug,
-        bankTitle,
+        iban: cleanIban,
+        bankSlug: resolvedBankSlug,
+        bankTitle: resolvedBankTitle,
         merchantUserId: cleanUserId || null,
         userId: cleanUserId || null,
         deviceId: deviceId || null,

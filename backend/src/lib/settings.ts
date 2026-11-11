@@ -10,6 +10,10 @@ export interface SystemSettings {
     bankTitle: string;
     description: string;
   };
+  limits: {
+    cardTransferLimitToman: number; // سقف کارت به کارت (پیش‌فرض: ۱۵,۰۰۰,۰۰۰ تومان)
+    polTransferLimitToman: number;  // سقف انتقال سامانه پل (پیش‌فرض: ۱۰۰,۰۰۰,۰۰۰ تومان - تا ۲۰۰ میلیون)
+  };
   pricing: {
     pro1MonthToman: number;
     pro3MonthsToman: number;
@@ -61,6 +65,10 @@ export const defaultSettings: SystemSettings = {
     bankTitle: "بانک قرض‌الحسنه مهر ایران",
     description: "کارت رسمی پرداخت و ارتقای اشتراک و پلن‌های هنرهاب پی",
   },
+  limits: {
+    cardTransferLimitToman: 15000000,
+    polTransferLimitToman: 100000000,
+  },
   pricing: {
     pro1MonthToman: 199000,
     pro3MonthsToman: 499000,
@@ -107,6 +115,7 @@ function mergeWithDefaults(parsed: any): SystemSettings {
     ...defaultSettings,
     ...parsed,
     adminCard: { ...defaultSettings.adminCard, ...(parsed.adminCard || {}) },
+    limits: { ...defaultSettings.limits, ...(parsed.limits || {}) },
     pricing: { ...defaultSettings.pricing, ...(parsed.pricing || {}) },
     sms: { ...defaultSettings.sms, ...(parsed.sms || {}) },
     email: { ...defaultSettings.email, ...(parsed.email || {}) },
@@ -179,6 +188,7 @@ export async function saveSystemSettingsAsync(updates: Partial<SystemSettings>):
     ...current,
     ...updates,
     adminCard: { ...current.adminCard, ...(updates.adminCard || {}) },
+    limits: { ...current.limits, ...(updates.limits || {}) },
     pricing: { ...current.pricing, ...(updates.pricing || {}) },
     sms: { ...current.sms, ...(updates.sms || {}) },
     email: { ...current.email, ...(updates.email || {}) },
@@ -226,6 +236,7 @@ export function saveSystemSettings(updates: Partial<SystemSettings>): SystemSett
     ...current,
     ...updates,
     adminCard: { ...current.adminCard, ...(updates.adminCard || {}) },
+    limits: { ...current.limits, ...(updates.limits || {}) },
     pricing: { ...current.pricing, ...(updates.pricing || {}) },
     sms: { ...current.sms, ...(updates.sms || {}) },
     email: { ...current.email, ...(updates.email || {}) },

@@ -25,6 +25,7 @@ export const dynamic = "force-dynamic";
 interface PaymentDetails {
   authority: string;
   status: "PENDING" | "PAID" | "EXPIRED" | "MISMATCHED" | "MANUALLY_VERIFIED" | "CANCELLED";
+  transferType?: "CARD_TO_CARD" | "POL";
   remainingSeconds: number;
   originalAmountToman: number;
   offsetToman: number;
@@ -37,7 +38,11 @@ interface PaymentDetails {
     ownerName: string;
     cardNumber: string;
     accountNumber?: string;
+    iban?: string;
     bankTitle: string;
+    bankSlug?: string;
+    bankLogo?: string;
+    transferType?: "CARD_TO_CARD" | "POL";
   };
 }
 
@@ -46,6 +51,7 @@ function CheckoutContent({ authority }: { authority: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copiedCard, setCopiedCard] = useState(false);
+  const [copiedIban, setCopiedIban] = useState(false);
   const [copiedAmount, setCopiedAmount] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState<number>(600);
   const [redirectCountdown, setRedirectCountdown] = useState<number>(10);
@@ -192,11 +198,14 @@ function CheckoutContent({ authority }: { authority: string }) {
     setDetails((prev) => (prev ? { ...prev, status: "CANCELLED" } : null));
   };
 
-  const copyToClipboard = (text: string, type: "card" | "amount") => {
+  const copyToClipboard = (text: string, type: "card" | "amount" | "iban") => {
     navigator.clipboard.writeText(text);
     if (type === "card") {
       setCopiedCard(true);
       setTimeout(() => setCopiedCard(false), 2000);
+    } else if (type === "iban") {
+      setCopiedIban(true);
+      setTimeout(() => setCopiedIban(false), 2000);
     } else {
       setCopiedAmount(true);
       setTimeout(() => setCopiedAmount(false), 2000);
@@ -445,9 +454,13 @@ ${details.payableAmountRial.toLocaleString()}+
 
   // 3. Active Checkout State
   const timerPercentage = Math.max(0, Math.min(100, (secondsLeft / 600) * 100));
+  const isPol =
+    details.transferType === "POL" ||
+    details.card.transferType === "POL" ||
+    details.payableAmountToman > 15000000;
 
   // Extract clean 4-digit groups of card number
-  const cardChunks = details.card.cardNumber.replace(/[^0-9]/g, "").match(/.{1,4}/g) || [];
+  const cardChunks = details.card.cardNumber ? (details.card.cardNumber.replace(/[^0-9]/g, "").match(/.{1,4}/g) || []) : [];
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex flex-col items-center justify-center p-4 font-sans selection:bg-emerald-500 selection:text-white" dir="rtl">
@@ -471,7 +484,7 @@ ${details.payableAmountRial.toLocaleString()}+
           <div className="flex items-center gap-2 text-emerald-400 font-medium">
             <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></div>
             <Lock className="w-3.5 h-3.5" />
-            <span>درگاه مستقیم و رمزنگاری‌شده کارت‌به‌کارت</span>
+            <span>{isPol ? "درگاه انتقال لحظه‌ای سامانه پل (شبا)" : "درگاه مستقیم و رمزنگاری‌شده کارت‌به‌کارت"}</span>
           </div>
           <span className="font-mono text-slate-500 text-[11px]">{details.authority}</span>
         </div>
@@ -547,56 +560,128 @@ ${details.payableAmountRial.toLocaleString()}+
             </p>
           </div>
 
-          {/* Realistic Persian Bank Debit Card */}
-          <div className="space-y-2">
-            <span className="text-xs font-semibold text-slate-400">کارت بانکی مقصد:</span>
-
-            <div className="relative overflow-hidden bg-gradient-to-tr from-slate-950 via-slate-800 to-slate-900 border border-slate-700/90 rounded-3xl p-5 shadow-xl space-y-4 text-white">
-              <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
-
-              {/* Card Header */}
-              <div className="flex items-center justify-between relative z-10">
-                <div className="flex items-center gap-2">
-                  <div className="w-2.5 h-2.5 rounded-full bg-emerald-400"></div>
-                  <span className="text-sm font-bold tracking-wide text-slate-100">{details.card.bankTitle}</span>
-                </div>
-                <Wifi className="w-5 h-5 text-slate-400 rotate-90" />
+          {/* Destination: POL (Sheba) or Card-to-Card */}
+          {isPol ? (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-slate-400">انتقال پل به شماره شبا:</span>
+                <span className="text-[11px] bg-sky-500/15 text-sky-400 border border-sky-500/30 px-2 py-0.5 rounded-full font-medium">
+                  سامانه پل (پرداخت لحظه‌ای)
+                </span>
               </div>
 
-              {/* EMV Chip */}
-              <div className="w-11 h-8 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md border border-amber-500/60 shadow-sm flex items-center justify-center">
-                <div className="w-7 h-5 border border-amber-800/40 rounded-sm"></div>
-              </div>
+              <div className="relative overflow-hidden bg-gradient-to-tr from-slate-950 via-slate-900 to-sky-950/70 border border-sky-500/40 rounded-3xl p-5 shadow-xl space-y-4 text-white">
+                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-sky-500/10 rounded-full blur-2xl"></div>
 
-              {/* Card Number - Right Aligned with accurate Persian Digits and LTR block progression */}
-              <div className="space-y-1 relative z-10">
-                <div className="flex items-center justify-between bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3">
-                  <button
-                    onClick={() => copyToClipboard(details.card.cardNumber, "card")}
-                    className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition shrink-0"
-                    title="کپی شماره ۱۶ رقمی کارت"
-                  >
-                    {copiedCard ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
-                  </button>
-
-                  {/* Render 4 groups from left-to-right in Persian digits with right alignment */}
-                  <div dir="ltr" className="flex items-center gap-2 md:gap-3 text-base md:text-lg font-bold tracking-wider text-emerald-300 font-mono">
-                    {cardChunks.map((chunk, idx) => (
-                      <span key={idx} className="select-all">
-                        {toPersianDigits(chunk)}
-                      </span>
-                    ))}
+                {/* Header with Bank Logo and Title */}
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    {details.card.bankLogo && (
+                      <img
+                        src={details.card.bankLogo}
+                        alt={details.card.bankTitle}
+                        className="w-7 h-7 object-contain bg-white/10 rounded-full p-0.5"
+                      />
+                    )}
+                    <span className="text-sm font-bold tracking-wide text-slate-100">{details.card.bankTitle}</span>
                   </div>
+                  <span className="text-[10px] text-sky-300 font-mono bg-sky-900/60 border border-sky-500/30 px-2 py-0.5 rounded-md">
+                    سامانه پل تا ۲۰۰ میلیون
+                  </span>
                 </div>
-              </div>
 
-              {/* Card Footer: Owner Name */}
-              <div className="flex items-center justify-between text-xs text-slate-300 pt-1 relative z-10">
-                <span className="text-slate-400 text-[11px]">صاحب حساب:</span>
-                <span className="font-semibold text-slate-100">{details.card.ownerName}</span>
+                {/* Sheba (IBAN) Box */}
+                <div className="space-y-1 relative z-10">
+                  <div className="text-[11px] text-slate-400 font-medium">شماره شبا مقصد (IBAN):</div>
+                  <div className="flex items-center justify-between bg-black/50 backdrop-blur-md border border-sky-500/30 rounded-2xl px-4 py-3">
+                    <button
+                      onClick={() => copyToClipboard(details.card.iban || "", "iban")}
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition shrink-0"
+                      title="کپی شماره شبا"
+                    >
+                      {copiedIban ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+
+                    <div dir="ltr" className="text-base sm:text-lg font-mono font-bold tracking-wider text-sky-300 select-all">
+                      {details.card.iban || "IR------------------------"}
+                    </div>
+                  </div>
+                  {copiedIban && (
+                    <p className="text-[11px] text-emerald-400 font-medium pt-1 text-center animate-in fade-in duration-150">
+                      شماره شبا با موفقیت کپی گردید
+                    </p>
+                  )}
+                </div>
+
+                {/* Owner Name */}
+                <div className="flex items-center justify-between text-xs text-slate-300 pt-1 relative z-10 border-t border-slate-800/80">
+                  <span className="text-slate-400 text-[11px]">صاحب حساب:</span>
+                  <span className="font-semibold text-slate-100">{details.card.ownerName}</span>
+                </div>
+
+                {/* Instruction banner */}
+                <div className="p-3 bg-sky-950/60 border border-sky-500/30 rounded-2xl text-[11px] text-sky-200/90 leading-relaxed text-right">
+                  💡 لطفاً با همراه بانک یا اینترنت بانک خود، <strong>انتقال پل</strong> (یا پایا/شبا) را دقیقاً به مبلغ فوق به شماره شبا بالا انجام دهید.
+                </div>
               </div>
             </div>
-          </div>
+          ) : (
+            <div className="space-y-2">
+              <span className="text-xs font-semibold text-slate-400">کارت بانکی مقصد:</span>
+
+              <div className="relative overflow-hidden bg-gradient-to-tr from-slate-950 via-slate-800 to-slate-900 border border-slate-700/90 rounded-3xl p-5 shadow-xl space-y-4 text-white">
+                <div className="absolute top-0 right-0 -mr-8 -mt-8 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl"></div>
+
+                {/* Card Header */}
+                <div className="flex items-center justify-between relative z-10">
+                  <div className="flex items-center gap-2.5">
+                    {details.card.bankLogo && (
+                      <img
+                        src={details.card.bankLogo}
+                        alt={details.card.bankTitle}
+                        className="w-7 h-7 object-contain bg-white/10 rounded-full p-0.5"
+                      />
+                    )}
+                    <span className="text-sm font-bold tracking-wide text-slate-100">{details.card.bankTitle}</span>
+                  </div>
+                  <Wifi className="w-5 h-5 text-slate-400 rotate-90" />
+                </div>
+
+                {/* EMV Chip */}
+                <div className="w-11 h-8 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md border border-amber-500/60 shadow-sm flex items-center justify-center">
+                  <div className="w-7 h-5 border border-amber-800/40 rounded-sm"></div>
+                </div>
+
+                {/* Card Number */}
+                <div className="space-y-1 relative z-10">
+                  <div className="flex items-center justify-between bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3">
+                    <button
+                      onClick={() => copyToClipboard(details.card.cardNumber, "card")}
+                      className="p-1.5 text-slate-400 hover:text-white rounded-lg hover:bg-white/10 transition shrink-0"
+                      title="کپی شماره ۱۶ رقمی کارت"
+                    >
+                      {copiedCard ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+                    </button>
+
+                    {/* Render 4 groups from left-to-right in Persian digits with right alignment */}
+                    <div dir="ltr" className="flex items-center gap-2 md:gap-3 text-base md:text-lg font-bold tracking-wider text-emerald-300 font-mono">
+                      {cardChunks.map((chunk, idx) => (
+                        <span key={idx} className="select-all">
+                          {toPersianDigits(chunk)}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Card Footer: Owner Name */}
+                <div className="flex items-center justify-between text-xs text-slate-300 pt-1 relative z-10">
+                  <span className="text-slate-400 text-[11px]">صاحب حساب:</span>
+                  <span className="font-semibold text-slate-100">{details.card.ownerName}</span>
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* Live Polling Status Indicator with confirmation note */}
           <div className="bg-slate-950/60 border border-slate-800/60 rounded-2xl p-4 flex flex-col items-center justify-center gap-1.5 text-xs text-slate-400 text-center">
