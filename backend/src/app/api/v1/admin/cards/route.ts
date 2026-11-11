@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
   }
 
   const isAdmin = verifyAdminAuth(req);
-  let merchantUserId: string | null = null;
+  let authenticatedUserId: string | null = null;
 
   if (!isAdmin) {
     const authHeader =
@@ -85,11 +85,11 @@ export async function POST(req: NextRequest) {
     if (token) {
       const authUser = await db.user.findUnique({ where: { apiKey: token } });
       if (authUser && authUser.isActive) {
-        merchantUserId = authUser.id;
+        authenticatedUserId = authUser.id;
       }
     }
 
-    if (!merchantUserId) {
+    if (!authenticatedUserId) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
   }
@@ -141,7 +141,9 @@ export async function POST(req: NextRequest) {
       cleanIban = ibanValidation.formatted || null;
     }
 
-    const cleanUserId = (merchantUserId || userId) ? String(merchantUserId || userId).trim() : null;
+    const cleanUserId = (authenticatedUserId || merchantUserId || userId)
+      ? String(authenticatedUserId || merchantUserId || userId).trim()
+      : null;
 
     // If requested, safely archive user's previous active cards without deleting any history
     if (archivePrevious && cleanUserId) {
