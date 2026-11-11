@@ -12,10 +12,45 @@ export async function GET(req: NextRequest) {
 
   const whereClause = status ? { status } : {};
 
-  const senders = await db.trustedSender.findMany({
+  let senders = await db.trustedSender.findMany({
     where: whereClause,
     orderBy: { createdAt: "desc" },
   });
+
+  // Auto-seed default official bank senders if table is completely empty
+  if (senders.length === 0 && !status) {
+    try {
+      await Promise.all([
+        db.trustedSender.upsert({
+          where: { senderId: "B.QMEHRIRAN" },
+          update: {},
+          create: {
+            senderId: "B.QMEHRIRAN",
+            bankSlug: "mehr_iran",
+            description: "سرخط رسمی پیامک‌های بانک قرض‌الحسنه مهر ایران",
+            status: "APPROVED",
+          },
+        }),
+        db.trustedSender.upsert({
+          where: { senderId: "BANK MEHR" },
+          update: {},
+          create: {
+            senderId: "BANK MEHR",
+            bankSlug: "mehr_iran",
+            description: "سرشماره جایگزین بانک قرض‌الحسنه مهر ایران",
+            status: "APPROVED",
+          },
+        }),
+      ]);
+
+      senders = await db.trustedSender.findMany({
+        where: whereClause,
+        orderBy: { createdAt: "desc" },
+      });
+    } catch {
+      // Non-fatal if concurrent write occurs
+    }
+  }
 
   return NextResponse.json({ success: true, data: senders });
 }
