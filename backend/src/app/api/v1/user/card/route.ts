@@ -5,7 +5,24 @@ import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } fro
 // POST /api/v1/user/card - Register or update card for logged in user
 export async function POST(req: NextRequest) {
   try {
-    const userId = req.cookies.get("honarhub_user_id")?.value;
+    let userId = req.cookies.get("honarhub_user_id")?.value;
+    if (!userId) {
+      const authHeader =
+        req.headers.get("x-api-key") ||
+        req.headers.get("x-admin-key") ||
+        req.headers.get("authorization");
+      const token = authHeader?.startsWith("Bearer ")
+        ? authHeader.replace("Bearer ", "").trim()
+        : authHeader?.trim();
+
+      if (token) {
+        const authUser = await db.user.findUnique({ where: { apiKey: token } });
+        if (authUser && authUser.isActive) {
+          userId = authUser.id;
+        }
+      }
+    }
+
     if (!userId) {
       return NextResponse.json({ success: false, error: "وارد نشده‌اید" }, { status: 401 });
     }

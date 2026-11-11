@@ -84,6 +84,20 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Determine caller API key early
+    const authHeader =
+      req.headers.get("x-api-key") ||
+      req.headers.get("x-admin-key") ||
+      req.headers.get("authorization");
+    const rawApiKey = authHeader?.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "").trim()
+      : authHeader?.trim();
+
+    let authUser: any = null;
+    if (rawApiKey) {
+      authUser = await db.user.findUnique({ where: { apiKey: rawApiKey } });
+    }
+
     // Determine target card: Supports cardId/cartId, cardNumber/cartNumber, bankSlug, or auto-select default
     let targetCard = null;
     if (targetCardId) {
@@ -126,6 +140,31 @@ export async function POST(req: NextRequest) {
         return NextResponse.json(
           { success: false, error: `No active card found for bank slug: ${targetBankSlug}` },
           { status: 404 }
+        );
+      }
+    } else if (authUser) {
+      // If merchant sent request without specifying card, select THEIR active card first!
+      targetCard = await db.bankCard.findFirst({
+        where: {
+          OR: [
+            { userId: authUser.id },
+            { merchantUserId: authUser.id }
+          ],
+          isActive: true,
+          isArchived: false,
+          isFrozen: false,
+        },
+        orderBy: { createdAt: "desc" },
+      });
+
+      if (!targetCard) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "NO_ACTIVE_CARD_FOR_USER",
+            message: "هنوز کارت بانکی فعالی برای حساب کاربری شما ثبت نشده است. لطفاً ابتدا از طریق وب‌سرویس یا پنل کاربری، شماره کارت خود را ثبت فرمایید.",
+          },
+          { status: 400 }
         );
       }
     } else {
@@ -235,18 +274,11 @@ export async function POST(req: NextRequest) {
     const authority = `CPAY_${timestampPart}_${randomSuffix}`;
     const internalTrackingCode = generateInternalTrackingCode();
 
-    const apiKey = req.headers.get("x-api-key");
-    let apiKeyUserId = null;
-    if (apiKey) {
-      const authUser = await db.user.findUnique({ where: { apiKey } });
-      if (authUser) apiKeyUserId = authUser.id;
-    }
-
     const transaction = await db.transaction.create({
       data: {
         authority,
         internalTrackingCode,
-        userId: targetCard.userId || apiKeyUserId || null,
+        userId: targetCard.userId || authUser?.id || null,
         cardId: targetCard.id,
         originalAmountToman: resolved.originalAmountToman,
         offsetToman: resolved.offsetToman,

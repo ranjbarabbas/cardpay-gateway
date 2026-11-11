@@ -5,14 +5,36 @@ import { isSandboxRequest } from "@/lib/sandbox";
 import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
 
 export async function GET(req: NextRequest) {
-  if (!verifyAdminAuth(req)) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const isAdmin = verifyAdminAuth(req);
+  let merchantUserId: string | null = null;
+
+  if (!isAdmin) {
+    const authHeader =
+      req.headers.get("x-admin-key") ||
+      req.headers.get("x-api-key") ||
+      req.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "").trim()
+      : authHeader?.trim();
+
+    if (token) {
+      const authUser = await db.user.findUnique({ where: { apiKey: token } });
+      if (authUser && authUser.isActive) {
+        merchantUserId = authUser.id;
+      }
+    }
+
+    if (!merchantUserId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
   const where: any = {};
-  if (userId) {
+  if (merchantUserId) {
+    where.userId = merchantUserId;
+  } else if (userId) {
     where.userId = userId;
   }
 
@@ -48,8 +70,28 @@ export async function POST(req: NextRequest) {
     });
   }
 
-  if (!verifyAdminAuth(req)) {
-    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  const isAdmin = verifyAdminAuth(req);
+  let merchantUserId: string | null = null;
+
+  if (!isAdmin) {
+    const authHeader =
+      req.headers.get("x-admin-key") ||
+      req.headers.get("x-api-key") ||
+      req.headers.get("authorization");
+    const token = authHeader?.startsWith("Bearer ")
+      ? authHeader.replace("Bearer ", "").trim()
+      : authHeader?.trim();
+
+    if (token) {
+      const authUser = await db.user.findUnique({ where: { apiKey: token } });
+      if (authUser && authUser.isActive) {
+        merchantUserId = authUser.id;
+      }
+    }
+
+    if (!merchantUserId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
   }
 
   try {
