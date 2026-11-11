@@ -4,20 +4,18 @@ RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/
 WORKDIR /app
 
 # -------------------------------------------------------------
-# Stage 1: Dependencies
+# Stage 1: Dependencies (Fully cached across commits)
 # -------------------------------------------------------------
 FROM base AS deps
 WORKDIR /app
 
 ENV NODE_ENV=development
 
-# Universal context handler: works whether build context is repo root or /backend
-COPY . .
-RUN if [ -f "./backend/package.json" ]; then \
-      cp ./backend/package*.json ./ && \
-      if [ -d "./backend/prisma" ]; then cp -r ./backend/prisma ./; fi; \
-    fi && \
-    npm ci --include=dev --no-audit --no-fund --prefer-offline || \
+# Only copy dependency files so Docker reuses cache unless dependencies change
+COPY package*.json ./
+COPY prisma ./prisma/
+
+RUN npm ci --include=dev --no-audit --no-fund --prefer-offline || \
     npm install --include=dev --no-audit --no-fund
 
 # -------------------------------------------------------------
