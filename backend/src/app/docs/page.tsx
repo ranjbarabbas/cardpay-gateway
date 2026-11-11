@@ -340,7 +340,7 @@ const ENDPOINTS: EndpointDoc[] = [
       "اندپوینت دریافت مستقیم پیامک بانکی از اپلیکیشن همراه اندروید (CardPay Sync). این اندپوینت متن پیامک را توسط پارسر هوشمند تجزیه کرده و در صورت وجود سرشماره تاییدشده، تراکنش متناظر را خودکار تسویه می‌کند.",
     auth: "Device API Key (Header: x-device-key)",
     headers: [
-      { key: "x-device-key", value: "dev_sec_99182345", desc: "کلید اختصاصی دستگاه ثبت‌شده" },
+      { key: "x-device-key", value: "hp_sync_live_99182345", desc: "کلید اختصاصی همگام‌ساز اندروید" },
       { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
     ],
     params: [
@@ -453,7 +453,7 @@ export default function DocsPage() {
       const effectiveKey = customKey || "hp_sandbox_test_key_2026";
 
       if (selectedEndpoint.id === "sms-receive") {
-        const devKey = customKey || "dev_sandbox_device_key_2026";
+        const devKey = customKey || "hp_sandbox_sync_key_2026";
         headersObj["x-device-key"] = devKey;
         headersObj["Authorization"] = `Bearer ${devKey}`;
       } else {

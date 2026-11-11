@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 import {
   expireOverduePendingTransactions,
@@ -17,7 +18,7 @@ import {
 async function buildUserAuthResponse(user: any, message: string = "ورود موفقیت‌آمیز بود.") {
   let userDevices = user.devices || [];
   if (userDevices.length === 0) {
-    const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36).substring(4)}`;
+    const deviceApiKey = `hp_sync_${crypto.randomBytes(16).toString("hex")}`;
     const newDevice = await db.device.create({
       data: {
         name: `گوشی همراه ${user.name || "کاربر"}`,
@@ -409,7 +410,7 @@ export async function GET(req: NextRequest) {
     // Automatically provision companion device if user has none
     let userDevices = user.devices || [];
     if (userDevices.length === 0) {
-      const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}_${Date.now().toString(36).substring(4)}`;
+      const deviceApiKey = `hp_sync_${crypto.randomBytes(16).toString("hex")}`;
       const newDevice = await db.device.create({
         data: {
           name: `گوشی همراه ${user.name || "کاربر"}`,

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import crypto from "crypto";
 import { db } from "@/lib/db";
 
 // POST /api/v1/user/device - Setup or get companion device for user
@@ -25,7 +26,7 @@ export async function POST(req: NextRequest) {
     let device = user.devices[0];
 
     if (!device) {
-      const deviceApiKey = `dev_sec_${Math.random().toString(36).substring(2, 10)}`;
+      const deviceApiKey = `hp_sync_${crypto.randomBytes(16).toString("hex")}`;
       device = await db.device.create({
         data: {
           name: deviceName,

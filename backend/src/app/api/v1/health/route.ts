@@ -5,7 +5,21 @@ import { APP_VERSION } from "@/lib/version";
 
 export const dynamic = "force-dynamic";
 
+// In-memory cache with 30-second TTL to prevent any performance impact on database
+let cachedHealthResult: any = null;
+let lastCheckTimestamp = 0;
+const HEALTH_CACHE_TTL_MS = 30000; // 30 seconds
+
 export async function GET(req: NextRequest) {
+  const forceRefresh = req.nextUrl.searchParams.get("fresh") === "true";
+  const now = Date.now();
+
+  if (!forceRefresh && cachedHealthResult && now - lastCheckTimestamp < HEALTH_CACHE_TTL_MS) {
+    return NextResponse.json(cachedHealthResult, {
+      status: cachedHealthResult.status === "healthy" ? 200 : 503,
+    });
+  }
+
   const settings = getSystemSettings();
   let dbStatus: {
     connected: boolean;
@@ -32,30 +46,31 @@ export async function GET(req: NextRequest) {
 
   const farazKey = (settings.sms.apiKey || "").trim();
   const resendKey = (settings.email.apiKey || "").trim();
-
   const isHealthy = dbStatus.connected;
 
-  return NextResponse.json(
-    {
-      status: isHealthy ? "healthy" : "degraded",
-      timestamp: new Date().toISOString(),
-      version: APP_VERSION,
-      database: dbStatus,
-      services: {
-        sms: {
-          provider: "farazsms",
-          enabled: Boolean(settings.sms.enabled),
-          isConfigured: Boolean(farazKey && !farazKey.includes("demo") && farazKey !== "your-faraz-sms-api-key"),
-        },
-        email: {
-          provider: "resend",
-          enabled: Boolean(settings.email.enabled),
-          isConfigured: Boolean(resendKey && resendKey.startsWith("re_") && !resendKey.includes("demo")),
-        },
+  const result = {
+    status: isHealthy ? "healthy" : "degraded",
+    timestamp: new Date().toISOString(),
+    version: APP_VERSION,
+    database: dbStatus,
+    services: {
+      sms: {
+        provider: "farazsms",
+        enabled: Boolean(settings.sms.enabled),
+        isConfigured: Boolean(farazKey && !farazKey.includes("demo") && farazKey !== "your-faraz-sms-api-key"),
+      },
+      email: {
+        provider: "resend",
+        enabled: Boolean(settings.email.enabled),
+        isConfigured: Boolean(resendKey && resendKey.startsWith("re_") && !resendKey.includes("demo")),
       },
     },
-    {
-      status: isHealthy ? 200 : 503,
-    }
-  );
+  };
+
+  cachedHealthResult = result;
+  lastCheckTimestamp = now;
+
+  return NextResponse.json(result, {
+    status: isHealthy ? 200 : 503,
+  });
 }

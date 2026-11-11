@@ -30,18 +30,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    const effectiveDeviceKey = (authHeader?.replace("Bearer ", "") || deviceHeader || "").trim();
+
+    if (!effectiveDeviceKey) {
       return NextResponse.json(
-        { success: false, error: "Missing or invalid Authorization header" },
+        { success: false, error: "Missing or invalid device key (Bearer token or x-device-key required)" },
         { status: 401 }
       );
     }
 
-    const deviceApiKey = authHeader.replace("Bearer ", "").trim();
-
     // Verify Device
     const device = await db.device.findUnique({
-      where: { apiKey: deviceApiKey },
+      where: { apiKey: effectiveDeviceKey },
     });
 
     if (!device || !device.isActive) {

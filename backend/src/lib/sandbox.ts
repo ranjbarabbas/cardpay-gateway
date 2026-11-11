@@ -1,7 +1,7 @@
 import { NextRequest } from "next/server";
 
 export const SANDBOX_API_KEY = "hp_sandbox_test_key_2026";
-export const SANDBOX_DEVICE_KEY = "dev_sandbox_device_key_2026";
+export const SANDBOX_DEVICE_KEY = "hp_sandbox_sync_key_2026";
 
 /**
  * Checks if a given key is a designated sandbox API key
@@ -12,6 +12,7 @@ export function isSandboxKey(key?: string | null): boolean {
   return (
     clean === SANDBOX_API_KEY ||
     clean === SANDBOX_DEVICE_KEY ||
+    clean === "dev_sandbox_device_key_2026" ||
     clean === "cp_sec_art_hub_2026_sandbox" ||
     clean.startsWith("hp_sandbox_") ||
     clean.startsWith("sandbox_") ||

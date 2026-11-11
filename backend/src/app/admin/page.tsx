@@ -82,7 +82,7 @@ export default function AdminDashboard() {
   const [senderSubTab, setSenderSubTab] = useState<"approved" | "blocked" | "pending">("approved");
   const [cardSubTab, setCardSubTab] = useState<"active" | "archived">("active");
   const [txSubTab, setTxSubTab] = useState<"transactions" | "sms_logs" | "tickets">("transactions");
-  const [settingsSubTab, setSettingsSubTab] = useState<"admin_card" | "sms" | "email" | "leads">("admin_card");
+  const [settingsSubTab, setSettingsSubTab] = useState<"admin_card" | "sms" | "email">("admin_card");
 
   // Filtering & Pagination
   const [userSearch, setUserSearch] = useState("");
@@ -236,11 +236,10 @@ export default function AdminDashboard() {
       }
 
       // Load overview / core collections in parallel
-      const [cRes, dRes, uRes, lRes, txRes, sRes] = await Promise.all([
+      const [cRes, dRes, uRes, txRes, sRes] = await Promise.all([
         fetch("/api/v1/admin/cards", { headers }).catch(() => null),
         fetch("/api/v1/admin/devices", { headers }).catch(() => null),
         fetch("/api/v1/admin/users", { headers }).catch(() => null),
-        fetch("/api/v1/leads", { headers }).catch(() => null),
         fetch("/api/v1/admin/transactions?type=transactions", { headers }).catch(() => null),
         fetch("/api/v1/admin/settings", { headers }).catch(() => null),
       ]);
@@ -268,10 +267,6 @@ export default function AdminDashboard() {
       if (uRes?.ok) {
         const uData = await uRes.json();
         if (uData.success) setUsers(uData.data);
-      }
-      if (lRes?.ok) {
-        const lData = await lRes.json();
-        if (lData.success) setLeads(lData.data);
       }
       if (txRes?.ok) {
         const txData = await txRes.json();
@@ -876,15 +871,14 @@ export default function AdminDashboard() {
       <header className="border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 md:px-8 py-3.5 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <Link href="/" className="flex items-center gap-2 group">
+            <Link href="/" className="flex items-center gap-3 group">
               <img
                 src="/images/honarhub_pay_logo.png"
                 alt={APP_NAME}
                 className="h-9 w-auto object-contain group-hover:scale-105 transition-transform"
               />
-              <div>
+              <div className="flex flex-col">
                 <div className="flex items-center gap-2">
-                  <span className="font-black text-white text-base tracking-tight">{APP_NAME}</span>
                   <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-full font-mono">
                     نسخه وب v{WEB_APP_VERSION}
                   </span>
@@ -909,20 +903,6 @@ export default function AdminDashboard() {
                 <span>{dbHealth.connected ? `دیتابیس: متصل (${dbHealth.latencyMs ?? "<5"}ms)` : "دیتابیس: قطع!"}</span>
               </div>
             )}
-
-            {/* Merchant Live API Key Indicator */}
-            <div className="hidden lg:flex items-center gap-2 bg-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 text-xs">
-              <Key className="w-3.5 h-3.5 text-emerald-400" />
-              <span className="text-[11px] text-slate-400">کلید وب‌سرویس پذیرنده:</span>
-              <code className="text-emerald-400 font-mono text-[11px]">cp_sec_art_hub_2026_live</code>
-              <button
-                onClick={() => copyToClipboard("cp_sec_art_hub_2026_live", "top_key")}
-                className="text-slate-400 hover:text-white"
-                title="کپی کلید API"
-              >
-                {copiedKey === "top_key" ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
-              </button>
-            </div>
 
             <Link
               href="/docs"
@@ -951,13 +931,17 @@ export default function AdminDashboard() {
               <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-emerald-400" : ""}`} />
             </button>
 
+            {/* Separator before Logout */}
+            <div className="h-6 w-px bg-slate-800 hidden sm:block mx-1" />
+
+            {/* Dedicated Logout Button (Positioned at far left) */}
             <button
               onClick={handleAdminLogout}
-              className="flex items-center gap-1 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 text-xs font-bold px-3 py-2 rounded-xl transition"
-              title="خروج از پنل مدیریت"
+              className="flex items-center gap-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-300 hover:text-white border border-rose-500/30 text-xs font-bold px-3.5 py-2 rounded-xl transition shadow-sm"
+              title="خروج امن از پنل مدیریت"
             >
-              <LogOut className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">خروج</span>
+              <LogOut className="w-3.5 h-3.5 text-rose-400" />
+              <span>خروج</span>
             </button>
           </div>
         </div>
@@ -1010,7 +994,7 @@ export default function AdminDashboard() {
             { id: "devices", label: "دستگاه‌های اندروید", icon: Smartphone, count: devices.length },
             { id: "senders", label: "سرشماره‌های بانکی", icon: ShieldCheck, count: pendingSenders.length, alert: pendingSenders.length > 0 },
             { id: "transactions", label: "تراکنش‌ها و مغایرت", icon: Receipt, count: transactions.length },
-            { id: "settings", label: "تنظیمات پیامک و ایمیل", icon: Settings, count: leads.length, highlight: leads.length > 0 },
+            { id: "settings", label: "تنظیمات پیامک و ایمیل", icon: Settings },
             { id: "sandbox", label: "شبیه‌ساز و لابراتوار", icon: FlaskConical },
           ].map((tab) => {
             const Icon = tab.icon;
@@ -1024,8 +1008,6 @@ export default function AdminDashboard() {
                     ? "bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-lg shadow-emerald-600/30 font-black"
                     : tab.alert
                     ? "bg-amber-950/40 text-amber-300 border border-amber-500/30 hover:bg-amber-900/40 animate-pulse"
-                    : tab.highlight
-                    ? "bg-teal-950/40 text-teal-300 border border-teal-500/30 hover:bg-teal-900/40"
                     : "text-slate-400 hover:text-white hover:bg-slate-800/60"
                 }`}
               >
@@ -1115,106 +1097,70 @@ export default function AdminDashboard() {
             </div>
 
             {/* Quick Actions & Gateway Status */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Zap className="w-4 h-4 text-emerald-400" />
-                    <span>وضعیت زنده هسته درگاه و ارائه‌دهندگان</span>
-                  </h3>
-                  <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-bold">
-                    سیستم کاملاً پایدار (Online)
-                  </span>
+            <div className="w-full bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Zap className="w-4 h-4 text-emerald-400" />
+                  <span>وضعیت زنده هسته درگاه و ارائه‌دهندگان</span>
+                </h3>
+                <span className="text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2.5 py-1 rounded-full font-bold">
+                  سیستم کاملاً پایدار (Online)
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white">سامانه پیامک (فراز اس‌ام‌اس):</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      systemSettings?.sms?.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-400"
+                    }`}>
+                      {systemSettings?.sms?.enabled ? "فعال و متصل" : "غیرفعال"}
+                    </span>
+                  </div>
+                  <p className="text-slate-400 text-[11px]">
+                    سرشماره ارسال: <span className="font-mono text-slate-200">{systemSettings?.sms?.senderNumber || "+983000505"}</span>
+                  </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
-                  <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white">سامانه پیامک (فراز اس‌ام‌اس):</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        systemSettings?.sms?.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-400"
-                      }`}>
-                        {systemSettings?.sms?.enabled ? "فعال و متصل" : "غیرفعال"}
-                      </span>
-                    </div>
-                    <p className="text-slate-400 text-[11px]">
-                      سرشماره ارسال: <span className="font-mono text-slate-200">{systemSettings?.sms?.senderNumber || "+983000505"}</span>
-                    </p>
+                <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-white">وب‌سرویس ایمیل (Resend):</span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      systemSettings?.email?.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-400"
+                    }`}>
+                      {systemSettings?.email?.enabled ? "فعال و آماده" : "غیرفعال"}
+                    </span>
                   </div>
-
-                  <div className="bg-slate-900/80 border border-slate-800/80 rounded-2xl p-4 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-white">وب‌سرویس ایمیل (Resend):</span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        systemSettings?.email?.enabled ? "bg-emerald-500/20 text-emerald-400" : "bg-slate-800 text-slate-400"
-                      }`}>
-                        {systemSettings?.email?.enabled ? "فعال و آماده" : "غیرفعال"}
-                      </span>
-                    </div>
-                    <p className="text-slate-400 text-[11px]">
-                      فرستنده: <span className="font-mono text-slate-200">{systemSettings?.email?.fromEmail || "notifications@honarhub.com"}</span>
-                    </p>
-                  </div>
-                </div>
-
-                {/* Direct Shortcut Buttons */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <button
-                    onClick={() => setActiveTab("users")}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
-                  >
-                    <Users className="w-3.5 h-3.5 text-emerald-400" />
-                    <span>مدیریت کاربران ({toPersianDigits(users.length)})</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("settings")}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
-                  >
-                    <Settings className="w-3.5 h-3.5 text-teal-400" />
-                    <span>تنظیمات ارائه‌دهندگان پیامک و ایمیل</span>
-                  </button>
-                  <button
-                    onClick={() => setActiveTab("sandbox")}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
-                  >
-                    <FlaskConical className="w-3.5 h-3.5 text-amber-400" />
-                    <span>آزمایشگاه تست و شبیه‌ساز</span>
-                  </button>
+                  <p className="text-slate-400 text-[11px]">
+                    فرستنده: <span className="font-mono text-slate-200">{systemSettings?.email?.fromEmail || "notifications@honarhub.com"}</span>
+                  </p>
                 </div>
               </div>
 
-              {/* VIP Leads Quick View */}
-              <div className="bg-[#0F172A]/90 border border-slate-800 rounded-3xl p-6 space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-base font-bold text-white flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-amber-400" />
-                    <span>درخواست‌های تماس VIP</span>
-                  </h3>
-                  <span className="text-xs text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full font-bold">
-                    {toPersianDigits(leads.length)} لید
-                  </span>
-                </div>
-
-                {leads.length === 0 ? (
-                  <p className="text-xs text-slate-500 py-6 text-center">درخواست تماس جدیدی ثبت نشده است.</p>
-                ) : (
-                  <div className="space-y-2.5 max-h-60 overflow-y-auto pr-1">
-                    {leads.slice(0, 5).map((lead) => (
-                      <div key={lead.id} className="bg-slate-900 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
-                        <div className="flex items-center justify-between font-bold text-white">
-                          <span>{lead.name || "مشتری VIP"}</span>
-                          <a href={`tel:${lead.phone}`} className="text-emerald-400 font-mono hover:underline">
-                            {lead.phone}
-                          </a>
-                        </div>
-                        <div className="text-[10px] text-slate-400 flex items-center justify-between">
-                          <span>{lead.status === "PENDING" ? "در انتظار تماس" : lead.status}</span>
-                          <span>{new Date(lead.createdAt).toLocaleDateString("fa-IR")}</span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              {/* Direct Shortcut Buttons */}
+              <div className="flex flex-wrap items-center gap-3 pt-2">
+                <button
+                  onClick={() => setActiveTab("users")}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
+                >
+                  <Users className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>مدیریت کاربران ({toPersianDigits(users.length)})</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("settings")}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
+                >
+                  <Settings className="w-3.5 h-3.5 text-teal-400" />
+                  <span>تنظیمات ارائه‌دهندگان پیامک و ایمیل</span>
+                </button>
+                <button
+                  onClick={() => setActiveTab("sandbox")}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-white rounded-xl text-xs font-bold transition"
+                >
+                  <FlaskConical className="w-3.5 h-3.5 text-amber-400" />
+                  <span>آزمایشگاه تست و شبیه‌ساز</span>
+                </button>
               </div>
             </div>
           </div>
@@ -2260,17 +2206,6 @@ export default function AdminDashboard() {
                   <Mail className="w-4 h-4" />
                   <span>سرویس ایمیل: Resend</span>
                 </button>
-                <button
-                  onClick={() => setSettingsSubTab("leads")}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition ${
-                    settingsSubTab === "leads"
-                      ? "bg-amber-600 text-white shadow"
-                      : "bg-slate-900 text-slate-400 hover:text-white"
-                  }`}
-                >
-                  <Sparkles className="w-4 h-4" />
-                  <span>لیدهای ارتقای پلن ({toPersianDigits(leads.length)})</span>
-                </button>
               </div>
 
               {/* SUBTAB 0: ADMIN CARD & PRICING */}
@@ -2889,47 +2824,6 @@ export default function AdminDashboard() {
                       )}
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* SUBTAB 3: LEADS */}
-              {settingsSubTab === "leads" && (
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-white text-sm">درخواست‌های تماس پلن نامحدود ثبت‌شده از سایت</span>
-                    <span className="text-xs text-amber-400 font-bold bg-amber-500/10 px-3 py-1 rounded-full">
-                      {toPersianDigits(leads.length)} درخواست
-                    </span>
-                  </div>
-
-                  {leads.length === 0 ? (
-                    <div className="border border-dashed border-slate-800 rounded-2xl p-8 text-center text-xs text-slate-500">
-                      هنوز درخواست تماسی ثبت نشده است.
-                    </div>
-                  ) : (
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {leads.map((lead) => (
-                        <div key={lead.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="font-mono text-base font-bold text-emerald-400">{lead.phone}</span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30">
-                              {lead.status === "PENDING" ? "در انتظار تماس" : lead.status}
-                            </span>
-                          </div>
-                          <div className="text-xs text-slate-300">
-                            <span>نام / عنوان: </span>
-                            <span className="font-bold text-white">{lead.name || "مشخص نشده"}</span>
-                          </div>
-                          <div className="flex items-center justify-between text-[11px] text-slate-500 pt-2 border-t border-slate-800">
-                            <span>{new Date(lead.createdAt).toLocaleDateString("fa-IR")}</span>
-                            <a href={`tel:${lead.phone}`} className="text-teal-400 hover:text-teal-300 font-bold">
-                              تماس فوری با مشتری
-                            </a>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

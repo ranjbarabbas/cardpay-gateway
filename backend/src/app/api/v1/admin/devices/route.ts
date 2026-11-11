@@ -44,8 +44,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate secure random API key for the Android device
-    const apiKey = `dev_${crypto.randomBytes(24).toString("hex")}`;
+    // Generate secure operational sync key for the Android companion app
+    const apiKey = `hp_sync_${crypto.randomBytes(24).toString("hex")}`;
 
     const device = await db.device.create({
       data: {
