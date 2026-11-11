@@ -1,6 +1,4 @@
 FROM node:20-slim AS base
-
-RUN apt-get update && apt-get install -y openssl ca-certificates && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 
 # -------------------------------------------------------------
@@ -15,8 +13,10 @@ ENV NODE_ENV=development
 COPY package*.json ./
 COPY prisma ./prisma/
 
-RUN npm ci --include=dev --no-audit --no-fund --prefer-offline || \
-    npm install --include=dev --no-audit --no-fund
+RUN npm config set fetch-retries 3 && \
+    npm config set fetch-retry-maxtimeout 30000 && \
+    (npm ci --include=dev --no-audit --no-fund --prefer-offline || \
+     (npm config set registry https://registry.npmmirror.com && npm install --include=dev --no-audit --no-fund))
 
 # -------------------------------------------------------------
 # Stage 2: Builder
