@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, formatFriendlyDbError } from "@/lib/db";
 import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
+import { getPlanLimits } from "@/lib/services/plan-expiration.service";
 
 // POST /api/v1/user/card - Register or update card for logged in user
 export async function POST(req: NextRequest) {
@@ -29,7 +30,6 @@ export async function POST(req: NextRequest) {
 
     const user = await db.user.findUnique({
       where: { id: userId },
-      include: { cards: { where: { isArchived: false } } },
     });
 
     if (!user) {
@@ -73,39 +73,61 @@ export async function POST(req: NextRequest) {
       cleanIban = ibanValidation.formatted || null;
     }
 
-    const isExistingUserCard = user.cards.some((c) => c.cardNumber === cleanCard);
+    // Fetch all active unarchived cards bound to this user (by userId OR merchantUserId)
+    const existingActiveCards = await db.bankCard.findMany({
+      where: {
+        OR: [
+          { userId: user.id },
+          { merchantUserId: user.id },
+        ],
+        isArchived: false,
+      },
+    });
+
+    const isExistingUserCard = existingActiveCards.some((c) => c.cardNumber === cleanCard);
 
     // Plan Card Quotas:
     // FREE: max 1 active card
     // PRO: max 5 active cards
-    // SPECIAL: unlimited
+    // SPECIAL: unlimited (999)
+    const userPlan = (user.plan || "FREE").toUpperCase().trim();
+    const planLimits = getPlanLimits(userPlan);
+    const maxAllowedCards = planLimits.maxCards;
+
     if (!isExistingUserCard) {
-      if (user.plan === "FREE" && user.cards.length >= 1) {
+      if (existingActiveCards.length >= maxAllowedCards) {
         if (!replace) {
+          const planTitle = planLimits.title;
+          const upgradeSuggestion =
+            userPlan === "FREE"
+              ? "در پلن پایه (رایگان) تنها مجاز به ثبت ۱ کارت فعال هستید. برای تعریف همزمان تا ۵ کارت بانکی به «پلن حرفه‌ای» و برای کارت‌های نامحدود به «پلن ویژه» ارتقا دهید."
+              : `در ${planTitle} حداکثر مجاز به ثبت ${maxAllowedCards} کارت فعال هستید. برای افزودن کارت‌های نامحدود، لطفاً به «پلن ویژه» ارتقا دهید.`;
+
           return NextResponse.json(
             {
               success: false,
               error: "PLAN_UPGRADE_REQUIRED",
-              message: "در پلن رایگان تنها مجاز به ثبت ۱ کارت فعال هستید. برای تعریف همزمان تا ۵ کارت بانکی به «پلن حرفه‌ای» و برای کارت‌های نامحدود به «پلن ویژه» ارتقا دهید.",
+              message: `سقف کارت‌های فعال شما در ${planTitle} (${maxAllowedCards} کارت) تکمیل شده است. ${upgradeSuggestion}`,
+              currentCount: existingActiveCards.length,
+              maxAllowed: maxAllowedCards,
+              plan: userPlan,
             },
             { status: 403 }
           );
         } else {
           // If explicitly replacing, archive previous cards safely
           await db.bankCard.updateMany({
-            where: { userId: user.id, isArchived: false },
+            where: {
+              OR: [
+                { userId: user.id },
+                { merchantUserId: user.id },
+              ],
+              cardNumber: { not: cleanCard },
+              isArchived: false,
+            },
             data: { isArchived: true, isActive: false, archivedAt: new Date() },
           });
         }
-      } else if (user.plan === "PRO" && user.cards.length >= 5) {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "PLAN_UPGRADE_REQUIRED",
-            message: "در پلن حرفه‌ای حداکثر مجاز به ثبت ۵ کارت فعال هستید. برای افزودن کارت‌های نامحدود، لطفاً به «پلن ویژه» ارتقا دهید.",
-          },
-          { status: 403 }
-        );
       }
     }
 
@@ -119,8 +141,10 @@ export async function POST(req: NextRequest) {
         bankTitle: resolvedBankTitle,
         bankSlug: resolvedBankSlug,
         userId: user.id,
+        merchantUserId: user.id,
         isArchived: false,
         isActive: true,
+        archivedAt: null,
       },
       create: {
         ownerName,
@@ -130,7 +154,9 @@ export async function POST(req: NextRequest) {
         bankTitle: resolvedBankTitle,
         bankSlug: resolvedBankSlug,
         userId: user.id,
+        merchantUserId: user.id,
         isActive: true,
+        isArchived: false,
       },
     });
 

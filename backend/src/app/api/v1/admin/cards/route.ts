@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
 import { isSandboxRequest } from "@/lib/sandbox";
 import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
+import { getPlanLimits } from "@/lib/services/plan-expiration.service";
 
 export async function GET(req: NextRequest) {
   const isAdmin = verifyAdminAuth(req);
@@ -72,6 +73,7 @@ export async function POST(req: NextRequest) {
 
   const isAdmin = verifyAdminAuth(req);
   let authenticatedUserId: string | null = null;
+  let authenticatedUser: any = null;
 
   if (!isAdmin) {
     const authHeader =
@@ -86,6 +88,7 @@ export async function POST(req: NextRequest) {
       const authUser = await db.user.findUnique({ where: { apiKey: token } });
       if (authUser && authUser.isActive) {
         authenticatedUserId = authUser.id;
+        authenticatedUser = authUser;
       }
     }
 
@@ -141,15 +144,85 @@ export async function POST(req: NextRequest) {
       cleanIban = ibanValidation.formatted || null;
     }
 
-    const cleanUserId = (authenticatedUserId || merchantUserId || userId)
-      ? String(authenticatedUserId || merchantUserId || userId).trim()
-      : null;
+    // For non-admin merchants, ensure they can only bind cards to their own user ID
+    const cleanUserId = (!isAdmin && authenticatedUserId)
+      ? authenticatedUserId
+      : (authenticatedUserId || merchantUserId || userId
+        ? String(authenticatedUserId || merchantUserId || userId).trim()
+        : null);
 
-    // If requested, safely archive user's previous active cards without deleting any history
+    // -------------------------------------------------------------
+    // Plan Card Quotas Enforcement (FREE: 1, PRO: 5, SPECIAL: unlimited)
+    // -------------------------------------------------------------
+    if (cleanUserId) {
+      const targetUser = authenticatedUser || (await db.user.findUnique({ where: { id: cleanUserId } }));
+      if (targetUser && !isAdmin) {
+        const userPlan = (targetUser.plan || "FREE").toUpperCase().trim();
+        const planLimits = getPlanLimits(userPlan);
+        const maxAllowedCards = planLimits.maxCards;
+
+        // Query all existing active cards for this user
+        const existingActiveCards = await db.bankCard.findMany({
+          where: {
+            OR: [
+              { userId: cleanUserId },
+              { merchantUserId: cleanUserId },
+            ],
+            isArchived: false,
+          },
+        });
+
+        const isUpdatingExistingCard = existingActiveCards.some((c) => c.cardNumber === cleanCard);
+
+        if (!isUpdatingExistingCard && existingActiveCards.length >= maxAllowedCards) {
+          if (!archivePrevious) {
+            const planTitle = planLimits.title;
+            const upgradeSuggestion =
+              userPlan === "FREE"
+                ? "در پلن پایه (رایگان) تنها مجاز به ثبت ۱ کارت فعال هستید. برای تعریف همزمان تا ۵ کارت بانکی به «پلن حرفه‌ای» و برای کارت‌های نامحدود به «پلن ویژه» ارتقا دهید."
+                : `در ${planTitle} حداکثر مجاز به ثبت ${maxAllowedCards} کارت فعال هستید. برای افزودن کارت‌های نامحدود، لطفاً به «پلن ویژه» ارتقا دهید.`;
+
+            return NextResponse.json(
+              {
+                success: false,
+                error: "PLAN_UPGRADE_REQUIRED",
+                message: `سقف کارت‌های فعال شما در ${planTitle} (${maxAllowedCards} کارت) تکمیل شده است. ${upgradeSuggestion}`,
+                currentCount: existingActiveCards.length,
+                maxAllowed: maxAllowedCards,
+                plan: userPlan,
+              },
+              { status: 403 }
+            );
+          } else {
+            // Archive previous cards to make room for new card
+            await db.bankCard.updateMany({
+              where: {
+                OR: [
+                  { userId: cleanUserId },
+                  { merchantUserId: cleanUserId },
+                ],
+                cardNumber: { not: cleanCard },
+                isArchived: false,
+              },
+              data: {
+                isArchived: true,
+                isActive: false,
+                archivedAt: new Date(),
+              },
+            });
+          }
+        }
+      }
+    }
+
+    // If requested explicitly, safely archive previous active cards
     if (archivePrevious && cleanUserId) {
       await db.bankCard.updateMany({
         where: {
-          merchantUserId: cleanUserId,
+          OR: [
+            { userId: cleanUserId },
+            { merchantUserId: cleanUserId },
+          ],
           cardNumber: { not: cleanCard },
           isArchived: false,
         },

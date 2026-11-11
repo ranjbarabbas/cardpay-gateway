@@ -8,8 +8,9 @@ export interface PlanLimits {
   title: string;
 }
 
-export function getPlanLimits(plan: string): PlanLimits {
-  switch (plan) {
+export function getPlanLimits(plan?: string | null): PlanLimits {
+  const normalized = (plan || "FREE").toUpperCase().trim();
+  switch (normalized) {
     case "PRO":
       return {
         maxCards: 5,
@@ -18,6 +19,7 @@ export function getPlanLimits(plan: string): PlanLimits {
       };
     case "SPECIAL":
     case "PREMIUM":
+    case "VIP":
       return {
         maxCards: 999,
         maxMonthlyTx: 999999,
