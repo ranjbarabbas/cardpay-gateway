@@ -1,6 +1,7 @@
 package com.cardpay.gateway.sync.data.api
 
 import com.cardpay.gateway.sync.data.model.DeviceNotificationResponse
+import com.cardpay.gateway.sync.data.model.DeviceTransactionsResponse
 import com.cardpay.gateway.sync.data.model.SmsSyncRequest
 import com.cardpay.gateway.sync.data.model.SmsSyncResponse
 import okhttp3.OkHttpClient
@@ -26,6 +27,11 @@ interface CardPayApi {
     suspend fun getNotifications(
         @Header("Authorization") authHeader: String
     ): Response<DeviceNotificationResponse>
+
+    @GET("api/v1/devices/transactions")
+    suspend fun getRecentTransactions(
+        @Header("Authorization") authHeader: String
+    ): Response<DeviceTransactionsResponse>
 
     companion object {
         fun create(baseUrl: String): CardPayApi {

@@ -16,7 +16,8 @@ RUN if [ -f "./backend/package.json" ]; then \
       cp ./backend/package*.json ./ && \
       if [ -d "./backend/prisma" ]; then cp -r ./backend/prisma ./; fi; \
     fi && \
-    npm ci --include=dev || npm install --include=dev
+    npm ci --include=dev --no-audit --no-fund --prefer-offline || \
+    npm install --include=dev --no-audit --no-fund
 
 # -------------------------------------------------------------
 # Stage 2: Builder

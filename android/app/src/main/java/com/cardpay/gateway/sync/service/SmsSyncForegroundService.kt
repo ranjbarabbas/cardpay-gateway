@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.cardpay.gateway.sync.ui.MainActivity
 import com.cardpay.gateway.sync.data.api.CardPayApi
+import com.cardpay.gateway.sync.data.model.RecentTransaction
 import com.cardpay.gateway.sync.data.model.SmsSyncRequest
 import com.cardpay.gateway.sync.utils.AppPreferences
 import kotlinx.coroutines.CoroutineScope
@@ -27,6 +28,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+import java.util.UUID
 
 class SmsSyncForegroundService : Service() {
 
@@ -43,6 +45,7 @@ class SmsSyncForegroundService : Service() {
         const val ACTION_START = "ACTION_START"
         const val ACTION_STOP = "ACTION_STOP"
         const val ACTION_PROCESS_SMS = "ACTION_PROCESS_SMS"
+        const val ACTION_TRANSACTION_UPDATED = "com.cardpay.gateway.sync.ACTION_TRANSACTION_UPDATED"
 
         const val EXTRA_SENDER = "EXTRA_SENDER"
         const val EXTRA_BODY = "EXTRA_BODY"
@@ -123,27 +126,103 @@ class SmsSyncForegroundService : Service() {
 
                 if (response.isSuccessful && response.body()?.success == true) {
                     val result = response.body()?.data
-                    val statusText = if (result?.matched == true) {
-                        val tracking = result.trackingCode ?: result.authority ?: ""
+                    val isMatched = result?.matched == true
+                    val tracking = result?.trackingCode ?: result?.authority ?: ""
+                    val reason = result?.reason ?: ""
+
+                    val statusText: String
+                    val statusLabel: String
+                    val statusCode: String
+
+                    if (isMatched) {
+                        statusText = "تراکنش تایید شد (کد: $tracking)"
+                        statusLabel = "تایید شده"
+                        statusCode = "MATCHED"
                         showSmsNotification("تایید پرداخت هنرهاب پی", "تراکنش واریز با موفقیت تایید شد (کد: $tracking)")
-                        "تراکنش تایید شد (کد: $tracking)"
                     } else {
-                        val reason = result?.reason ?: "در صف بررسی"
-                        showSmsNotification("پیامک بانکی جدید", "پیامک بانک دریافت شد: $reason")
-                        "پیامک ثبت شد: $reason"
+                        if (reason.contains("PENDING_REVIEW") || reason.contains("UNTRUSTED_SENDER") || reason.contains("سرخط")) {
+                            statusLabel = "در حال بررسی (سرخط)"
+                            statusText = "پیامک ثبت شد: در حال بررسی سرخط"
+                        } else {
+                            statusLabel = "در حال بررسی"
+                            statusText = "پیامک ثبت شد: $reason"
+                        }
+                        statusCode = "PENDING"
+                        showSmsNotification("پیامک بانکی جدید", "پیامک بانک دریافت شد: $statusLabel")
                     }
+
                     prefs.lastSyncStatus = statusText
                     updateOngoingNotification(statusText)
+
+                    // Extract amount if present in text
+                    val amount: Long? = try {
+                        val reg = Regex("""(?:مبلغ|واریز|واریزی|مبلغ:|مبلغ: )\s*([0-9,]+)""")
+                        val m = reg.find(body)
+                        m?.groupValues?.get(1)?.replace(",", "")?.toLongOrNull()
+                    } catch (e: Exception) {
+                        null
+                    }
+
+                    val txItem = RecentTransaction(
+                        id = result?.smsLogId ?: UUID.randomUUID().toString(),
+                        sender = sender,
+                        messageSnippet = body.take(160),
+                        amountToman = amount,
+                        trackingCode = if (tracking.isNotBlank()) tracking else null,
+                        status = statusLabel,
+                        statusCode = statusCode,
+                        timestamp = timestamp
+                    )
+                    prefs.addRecentTransaction(txItem)
+                    sendTransactionUpdateBroadcast()
                     Log.i(TAG, "SMS successfully processed: $statusText")
                 } else {
                     val errorMsg = "پاسخ ناموفق سرور: ${response.code()}"
                     prefs.lastSyncStatus = errorMsg
                     Log.e(TAG, errorMsg)
+
+                    val statusLabel = if (response.code() == 401 || response.code() == 403) "کلید نامعتبر" else "خطای سرور"
+                    val txItem = RecentTransaction(
+                        id = UUID.randomUUID().toString(),
+                        sender = sender,
+                        messageSnippet = body.take(160),
+                        amountToman = null,
+                        trackingCode = null,
+                        status = statusLabel,
+                        statusCode = "ERROR",
+                        timestamp = timestamp
+                    )
+                    prefs.addRecentTransaction(txItem)
+                    sendTransactionUpdateBroadcast()
                 }
             } catch (e: Exception) {
                 Log.e(TAG, "Network error during SMS forward", e)
                 prefs.lastSyncStatus = "خطای اتصال: ${e.localizedMessage}"
+
+                val txItem = RecentTransaction(
+                    id = UUID.randomUUID().toString(),
+                    sender = sender,
+                    messageSnippet = body.take(160),
+                    amountToman = null,
+                    trackingCode = null,
+                    status = "خطای اتصال",
+                    statusCode = "ERROR",
+                    timestamp = timestamp
+                )
+                prefs.addRecentTransaction(txItem)
+                sendTransactionUpdateBroadcast()
             }
+        }
+    }
+
+    private fun sendTransactionUpdateBroadcast() {
+        try {
+            val broadcastIntent = Intent(ACTION_TRANSACTION_UPDATED).apply {
+                setPackage(packageName)
+            }
+            sendBroadcast(broadcastIntent)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error sending transaction update broadcast", e)
         }
     }
 

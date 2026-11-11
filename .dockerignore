@@ -7,3 +7,6 @@ backend/.env.local
 backend/*.log
 android
 .git
+.gradle
+*.apk
+*.jks

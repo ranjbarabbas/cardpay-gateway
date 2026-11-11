@@ -52,6 +52,80 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
+            <!-- Environment Mode Card (Production vs Test) -->
+            <com.google.android.material.card.MaterialCardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="14dp"
+                app:cardBackgroundColor="?attr/appSurfaceColor"
+                app:cardCornerRadius="20dp"
+                app:cardElevation="1dp"
+                app:strokeColor="?attr/appCardStrokeColor"
+                app:strokeWidth="1dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="18dp">
+
+                    <RelativeLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content">
+
+                        <LinearLayout
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentStart="true"
+                            android:layout_centerVertical="true"
+                            android:layout_toStartOf="@id/switchEnvMode"
+                            android:orientation="vertical">
+
+                            <TextView
+                                android:id="@+id/tvEnvTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/vazirmatn_bold"
+                                android:text="محیط عملیاتی (Production)"
+                                android:textColor="?attr/appTextPrimary"
+                                android:textSize="15sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvEnvBadge"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="2dp"
+                                android:fontFamily="@font/vazirmatn_medium"
+                                android:text="سرور ثابت: https://pay.honarhub.com"
+                                android:textColor="?attr/colorPrimary"
+                                android:textSize="11sp" />
+                        </LinearLayout>
+
+                        <com.google.android.material.materialswitch.MaterialSwitch
+                            android:id="@+id/switchEnvMode"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_alignParentEnd="true"
+                            android:layout_centerVertical="true"
+                            android:checked="true"
+                            app:thumbTint="?attr/colorPrimary"
+                            app:trackTint="?attr/appCardStrokeColor" />
+                    </RelativeLayout>
+
+                    <TextView
+                        android:id="@+id/tvEnvDescription"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:fontFamily="@font/vazirmatn_regular"
+                        android:lineSpacingExtra="3dp"
+                        android:text="در محیط عملیاتی، ارتباط به صورت امن و مستقیم با سرور اصلی هنرهاب پی برقرار است و آدرس سرور غیرقابل تغییر می‌باشد."
+                        android:textColor="?attr/appTextMuted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+            </com.google.android.material.card.MaterialCardView>
+
             <!-- Configuration Card (Server & Token) -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
@@ -72,7 +146,7 @@
                         android:layout_width="wrap_content"
                         android:layout_height="wrap_content"
                         android:fontFamily="@font/vazirmatn_bold"
-                        android:text="تنظیمات سرور و توکن دستگاه"
+                        android:text="تنظیمات ارتباطی و توکن دستگاه"
                         android:textColor="?attr/appTextPrimary"
                         android:textSize="15sp"
                         android:textStyle="bold" />
@@ -82,16 +156,17 @@
                         android:layout_height="wrap_content"
                         android:layout_marginTop="2dp"
                         android:fontFamily="@font/vazirmatn_regular"
-                        android:text="آدرس سرور مرکزی و کلید دسترسی دستگاه را وارد نمایید."
+                        android:text="آدرس سرور همگام‌سازی و کلید اتصال دستگاه اختصاصی خود را وارد نمایید."
                         android:textColor="?attr/appTextMuted"
                         android:textSize="11sp" />
 
                     <!-- Server URL Input -->
                     <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilServerUrl"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="18dp"
-                        android:hint="آدرس سرور مرکزی درگاه (Server URL)"
+                        android:hint="آدرس سرور درگاه (Server URL)"
                         android:textColorHint="?attr/appTextMuted"
                         app:boxBackgroundColor="?attr/appInputBackground"
                         app:boxCornerRadiusBottomEnd="16dp"
@@ -107,17 +182,18 @@
                             android:layout_height="wrap_content"
                             android:fontFamily="@font/vazirmatn_medium"
                             android:inputType="textUri"
-                            android:text="http://10.0.2.2:3050"
+                            android:text="https://pay.honarhub.com"
                             android:textColor="?attr/appTextPrimary"
                             android:textSize="13sp" />
                     </com.google.android.material.textfield.TextInputLayout>
 
                     <!-- API Key Input -->
                     <com.google.android.material.textfield.TextInputLayout
+                        android:id="@+id/tilApiKey"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="14dp"
-                        android:hint="کلید توکن دستگاه (Device API Key)"
+                        android:hint="کلید اتصال دستگاه (Device API Key)"
                         android:textColorHint="?attr/appTextMuted"
                         app:boxBackgroundColor="?attr/appInputBackground"
                         app:boxCornerRadiusBottomEnd="16dp"
@@ -173,19 +249,47 @@
                             app:strokeColor="?attr/colorPrimary" />
                     </LinearLayout>
 
-                    <!-- Connection Log Box -->
-                    <TextView
-                        android:id="@+id/tvTestResult"
+                    <!-- Connection Log / Status Card -->
+                    <com.google.android.material.card.MaterialCardView
+                        android:id="@+id/cardTestResult"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
                         android:layout_marginTop="16dp"
-                        android:background="?attr/appLogBackground"
-                        android:fontFamily="@font/vazirmatn_regular"
-                        android:padding="14dp"
-                        android:text="نتیجه تست اتصال سرور در اینجا نمایش داده می‌شود."
-                        android:textColor="?attr/appTextMuted"
-                        android:textSize="11sp"
-                        android:visibility="gone" />
+                        android:visibility="gone"
+                        app:cardBackgroundColor="?attr/appLogBackground"
+                        app:cardCornerRadius="16dp"
+                        app:cardElevation="0dp"
+                        app:strokeColor="?attr/appCardStrokeColor"
+                        app:strokeWidth="1dp">
+
+                        <LinearLayout
+                            android:layout_width="match_parent"
+                            android:layout_height="wrap_content"
+                            android:orientation="vertical"
+                            android:padding="14dp">
+
+                            <TextView
+                                android:id="@+id/tvTestResultTitle"
+                                android:layout_width="wrap_content"
+                                android:layout_height="wrap_content"
+                                android:fontFamily="@font/vazirmatn_bold"
+                                android:text="نتیجه تست اتصال:"
+                                android:textColor="?attr/appTextPrimary"
+                                android:textSize="12sp"
+                                android:textStyle="bold" />
+
+                            <TextView
+                                android:id="@+id/tvTestResult"
+                                android:layout_width="match_parent"
+                                android:layout_height="wrap_content"
+                                android:layout_marginTop="4dp"
+                                android:fontFamily="@font/vazirmatn_regular"
+                                android:lineSpacingExtra="3dp"
+                                android:text="نتیجه تست اتصال سرور در اینجا نمایش داده می‌شود."
+                                android:textColor="?attr/appTextSecondary"
+                                android:textSize="12sp" />
+                        </LinearLayout>
+                    </com.google.android.material.card.MaterialCardView>
 
                 </LinearLayout>
             </com.google.android.material.card.MaterialCardView>
@@ -210,7 +314,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/vazirmatn_medium"
-            android:text="نسخه ۱.۴.۰ • سامانه هنرهاب پی"
+            android:text="نسخه ۱.۵.۰ • سامانه هنرهاب پی"
             android:textColor="?attr/appTextMuted"
             android:textSize="12sp" />
     </LinearLayout>

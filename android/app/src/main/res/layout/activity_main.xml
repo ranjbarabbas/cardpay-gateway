@@ -225,7 +225,7 @@
                         android:layout_height="wrap_content"
                         android:layout_weight="1"
                         android:fontFamily="@font/vazirmatn_regular"
-                        android:text="سرور متصل: http://192.168.0.205:3050"
+                        android:text="سرور متصل: https://pay.honarhub.com"
                         android:textColor="?attr/appTextSecondary"
                         android:textSize="12sp" />
 
@@ -244,17 +244,54 @@
             </com.google.android.material.card.MaterialCardView>
 
             <!-- Recent Bank Inbound SMS Section -->
-            <TextView
-                android:layout_width="wrap_content"
+            <RelativeLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:layout_marginTop="24dp"
-                android:layout_marginBottom="8dp"
-                android:fontFamily="@font/vazirmatn_bold"
-                android:text="سوابق پیامک‌های بانکی رصد شده"
-                android:textColor="?attr/appTextPrimary"
-                android:textSize="14sp" />
+                android:layout_marginBottom="10dp">
 
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_alignParentStart="true"
+                    android:layout_centerVertical="true"
+                    android:orientation="vertical">
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:fontFamily="@font/vazirmatn_bold"
+                        android:text="سوابق ۱۰ تراکنش آخر دریافتی"
+                        android:textColor="?attr/appTextPrimary"
+                        android:textSize="15sp"
+                        android:textStyle="bold" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="2dp"
+                        android:fontFamily="@font/vazirmatn_regular"
+                        android:text="صرفاً از سرخط‌های تایید شده بانکی و در حال بررسی"
+                        android:textColor="?attr/appTextMuted"
+                        android:textSize="11sp" />
+                </LinearLayout>
+
+                <ImageButton
+                    android:id="@+id/btnRefreshTransactions"
+                    android:layout_width="38dp"
+                    android:layout_height="38dp"
+                    android:layout_alignParentEnd="true"
+                    android:layout_centerVertical="true"
+                    android:background="@drawable/ripple_circle"
+                    android:contentDescription="بروزرسانی سوابق تراکنش‌ها"
+                    android:padding="8dp"
+                    android:src="@drawable/ic_refresh"
+                    app:tint="?attr/colorPrimary" />
+            </RelativeLayout>
+
+            <!-- Empty State Card (Visible when list is empty) -->
             <com.google.android.material.card.MaterialCardView
+                android:id="@+id/layoutEmptyLogs"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 app:cardBackgroundColor="?attr/appLogBackground"
@@ -264,16 +301,25 @@
                 app:strokeWidth="1dp">
 
                 <TextView
-                    android:id="@+id/tvLogs"
+                    android:id="@+id/tvEmptyLogs"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
                     android:fontFamily="@font/vazirmatn_regular"
-                    android:lineSpacingExtra="5dp"
-                    android:padding="18dp"
-                    android:text="در انتظار دریافت اولین پیامک بانکی...\n(صرفاً پیامک‌های رسمی بانک از سرخط‌های معتبر بانکی)"
+                    android:gravity="center"
+                    android:lineSpacingExtra="6dp"
+                    android:padding="24dp"
+                    android:text="در انتظار دریافت اولین پیامک بانکی...\n(صرفاً پیامک‌های رسمی بانک از سرخط‌های تایید شده بانکی)"
                     android:textColor="?attr/appTextSecondary"
                     android:textSize="12sp" />
             </com.google.android.material.card.MaterialCardView>
+
+            <!-- Transactions RecyclerView -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvTransactions"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:nestedScrollingEnabled="false"
+                android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>
@@ -295,7 +341,7 @@
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:fontFamily="@font/vazirmatn_medium"
-            android:text="نسخه ۱.۴.۰ • سامانه هنرهاب پی"
+            android:text="نسخه ۱.۵.۰ • سامانه هنرهاب پی"
             android:textColor="?attr/appTextMuted"
             android:textSize="12sp" />
     </LinearLayout>
