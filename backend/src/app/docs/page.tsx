@@ -34,7 +34,7 @@ import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 interface EndpointDoc {
   id: string;
   category: string;
-  method: "POST" | "GET";
+  method: "POST" | "GET" | "DELETE";
   path: string;
   title: string;
   badge?: string;
@@ -113,6 +113,63 @@ const ENDPOINTS: EndpointDoc[] = [
           bankTitle: "بانک قرض‌الحسنه مهر ایران",
           isActive: true,
           createdAt: "2026-11-08T14:20:53.183Z",
+        },
+      },
+      null,
+      2
+    ),
+    statusCode: 200,
+  },
+  {
+    id: "card-delete",
+    category: "REST API Reference",
+    method: "DELETE",
+    path: "/api/v1/card/delete",
+    title: "حذف نرم کارت بانکی (Soft Delete / Archive)",
+    badge: "Card Archival",
+    description:
+      "حذف نرم و انتقال امن کارت بانکی به آرشیو با ارسال شماره کارت (cardNumber) یا شناسه کارت (cardId). این متد وضعیت کارت را به آرشیو (isArchived: true و isActive: false) تغییر می‌دهد تا از تخصیص به تراکنش‌های آتی جلوگیری شود؛ در عین حال کلیه سوابق مالی، کدهای رهگیری و تراکنش‌های پیشین کارت جهت حفظ یکپارچگی حسابداری به صورت کامل در دیتابیس باقی می‌مانند. (متد POST نیز برای محیط‌های خاص به عنوان آلیاس پشتیبانی می‌شود).",
+    auth: "Merchant API Key (Header: x-api-key یا x-admin-key)",
+    headers: [
+      { key: "Content-Type", value: "application/json", desc: "فرمت بدنه درخواست" },
+      { key: "x-api-key", value: "hp_sandbox_test_key_2026", desc: "کلید وب‌سرویس پذیرنده یا ادمین" },
+    ],
+    params: [
+      {
+        name: "cardNumber",
+        type: "string (16 digits)",
+        required: false,
+        desc: "شماره ۱۶ رقمی کارت بانکی جهت حذف نرم (در صورت عدم ارسال cardId الزامی است)",
+        example: "6037991987654321",
+      },
+      {
+        name: "cardId",
+        type: "string (UUID)",
+        required: false,
+        desc: "شناسه یکتای کارت بانکی در سامانه (در صورت عدم ارسال cardNumber الزامی است)",
+        example: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
+      },
+    ],
+    requestSample: JSON.stringify(
+      {
+        cardNumber: "6037991987654321",
+      },
+      null,
+      2
+    ),
+    responseSample: JSON.stringify(
+      {
+        success: true,
+        message: "کارت بانکی با موفقیت حذف نرم (آرشیو) گردید و کلیه سوابق مالی و تراکنش‌های آن حفظ شد.",
+        data: {
+          id: "387b5901-8bd9-4500-8dad-fd3ec1c778c6",
+          cardNumber: "6037991987654321",
+          ownerName: "امیر رضایی",
+          bankTitle: "بانک قرض‌الحسنه مهر ایران",
+          bankSlug: "mehr_iran",
+          isArchived: true,
+          isActive: false,
+          archivedAt: "2026-11-12T10:45:00.000Z",
         },
       },
       null,
@@ -462,7 +519,7 @@ export default function DocsPage() {
         headers: headersObj,
       };
 
-      if (selectedEndpoint.method === "POST") {
+      if (selectedEndpoint.method === "POST" || selectedEndpoint.method === "DELETE") {
         options.body = testPayload;
       } else if (selectedEndpoint.id === "payment-status") {
         // Substitute path param with a test identifier
@@ -492,22 +549,24 @@ export default function DocsPage() {
       if (endpoint.method === "GET") {
         return `curl -X GET "${url.replace("{identifier}", "PAY-1405081723763374")}" \\\n  -H "Accept: application/json" \\\n  -H "x-api-key: ${key}"`;
       }
-      return `curl -X POST "${url}" \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${key}" \\\n  -d '${endpoint.requestSample.replace(/\n/g, "")}'`;
+      return `curl -X ${endpoint.method} "${url}" \\\n  -H "Content-Type: application/json" \\\n  -H "x-api-key: ${key}" \\\n  -d '${endpoint.requestSample.replace(/\n/g, "")}'`;
     }
     if (lang === "node") {
       if (endpoint.method === "GET") {
         return `const res = await fetch("${url.replace("{identifier}", "PAY-1405081723763374")}", {\n  headers: {\n    "Accept": "application/json",\n    "x-api-key": "${key}"\n  }\n});\nconst data = await res.json();\nconsole.log(data);`;
       }
-      return `const res = await fetch("${url}", {\n  method: "POST",\n  headers: {\n    "Content-Type": "application/json",\n    "x-api-key": "${key}"\n  },\n  body: JSON.stringify(${endpoint.requestSample})\n});\nconst data = await res.json();\nconsole.log(data);`;
+      return `const res = await fetch("${url}", {\n  method: "${endpoint.method}",\n  headers: {\n    "Content-Type": "application/json",\n    "x-api-key": "${key}"\n  },\n  body: JSON.stringify(${endpoint.requestSample})\n});\nconst data = await res.json();\nconsole.log(data);`;
     }
     if (lang === "python") {
       if (endpoint.method === "GET") {
         return `import requests\n\nheaders = {"x-api-key": "${key}", "Accept": "application/json"}\nurl = "${url.replace("{identifier}", "PAY-1405081723763374")}"\nres = requests.get(url, headers=headers)\nprint(res.json())`;
       }
-      return `import requests\n\nheaders = {"x-api-key": "${key}", "Content-Type": "application/json"}\npayload = ${endpoint.requestSample}\nres = requests.post("${url}", json=payload, headers=headers)\nprint(res.json())`;
+      const pyMethod = endpoint.method === "DELETE" ? "delete" : "post";
+      return `import requests\n\nheaders = {"x-api-key": "${key}", "Content-Type": "application/json"}\npayload = ${endpoint.requestSample}\nres = requests.${pyMethod}("${url}", json=payload, headers=headers)\nprint(res.json())`;
     }
     if (lang === "php") {
-      return `<?php\n$ch = curl_init("${url}");\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\ncurl_setopt($ch, CURLOPT_HTTPHEADER, [\n    'Content-Type: application/json',\n    'x-api-key: ${key}'\n]);\ncurl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(${endpoint.requestSample}));\n$response = curl_exec($ch);\ncurl_close($ch);\n$data = json_decode($response, true);\nprint_r($data);`;
+      const customReq = endpoint.method === "DELETE" ? "curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'DELETE');\n" : "";
+      return `<?php\n$ch = curl_init("${url}");\ncurl_setopt($ch, CURLOPT_RETURNTRANSFER, true);\n${customReq}curl_setopt($ch, CURLOPT_HTTPHEADER, [\n    'Content-Type: application/json',\n    'x-api-key: ${key}'\n]);\ncurl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(${endpoint.requestSample}));\n$response = curl_exec($ch);\ncurl_close($ch);\n$data = json_decode($response, true);\nprint_r($data);`;
     }
     return "";
   };
@@ -565,6 +624,8 @@ export default function DocsPage() {
                           className={`text-[10px] font-black font-mono px-2 py-0.5 rounded ${
                             ep.method === "POST"
                               ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30"
+                              : ep.method === "DELETE"
+                              ? "bg-rose-500/20 text-rose-400 border border-rose-500/30"
                               : "bg-sky-500/20 text-sky-400 border border-sky-500/30"
                           }`}
                         >
@@ -692,6 +753,8 @@ export default function DocsPage() {
                       className={`text-[9px] font-black font-mono px-1.5 py-0.5 rounded ml-1 shrink-0 ${
                         ep.method === "POST"
                           ? "bg-emerald-500/20 text-emerald-400"
+                          : ep.method === "DELETE"
+                          ? "bg-rose-500/20 text-rose-400"
                           : "bg-sky-500/20 text-sky-400"
                       }`}
                     >
@@ -722,6 +785,8 @@ export default function DocsPage() {
                 className={`text-xs font-black font-mono px-3 py-1 rounded-lg border ${
                   selectedEndpoint.method === "POST"
                     ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                    : selectedEndpoint.method === "DELETE"
+                    ? "bg-rose-500/10 text-rose-400 border-rose-500/30"
                     : "bg-sky-500/10 text-sky-400 border-sky-500/30"
                 }`}
               >

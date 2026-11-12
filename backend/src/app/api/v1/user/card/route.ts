@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { db, formatFriendlyDbError } from "@/lib/db";
-import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
+import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber, resolveBankDetails } from "@/lib/bank-utils";
 import { getPlanLimits } from "@/lib/services/plan-expiration.service";
 
 // POST /api/v1/user/card - Register or update card for logged in user
@@ -55,11 +55,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Auto-detect bank from card BIN
-    const detectedBank = getBankByCardNumber(cleanCard);
-    const resolvedBankTitle = bankTitle?.trim() || detectedBank?.nameFa || "بانک شتاب";
-    const resolvedBankSlug = detectedBank?.id?.replace(/-/g, "_") || bankSlug || "shetab";
-
     // Validate IBAN if provided
     let cleanIban: string | null = null;
     if (iban && String(iban).trim()) {
@@ -72,6 +67,16 @@ export async function POST(req: NextRequest) {
       }
       cleanIban = ibanValidation.formatted || null;
     }
+
+    // Auto-detect and resolve bank details accurately
+    const resolved = resolveBankDetails({
+      cardNumber: cleanCard,
+      iban: cleanIban,
+      bankSlug,
+      bankTitle,
+    });
+    const resolvedBankTitle = resolved.nameFa;
+    const resolvedBankSlug = resolved.slug;
 
     // Fetch all active unarchived cards bound to this user (by userId OR merchantUserId)
     const existingActiveCards = await db.bankCard.findMany({

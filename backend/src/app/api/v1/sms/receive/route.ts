@@ -67,6 +67,28 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Intercept connection test / ping pings so they are never recorded as transactions
+    const cleanSenderUpper = String(sender).trim().toUpperCase();
+    const isPing =
+      cleanSenderUpper === "TEST_PING" ||
+      cleanSenderUpper === "PING" ||
+      cleanSenderUpper === "TEST" ||
+      String(rawText).includes("Connection test from HonarHub Pay");
+
+    if (isPing) {
+      return NextResponse.json({
+        success: true,
+        isPing: true,
+        message: "تست اتصال و پینگ سرور با موفقیت تایید شد.",
+        data: {
+          matched: false,
+          status: "PING_OK",
+          deviceId: device.id,
+          deviceName: device.name,
+        },
+      });
+    }
+
     const result = await SmsMatcherService.processIncomingSms({
       sender,
       rawText,

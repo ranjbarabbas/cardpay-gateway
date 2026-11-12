@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyAdminAuth } from "@/lib/auth-admin";
 import { isSandboxRequest } from "@/lib/sandbox";
-import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber } from "@/lib/bank-utils";
+import { isValidIranianCardNumber, isValidIranianIban, getBankByCardNumber, resolveBankDetails } from "@/lib/bank-utils";
 import { getPlanLimits } from "@/lib/services/plan-expiration.service";
 
 export async function GET(req: NextRequest) {
@@ -128,10 +128,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const detectedBank = getBankByCardNumber(cleanCard);
-    const resolvedBankTitle = bankTitle?.trim() || detectedBank?.nameFa || "بانک شتاب";
-    const resolvedBankSlug = detectedBank?.id?.replace(/-/g, "_") || bankSlug || "shetab";
-
     let cleanIban: string | null = null;
     if (iban && String(iban).trim()) {
       const ibanValidation = isValidIranianIban(String(iban).trim());
@@ -143,6 +139,15 @@ export async function POST(req: NextRequest) {
       }
       cleanIban = ibanValidation.formatted || null;
     }
+
+    const resolved = resolveBankDetails({
+      cardNumber: cleanCard,
+      iban: cleanIban,
+      bankSlug,
+      bankTitle,
+    });
+    const resolvedBankTitle = resolved.nameFa;
+    const resolvedBankSlug = resolved.slug;
 
     // For non-admin merchants, ensure they can only bind cards to their own user ID
     const cleanUserId = (!isAdmin && authenticatedUserId)
@@ -269,3 +274,5 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+
+export { archiveCardHandler as DELETE } from "@/lib/services/card-archiver.service";

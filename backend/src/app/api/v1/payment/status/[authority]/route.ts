@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { getSandboxTransaction } from "@/lib/sandbox";
 import { getSystemSettingsAsync } from "@/lib/settings";
-import { getBankByCardNumber, getBankByIban } from "@/lib/bank-utils";
+import { getBankByCardNumber, getBankByIban, resolveBankDetails } from "@/lib/bank-utils";
 
 export async function GET(
   req: NextRequest,
@@ -80,11 +80,12 @@ export async function GET(
     const cardLimit = settings.limits?.cardTransferLimitToman || 15000000;
     const isPol = Number(tx.finalAmountToman) > cardLimit;
 
-    const detectedBank = tx.card.cardNumber
-      ? getBankByCardNumber(tx.card.cardNumber)
-      : (tx.card.iban ? getBankByIban(tx.card.iban) : null);
-    const bankLogo = detectedBank?.logo || "/images/banks/mehriran.svg";
-    const resolvedBankTitle = tx.card.bankTitle || detectedBank?.nameFa || "بانک شتاب";
+    const resolved = resolveBankDetails({
+      cardNumber: tx.card.cardNumber,
+      iban: tx.card.iban,
+      bankSlug: tx.card.bankSlug,
+      bankTitle: tx.card.bankTitle,
+    });
 
     return NextResponse.json({
       success: true,
@@ -106,9 +107,9 @@ export async function GET(
           cardNumber: tx.card.cardNumber,
           iban: tx.card.iban || null,
           accountNumber: tx.card.accountNumber || null,
-          bankTitle: resolvedBankTitle,
-          bankSlug: tx.card.bankSlug,
-          bankLogo,
+          bankTitle: resolved.nameFa,
+          bankSlug: resolved.slug,
+          bankLogo: resolved.logo,
           transferType: isPol ? "POL" : "CARD_TO_CARD",
         },
       },

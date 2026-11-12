@@ -27,7 +27,7 @@ export class SmsMatcherService {
       where: { senderId: cleanSender },
     });
 
-    // If sender was explicitly rejected/blocked by admin, drop it
+    // A) If sender was explicitly blocked by admin (REJECTED): drop immediately for all devices
     if (trustedRecord && trustedRecord.status === "REJECTED") {
       const smsLog = await db.bankSmsLog.create({
         data: {
@@ -42,7 +42,37 @@ export class SmsMatcherService {
       return {
         matched: false,
         smsLogId: smsLog.id,
-        reason: `Sender ${cleanSender} has been rejected/blocked by admin`,
+        reason: "سرخط مسدود شده است",
+      };
+    }
+
+    // B) If sender was marked as NON_BANKING by admin: ignore completely, never analyze
+    const upperSender = cleanSender.toUpperCase().replace(/\s+/g, "_");
+    const isKnownNonBankingSender =
+      upperSender === "MCI" ||
+      upperSender === "HAMRAH_AVAL" ||
+      upperSender === "IRANCELL" ||
+      upperSender === "RIGHTEL" ||
+      upperSender === "SNAPP" ||
+      upperSender === "DIVAR" ||
+      upperSender === "DIGIKALA" ||
+      upperSender === "TAPSI";
+
+    if ((trustedRecord && trustedRecord.status === "NON_BANKING") || isKnownNonBankingSender) {
+      const smsLog = await db.bankSmsLog.create({
+        data: {
+          deviceId,
+          sender: cleanSender,
+          rawText,
+          receivedAt,
+          isDeposit: false,
+          status: "IGNORED",
+        },
+      });
+      return {
+        matched: false,
+        smsLogId: smsLog.id,
+        reason: "سرخط غیربانکی است و پردازش نمی‌شود",
       };
     }
 
@@ -265,7 +295,7 @@ export class SmsMatcherService {
     };
   }
 
-  private static async dispatchWebhook(url: string, payload: Record<string, unknown>) {
+  public static async dispatchWebhook(url: string, payload: Record<string, unknown>) {
     try {
       await fetch(url, {
         method: "POST",

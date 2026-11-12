@@ -63,13 +63,13 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid or inactive device" }, { status: 403 });
     }
 
-    // 3. Fetch latest 10 bank SMS logs for this device
+    // 3. Fetch latest 10 real bank deposit SMS logs for this device (excluding test pings)
     const logs = await db.bankSmsLog.findMany({
       where: {
-        OR: [
-          { deviceId: device.id },
-          { isDeposit: true },
-        ],
+        deviceId: device.id,
+        isDeposit: true,
+        sender: { notIn: ["TEST_PING", "PING", "TEST"] },
+        rawText: { not: { contains: "Connection test" } },
       },
       orderBy: { receivedAt: "desc" },
       take: 10,

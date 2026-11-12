@@ -57,8 +57,9 @@ function CheckoutContent({ authority }: { authority: string }) {
   const [redirectCountdown, setRedirectCountdown] = useState<number>(10);
   const [isCancelling, setIsCancelling] = useState(false);
   const [cancelCountdown, setCancelCountdown] = useState(5);
+  const [expiredCountdown, setExpiredCountdown] = useState(8);
   const [isSimulating, setIsSimulating] = useState(false);
-  const [simResult, setSimResult] = useState<string | null>(null);
+  const [simResult, setSimResult] = useState<{ type: "success" | "error"; text: string } | null>(null);
   const [isLocalhost, setIsLocalhost] = useState(false);
   const [isSandbox, setIsSandbox] = useState(false);
 
@@ -140,6 +141,7 @@ function CheckoutContent({ authority }: { authority: string }) {
                 const url = new URL(details.callbackUrl);
                 url.searchParams.set("authority", authority);
                 url.searchParams.set("status", "success");
+                url.searchParams.set("Status", "OK");
                 url.searchParams.set("tracking_code", details.trackingCode || "");
                 window.location.href = url.toString();
               } catch {
@@ -167,6 +169,7 @@ function CheckoutContent({ authority }: { authority: string }) {
               const url = new URL(details.callbackUrl);
               url.searchParams.set("authority", authority);
               url.searchParams.set("status", "cancelled");
+              url.searchParams.set("Status", "NOK");
               url.searchParams.set("error", "user_cancelled");
               window.location.href = url.toString();
             } catch {
@@ -180,6 +183,38 @@ function CheckoutContent({ authority }: { authority: string }) {
       return () => clearInterval(timer);
     }
   }, [details?.status, details?.callbackUrl, authority]);
+
+  // Auto redirect on expired with 8-second countdown
+  useEffect(() => {
+    const isExpired = details?.status === "EXPIRED" || (details && secondsLeft <= 0);
+    if (isExpired && details?.callbackUrl) {
+      setExpiredCountdown(8);
+      const timer = setInterval(() => {
+        setExpiredCountdown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            try {
+              const url = new URL(details.callbackUrl);
+              url.searchParams.set("authority", authority);
+              url.searchParams.set("status", "failed");
+              url.searchParams.set("Status", "NOK");
+              url.searchParams.set("error", "expired");
+              url.searchParams.set("message", "payment_expired");
+              if (details.trackingCode) {
+                url.searchParams.set("tracking_code", details.trackingCode);
+              }
+              window.location.href = url.toString();
+            } catch {
+              window.location.href = details.callbackUrl;
+            }
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [details?.status, details?.callbackUrl, authority, secondsLeft]);
 
   const handleCancelPayment = async () => {
     if (isCancelling || !details) return;
@@ -219,56 +254,37 @@ function CheckoutContent({ authority }: { authority: string }) {
     return toPersianDigits(formatted);
   };
 
-  // Simulate deposit directly for testing / sandbox
+  // Simulate deposit directly for testing / sandbox / localhost
   const handleSimulatePayment = async () => {
     if (!details) return;
     setIsSimulating(true);
     setSimResult(null);
 
     try {
-      if (isSandbox) {
-        const res = await fetch("/api/v1/payment/simulate-sandbox", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ authority, action: "PAID" }),
-        });
-        const data = await res.json();
-        if (data.success) {
-          setSimResult("✅ واریز شبیه‌سازی شد! تراکنش با موفقیت تایید و وضعیت به پرداخت‌شده تغییر یافت.");
-          fetchStatus();
-        } else {
-          setSimResult("خطا در شبیه‌سازی سندباکس: " + data.error);
-        }
-        return;
-      }
-
-      const accountNum = details.card.accountNumber || "111122223333444455";
-      const sampleText = `${accountNum}
-${details.payableAmountRial.toLocaleString()}+
-1405/8/16-15:46
-مانده:2,500,000`;
-
-      const res = await fetch("/api/v1/test/simulate-sms", {
+      const res = await fetch("/api/v1/payment/simulate-sandbox", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-admin-key": "super-secret-admin-key-change-me",
-        },
-        body: JSON.stringify({
-          sender: "B.QMEHRIRAN",
-          rawText: sampleText,
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ authority, action: "PAID" }),
       });
 
       const data = await res.json();
-      if (data.success && data.data.matched) {
-        setSimResult("✅ پیامک شبیه‌سازی شد و تراکنش آنی تایید گردید!");
+      if (data.success) {
+        setSimResult({
+          type: "success",
+          text: "✅ واریز با موفقیت شبیه‌سازی شد! وضعیت تراکنش به تاییدشده (PAID) تغییر یافت.",
+        });
         fetchStatus();
       } else {
-        setSimResult("پیامک ثبت شد ولی تطبیق نیافت: " + (data.data?.reason || data.error));
+        setSimResult({
+          type: "error",
+          text: "خطا در شبیه‌سازی واریز: " + (data.error || data.message || "خطای نامشخص"),
+        });
       }
     } catch (e: any) {
-      setSimResult("خطا در ارسال پیامک شبیه‌ساز: " + e.message);
+      setSimResult({
+        type: "error",
+        text: "خطا در برقراری ارتباط با شبیه‌ساز: " + e.message,
+      });
     } finally {
       setIsSimulating(false);
     }
@@ -312,6 +328,19 @@ ${details.payableAmountRial.toLocaleString()}+
 
   // 1. Paid State
   if (details.status === "PAID" || details.status === "MANUALLY_VERIFIED") {
+    const successCallbackUrl = (() => {
+      try {
+        const url = new URL(details.callbackUrl);
+        url.searchParams.set("authority", authority);
+        url.searchParams.set("status", "success");
+        url.searchParams.set("Status", "OK");
+        url.searchParams.set("tracking_code", details.trackingCode || "");
+        return url.toString();
+      } catch {
+        return details.callbackUrl;
+      }
+    })();
+
     return (
       <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 text-slate-100 flex items-center justify-center p-4 font-sans" dir="rtl">
         <div className="bg-slate-900/90 backdrop-blur-2xl border border-emerald-500/40 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl shadow-emerald-500/10 animate-in fade-in zoom-in-95 duration-300">
@@ -356,7 +385,7 @@ ${details.payableAmountRial.toLocaleString()}+
               </span>
             </div>
             <a
-              href={details.callbackUrl}
+              href={successCallbackUrl}
               className="inline-flex items-center justify-center gap-2 w-full bg-emerald-600 hover:bg-emerald-500 text-white text-sm font-semibold py-3.5 rounded-2xl transition shadow-lg shadow-emerald-600/25"
             >
               <span>بازگشت فوری به وب‌سایت مقصد</span>
@@ -375,6 +404,7 @@ ${details.payableAmountRial.toLocaleString()}+
         const url = new URL(details.callbackUrl);
         url.searchParams.set("authority", authority);
         url.searchParams.set("status", "cancelled");
+        url.searchParams.set("Status", "NOK");
         url.searchParams.set("error", "user_cancelled");
         return url.toString();
       } catch {
@@ -428,25 +458,61 @@ ${details.payableAmountRial.toLocaleString()}+
 
   // 3. Expired State
   if (details.status === "EXPIRED" || secondsLeft <= 0) {
+    const expiredCallbackUrl = (() => {
+      try {
+        const url = new URL(details.callbackUrl);
+        url.searchParams.set("authority", authority);
+        url.searchParams.set("status", "failed");
+        url.searchParams.set("Status", "NOK");
+        url.searchParams.set("error", "expired");
+        url.searchParams.set("message", "payment_expired");
+        if (details.trackingCode) {
+          url.searchParams.set("tracking_code", details.trackingCode);
+        }
+        return url.toString();
+      } catch {
+        return details.callbackUrl;
+      }
+    })();
+
     return (
       <div className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center p-4 font-sans" dir="rtl">
-        <div className="bg-slate-900/90 backdrop-blur-xl border border-amber-500/30 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl">
-          <div className="w-20 h-20 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-2xl flex items-center justify-center mx-auto">
+        <div className="bg-slate-900/90 backdrop-blur-xl border border-amber-500/30 rounded-3xl p-8 max-w-md w-full text-center space-y-6 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-20 h-20 bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded-2xl flex items-center justify-center mx-auto shadow-lg shadow-amber-500/20">
             <Clock className="w-10 h-10" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-amber-300">مهلت {toPersianDigits(10)} دقیقه‌ای به پایان رسید</h1>
             <p className="text-slate-400 text-xs mt-2 leading-relaxed">
-              جهت حفظ امنیت و تخصیص دقیق مبالغ، لینک‌های پرداخت {toPersianDigits(10)} دقیقه اعتبار دارند. در صورتی که وجهی واریز نکرده‌اید لطفاً مجدداً از سبد خرید اقدام فرمایید.
+              جهت حفظ امنیت و تخصیص دقیق مبالغ، لینک‌های پرداخت {toPersianDigits(10)} دقیقه اعتبار دارند. در صورتی که وجهی واریز نکرده‌اید لطفاً مجدداً از وب‌سایت مبدا اقدام فرمایید.
             </p>
           </div>
-          <a
-            href={details.callbackUrl}
-            className="inline-flex items-center justify-center gap-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium py-3 rounded-xl transition"
-          >
-            <span>بازگشت به سایت مبدا</span>
-            <ArrowRight className="w-4 h-4" />
-          </a>
+
+          <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-amber-300 text-xs flex items-center justify-center gap-2">
+            <AlertCircle className="w-4 h-4 shrink-0 text-amber-400" />
+            <span>وضعیت: فاکتور منقضی‌شده (عدم واریز در مهلت مقرر)</span>
+          </div>
+
+          <div className="space-y-3 pt-2">
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+              <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
+              <span>
+                در حال انتقال خودکار به وب‌سایت مقصد تا{" "}
+                <span className="font-mono font-bold text-amber-400 px-1 text-sm">
+                  {toPersianDigits(expiredCountdown)}
+                </span>{" "}
+                ثانیه دیگر...
+              </span>
+            </div>
+
+            <a
+              href={expiredCallbackUrl}
+              className="inline-flex items-center justify-center gap-2 w-full bg-slate-800 hover:bg-slate-700 text-slate-200 text-sm font-medium py-3.5 rounded-2xl transition border border-slate-700 shadow-md"
+            >
+              <span>بازگشت فوری به وب‌سایت مقصد</span>
+              <ArrowRight className="w-4 h-4" />
+            </a>
+          </div>
         </div>
       </div>
     );
@@ -456,8 +522,7 @@ ${details.payableAmountRial.toLocaleString()}+
   const timerPercentage = Math.max(0, Math.min(100, (secondsLeft / 600) * 100));
   const isPol =
     details.transferType === "POL" ||
-    details.card.transferType === "POL" ||
-    details.payableAmountToman > 15000000;
+    details.card.transferType === "POL";
 
   // Extract clean 4-digit groups of card number
   const cardChunks = details.card.cardNumber ? (details.card.cardNumber.replace(/[^0-9]/g, "").match(/.{1,4}/g) || []) : [];
@@ -583,10 +648,14 @@ ${details.payableAmountRial.toLocaleString()}+
                         className="w-7 h-7 object-contain bg-white/10 rounded-full p-0.5"
                       />
                     )}
-                    <span className="text-sm font-bold tracking-wide text-slate-100">{details.card.bankTitle}</span>
+                    <span className="text-sm font-bold tracking-wide text-slate-100">
+                      {details.card.bankTitle && !details.card.bankTitle.includes("عضو") && details.card.bankTitle !== "کارت عضو شبکه شتاب"
+                        ? details.card.bankTitle
+                        : "حساب بانکی (شبا)"}
+                    </span>
                   </div>
-                  <span className="text-[10px] text-sky-300 font-mono bg-sky-900/60 border border-sky-500/30 px-2 py-0.5 rounded-md">
-                    سامانه پل تا ۲۰۰ میلیون
+                  <span className="text-[11px] text-sky-300 font-medium bg-sky-900/60 border border-sky-500/30 px-2.5 py-0.5 rounded-lg">
+                    انتقال پل (شبا)
                   </span>
                 </div>
 
@@ -620,8 +689,14 @@ ${details.payableAmountRial.toLocaleString()}+
                 </div>
 
                 {/* Instruction banner */}
-                <div className="p-3 bg-sky-950/60 border border-sky-500/30 rounded-2xl text-[11px] text-sky-200/90 leading-relaxed text-right">
-                  💡 لطفاً با همراه بانک یا اینترنت بانک خود، <strong>انتقال پل</strong> (یا پایا/شبا) را دقیقاً به مبلغ فوق به شماره شبا بالا انجام دهید.
+                <div className="space-y-2">
+                  <div className="p-3 bg-sky-950/60 border border-sky-500/30 rounded-2xl text-[11px] text-sky-200/90 leading-relaxed text-right">
+                    💡 لطفاً با همراه بانک یا اینترنت بانک خود، <strong>انتقال پل</strong> را دقیقاً به مبلغ فوق به شماره شبا بالا انجام دهید.
+                  </div>
+                  <div className="p-2.5 bg-rose-950/60 border border-rose-500/40 rounded-xl text-[11px] text-rose-300 font-bold leading-relaxed text-right flex items-center gap-1.5 shadow-sm">
+                    <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                    <span>دقت نمایید پرداخت پایا یا ساتنا در سامانه بررسی نمی شود.</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -642,18 +717,18 @@ ${details.payableAmountRial.toLocaleString()}+
                         className="w-7 h-7 object-contain bg-white/10 rounded-full p-0.5"
                       />
                     )}
-                    <span className="text-sm font-bold tracking-wide text-slate-100">{details.card.bankTitle}</span>
+                    <span className="text-sm font-bold tracking-wide text-slate-100">
+                      {details.card.bankTitle && !details.card.bankTitle.includes("عضو") && details.card.bankTitle !== "کارت عضو شبکه شتاب"
+                        ? details.card.bankTitle
+                        : "کارت بانکی شتاب"}
+                    </span>
                   </div>
                   <Wifi className="w-5 h-5 text-slate-400 rotate-90" />
                 </div>
 
-                {/* EMV Chip */}
-                <div className="w-11 h-8 bg-gradient-to-br from-amber-200 via-amber-400 to-amber-600 rounded-md border border-amber-500/60 shadow-sm flex items-center justify-center">
-                  <div className="w-7 h-5 border border-amber-800/40 rounded-sm"></div>
-                </div>
-
                 {/* Card Number */}
                 <div className="space-y-1 relative z-10">
+                  <div className="text-[11px] text-slate-400 font-medium">شماره کارت مقصد:</div>
                   <div className="flex items-center justify-between bg-black/40 backdrop-blur-md border border-white/10 rounded-2xl px-4 py-3">
                     <button
                       onClick={() => copyToClipboard(details.card.cardNumber, "card")}
@@ -748,9 +823,20 @@ ${details.payableAmountRial.toLocaleString()}+
             </div>
 
             {simResult && (
-              <p className="text-xs text-emerald-300 font-medium bg-emerald-950/60 border border-emerald-500/30 rounded-xl p-2.5 text-right leading-relaxed animate-in fade-in">
-                {simResult}
-              </p>
+              <div
+                className={`text-xs font-medium rounded-xl p-3 text-right leading-relaxed animate-in fade-in flex items-center gap-2 ${
+                  simResult.type === "success"
+                    ? "text-emerald-300 bg-emerald-950/70 border border-emerald-500/40"
+                    : "text-rose-300 bg-rose-950/70 border border-rose-500/40"
+                }`}
+              >
+                {simResult.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                )}
+                <span>{simResult.text}</span>
+              </div>
             )}
           </div>
         )}

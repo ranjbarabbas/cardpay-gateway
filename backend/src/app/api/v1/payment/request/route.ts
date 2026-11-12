@@ -4,7 +4,7 @@ import { AmountOffsetService } from "@/lib/services/amount-offset.service";
 import { generateInternalTrackingCode } from "@/lib/services/tracking-code.service";
 import { isSandboxRequest, createSandboxTransaction } from "@/lib/sandbox";
 import { getSystemSettingsAsync } from "@/lib/settings";
-import { getBankByCardNumber, getBankByIban } from "@/lib/bank-utils";
+import { getBankByCardNumber, getBankByIban, resolveBankDetails } from "@/lib/bank-utils";
 import crypto from "crypto";
 
 export async function POST(req: NextRequest) {
@@ -74,12 +74,16 @@ export async function POST(req: NextRequest) {
           authority: sandboxTx.authority,
           trackingCode: sandboxTx.internalTrackingCode,
           paymentUrl,
+          transferType: sandboxTx.transferType,
           originalAmountToman: sandboxTx.originalAmountToman,
           offsetToman: sandboxTx.offsetToman,
           payableAmountToman: sandboxTx.payableAmountToman,
           payableAmountRial: sandboxTx.payableAmountRial,
           expiresAt: sandboxTx.expiresAt.toISOString(),
-          card: sandboxTx.card,
+          card: {
+            ...sandboxTx.card,
+            transferType: sandboxTx.transferType,
+          },
         },
       });
     }
@@ -143,19 +147,39 @@ export async function POST(req: NextRequest) {
         );
       }
     } else if (authUser) {
-      // If merchant sent request without specifying card, select THEIR active card first!
-      targetCard = await db.bankCard.findFirst({
-        where: {
-          OR: [
-            { userId: authUser.id },
-            { merchantUserId: authUser.id }
-          ],
-          isActive: true,
-          isArchived: false,
-          isFrozen: false,
-        },
-        orderBy: { createdAt: "desc" },
-      });
+      // If merchant sent request without specifying card:
+      // If amount > cardTransferLimit, prioritize card WITH an IBAN for POL transfer.
+      // Otherwise, prioritize regular active card for Card-to-Card.
+      if (amountNum > cardTransferLimit) {
+        targetCard = await db.bankCard.findFirst({
+          where: {
+            OR: [
+              { userId: authUser.id },
+              { merchantUserId: authUser.id }
+            ],
+            isActive: true,
+            isArchived: false,
+            isFrozen: false,
+            iban: { not: null },
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      if (!targetCard) {
+        targetCard = await db.bankCard.findFirst({
+          where: {
+            OR: [
+              { userId: authUser.id },
+              { merchantUserId: authUser.id }
+            ],
+            isActive: true,
+            isArchived: false,
+            isFrozen: false,
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      }
 
       if (!targetCard) {
         return NextResponse.json(
@@ -168,11 +192,21 @@ export async function POST(req: NextRequest) {
         );
       }
     } else {
-      // Default: Pick the first active non-archived non-frozen card
-      targetCard = await db.bankCard.findFirst({
-        where: { isActive: true, isArchived: false, isFrozen: false },
-        orderBy: { createdAt: "asc" },
-      });
+      // Default: Pick the first active non-archived non-frozen card (preferring IBAN if isPol)
+      if (amountNum > cardTransferLimit) {
+        targetCard = await db.bankCard.findFirst({
+          where: { isActive: true, isArchived: false, isFrozen: false, iban: { not: null } },
+          orderBy: { createdAt: "asc" },
+        });
+      }
+
+      if (!targetCard) {
+        targetCard = await db.bankCard.findFirst({
+          where: { isActive: true, isArchived: false, isFrozen: false },
+          orderBy: { createdAt: "asc" },
+        });
+      }
+
       if (!targetCard) {
         return NextResponse.json(
           { success: false, error: "No active payment cards configured in the gateway." },
@@ -187,7 +221,7 @@ export async function POST(req: NextRequest) {
         {
           success: false,
           error: "CARD_TRANSFER_LIMIT_EXCEEDED",
-          message: "سقف کارت به کارت حداکثر ۱۵ میلیون تومان است. برای مبالغ بالاتر، ثبت شماره شبا در تنظیمات کارت بانکی الزامی است.",
+          message: `سقف انتقال کارت به کارت در درگاه ${cardTransferLimit.toLocaleString("fa-IR")} تومان است. برای مبالغ بالاتر، فعال‌سازی سامانه انتقال پل و ثبت شماره شبا در تنظیمات کارت بانکی الزامی است.`,
         },
         { status: 400 }
       );
@@ -299,11 +333,12 @@ export async function POST(req: NextRequest) {
 
     const paymentUrl = `${baseUrl}/pay/${authority}`;
 
-    const detectedBank = targetCard.cardNumber
-      ? getBankByCardNumber(targetCard.cardNumber)
-      : (targetCard.iban ? getBankByIban(targetCard.iban) : null);
-    const bankLogo = detectedBank?.logo || "/images/banks/mehriran.svg";
-    const resolvedBankTitle = targetCard.bankTitle || detectedBank?.nameFa || "بانک شتاب";
+    const resolvedBank = resolveBankDetails({
+      cardNumber: targetCard.cardNumber,
+      iban: targetCard.iban,
+      bankSlug: targetCard.bankSlug,
+      bankTitle: targetCard.bankTitle,
+    });
 
     return NextResponse.json({
       success: true,
@@ -322,8 +357,9 @@ export async function POST(req: NextRequest) {
           cardNumber: targetCard.cardNumber,
           iban: targetCard.iban || null,
           accountNumber: targetCard.accountNumber || null,
-          bankTitle: resolvedBankTitle,
-          bankLogo,
+          bankTitle: resolvedBank.nameFa,
+          bankSlug: resolvedBank.slug,
+          bankLogo: resolvedBank.logo,
           transferType: isPol ? "POL" : "CARD_TO_CARD",
         },
       },

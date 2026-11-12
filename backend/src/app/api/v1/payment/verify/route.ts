@@ -12,7 +12,12 @@ export async function POST(req: NextRequest) {
 
     if (!rawAuthority && !rawTrackingCode) {
       return NextResponse.json(
-        { success: false, error: "Either authority or trackingCode is required for verification." },
+        {
+          success: false,
+          error: "Either authority or trackingCode is required for verification.",
+          message: "ارسال شناسه پرداخت (authority) یا کد پیگیری الزامی است.",
+          code: -10,
+        },
         { status: 400 }
       );
     }
@@ -28,6 +33,53 @@ export async function POST(req: NextRequest) {
       (rawTrackingCode && sandboxStore.has(rawTrackingCode))
     ) {
       const sandboxTx = getSandboxTransaction(rawAuthority || rawTrackingCode || "test");
+
+      if (sandboxTx) {
+        const now = new Date();
+        const isSandboxExpired =
+          sandboxTx.status === "EXPIRED" ||
+          (sandboxTx.status === "PENDING" && now > sandboxTx.expiresAt);
+
+        if (isSandboxExpired) {
+          sandboxTx.status = "EXPIRED";
+          return NextResponse.json(
+            {
+              success: false,
+              isSandbox: true,
+              status: "EXPIRED",
+              error: "Payment window has expired",
+              message: "مهلت پرداخت آزمایشی به پایان رسیده و این فاکتور منقضی شده است.",
+              code: -31,
+              data: {
+                authority: sandboxTx.authority,
+                status: "EXPIRED",
+                isExpired: true,
+              },
+            },
+            { status: 400 }
+          );
+        }
+
+        if (sandboxTx.status === "CANCELLED") {
+          return NextResponse.json(
+            {
+              success: false,
+              isSandbox: true,
+              status: "CANCELLED",
+              error: "Payment was cancelled",
+              message: "تراکنش آزمایشی توسط کاربر لغو گردیده است.",
+              code: -32,
+              data: {
+                authority: sandboxTx.authority,
+                status: "CANCELLED",
+                isCancelled: true,
+              },
+            },
+            { status: 400 }
+          );
+        }
+      }
+
       return NextResponse.json({
         success: true,
         isSandbox: true,
@@ -56,9 +108,24 @@ export async function POST(req: NextRequest) {
 
     if (!tx) {
       return NextResponse.json(
-        { success: false, error: "Transaction not found" },
+        {
+          success: false,
+          error: "Transaction not found",
+          message: "تراکنش مورد نظر یافت نشد.",
+          code: -11,
+        },
         { status: 404 }
       );
+    }
+
+    // Auto-update expiration if pending and time has passed
+    const now = new Date();
+    if (tx.status === "PENDING" && now > tx.expiresAt) {
+      await db.transaction.update({
+        where: { id: tx.id },
+        data: { status: "EXPIRED" },
+      });
+      tx.status = "EXPIRED";
     }
 
     // Optional amount consistency check (in Toman)
@@ -72,9 +139,11 @@ export async function POST(req: NextRequest) {
           {
             success: false,
             error: "Amount mismatch with transaction record",
+            message: "مبلغ ارسالی با مبلغ ثبت‌شده فاکتور تطابق ندارد.",
             expectedOriginal,
             expectedFinal,
             provided,
+            code: -12,
           },
           { status: 400 }
         );
@@ -84,14 +153,34 @@ export async function POST(req: NextRequest) {
     const isPaid = tx.status === "PAID" || tx.status === "MANUALLY_VERIFIED";
 
     if (!isPaid) {
-      return NextResponse.json({
-        success: false,
-        status: tx.status,
-        message:
-          tx.status === "EXPIRED"
+      const isExpired = tx.status === "EXPIRED";
+      const isCancelled = tx.status === "CANCELLED";
+
+      return NextResponse.json(
+        {
+          success: false,
+          status: tx.status,
+          error: isExpired
             ? "Payment window has expired"
+            : isCancelled
+            ? "Payment was cancelled"
             : "Payment has not been completed or verified yet",
-      });
+          message: isExpired
+            ? "مهلت پرداخت به پایان رسیده و این تراکنش منقضی شده است."
+            : isCancelled
+            ? "تراکنش توسط خریدار لغو گردیده است."
+            : "پرداخت هنوز انجام یا تایید نشده است.",
+          code: isExpired ? -31 : isCancelled ? -32 : -1,
+          data: {
+            authority: tx.authority,
+            trackingCode: tx.internalTrackingCode || tx.trackingCode,
+            status: tx.status,
+            isExpired,
+            isCancelled,
+          },
+        },
+        { status: 400 }
+      );
     }
 
     // If this transaction was for plan upgrade, ensure it is processed immediately

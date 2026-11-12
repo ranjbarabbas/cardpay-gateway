@@ -89,9 +89,10 @@ export default function AdminDashboard() {
   const [approvedSenders, setApprovedSenders] = useState<any[]>([]);
   const [pendingSenders, setPendingSenders] = useState<any[]>([]);
   const [blockedSenders, setBlockedSenders] = useState<any[]>([]);
+  const [nonBankingSenders, setNonBankingSenders] = useState<any[]>([]);
 
   // Sub-tabs
-  const [senderSubTab, setSenderSubTab] = useState<"approved" | "blocked" | "pending">("approved");
+  const [senderSubTab, setSenderSubTab] = useState<"approved" | "blocked" | "pending" | "non_banking">("approved");
   const [cardSubTab, setCardSubTab] = useState<"active" | "archived">("active");
   const [txSubTab, setTxSubTab] = useState<"transactions" | "sms_logs" | "tickets">("transactions");
   const [settingsSubTab, setSettingsSubTab] = useState<"admin_card" | "sms" | "email">("admin_card");
@@ -319,10 +320,11 @@ export default function AdminDashboard() {
       }
 
       // Load senders
-      const [resApproved, resBlocked, resPending] = await Promise.all([
+      const [resApproved, resBlocked, resPending, resNonBanking] = await Promise.all([
         fetch("/api/v1/admin/senders?status=APPROVED", { headers }).catch(() => null),
         fetch("/api/v1/admin/senders?status=REJECTED", { headers }).catch(() => null),
         fetch("/api/v1/admin/senders?status=PENDING_REVIEW", { headers }).catch(() => null),
+        fetch("/api/v1/admin/senders?status=NON_BANKING", { headers }).catch(() => null),
       ]);
       if (resApproved?.ok) {
         const d = await resApproved.json();
@@ -335,6 +337,10 @@ export default function AdminDashboard() {
       if (resPending?.ok) {
         const d = await resPending.json();
         if (d.success) setPendingSenders(d.data);
+      }
+      if (resNonBanking?.ok) {
+        const d = await resNonBanking.json();
+        if (d.success) setNonBankingSenders(d.data);
       }
 
       // Load raw SMS & Tickets
@@ -546,15 +552,27 @@ export default function AdminDashboard() {
           setBankSmsFormats(d.data);
         }
       }
-      const resPending = await fetch("/api/v1/admin/senders?status=PENDING_REVIEW", { headers });
+      const [resPending, resApproved, resBlocked, resNonBanking] = await Promise.all([
+        fetch("/api/v1/admin/senders?status=PENDING_REVIEW", { headers }).catch(() => null),
+        fetch("/api/v1/admin/senders?status=APPROVED", { headers }).catch(() => null),
+        fetch("/api/v1/admin/senders?status=REJECTED", { headers }).catch(() => null),
+        fetch("/api/v1/admin/senders?status=NON_BANKING", { headers }).catch(() => null),
+      ]);
       if (resPending?.ok) {
         const d = await resPending.json();
         if (d.success) setPendingSenders(d.data);
       }
-      const resApproved = await fetch("/api/v1/admin/senders?status=APPROVED", { headers });
       if (resApproved?.ok) {
         const d = await resApproved.json();
         if (d.success) setApprovedSenders(d.data);
+      }
+      if (resBlocked?.ok) {
+        const d = await resBlocked.json();
+        if (d.success) setBlockedSenders(d.data);
+      }
+      if (resNonBanking?.ok) {
+        const d = await resNonBanking.json();
+        if (d.success) setNonBankingSenders(d.data);
       }
     } catch (err) {
       console.error("Failed to reload bank sms formats", err);
@@ -771,9 +789,52 @@ export default function AdminDashboard() {
       });
       const d = await res.json();
       if (d.success) {
-        setSmsFormatFeedback("سرشماره تایید و به این بانک متصل شد.");
+        setSmsFormatFeedback("سرشماره با موفقیت تایید و به این بانک متصل شد.");
         await reloadBankSmsFormats();
+        loadData();
         setTimeout(() => setSmsFormatFeedback(null), 3000);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleRejectPendingSender = async (senderId: string) => {
+    try {
+      const res = await fetch(`/api/v1/admin/senders/${senderId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          status: "REJECTED",
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setSmsFormatFeedback("سرشماره با موفقیت مسدود شد و از این پس پیامک‌های آن برای هیچ دستگاهی پردازش نمی‌شود.");
+        await reloadBankSmsFormats();
+        loadData();
+        setTimeout(() => setSmsFormatFeedback(null), 3500);
+      }
+    } catch (err: any) {
+      alert(err.message);
+    }
+  };
+
+  const handleMarkNonBankingPendingSender = async (senderId: string) => {
+    try {
+      const res = await fetch(`/api/v1/admin/senders/${senderId}`, {
+        method: "PATCH",
+        headers,
+        body: JSON.stringify({
+          status: "NON_BANKING",
+        }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setSmsFormatFeedback("سرشماره به عنوان پیامک کاملاً غیربانکی ثبت شد و از این پس هرگز به عنوان واریزی آنالیز نخواهد شد.");
+        await reloadBankSmsFormats();
+        loadData();
+        setTimeout(() => setSmsFormatFeedback(null), 3500);
       }
     } catch (err: any) {
       alert(err.message);
@@ -1018,6 +1079,17 @@ export default function AdminDashboard() {
       body: JSON.stringify({ status: "REJECTED" }),
     });
     loadData();
+    reloadBankSmsFormats();
+  };
+
+  const handleMarkNonBanking = async (id: string) => {
+    await fetch(`/api/v1/admin/senders/${id}`, {
+      method: "PATCH",
+      headers,
+      body: JSON.stringify({ status: "NON_BANKING" }),
+    });
+    loadData();
+    reloadBankSmsFormats();
   };
 
   const handleDeleteSender = async (id: string) => {
@@ -2181,6 +2253,14 @@ export default function AdminDashboard() {
                   >
                     مسدودشده ({toPersianDigits(blockedSenders.length)})
                   </button>
+                  <button
+                    onClick={() => setSenderSubTab("non_banking")}
+                    className={`px-3 py-1.5 rounded-lg font-bold transition ${
+                      senderSubTab === "non_banking" ? "bg-purple-600 text-white shadow" : "text-slate-400 hover:text-white"
+                    }`}
+                  >
+                    غیربانکی ({toPersianDigits(nonBankingSenders.length)})
+                  </button>
                 </div>
               </div>
 
@@ -2215,6 +2295,8 @@ export default function AdminDashboard() {
                   ? approvedSenders
                   : senderSubTab === "blocked"
                   ? blockedSenders
+                  : senderSubTab === "non_banking"
+                  ? nonBankingSenders
                   : pendingSenders
                 ).map((sender) => (
                   <div key={sender.id} className="bg-slate-900 border border-slate-800 rounded-2xl p-4 space-y-2">
@@ -2230,8 +2312,8 @@ export default function AdminDashboard() {
                         {sender.sampleMessage}
                       </div>
                     )}
-                    <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800/80 text-xs">
-                      {senderSubTab === "pending" && (
+                    <div className="flex flex-wrap items-center justify-end gap-2 pt-2 border-t border-slate-800/80 text-xs">
+                      {senderSubTab !== "approved" && (
                         <button
                           onClick={() => handleApproveSender(sender.id)}
                           className="text-emerald-400 hover:underline font-bold"
@@ -2242,9 +2324,17 @@ export default function AdminDashboard() {
                       {senderSubTab !== "blocked" && (
                         <button
                           onClick={() => handleRejectSender(sender.id)}
-                          className="text-rose-400 hover:underline"
+                          className="text-rose-400 hover:underline font-bold"
                         >
                           مسدودسازی
+                        </button>
+                      )}
+                      {senderSubTab !== "non_banking" && (
+                        <button
+                          onClick={() => handleMarkNonBanking(sender.id)}
+                          className="text-amber-400 hover:underline font-bold"
+                        >
+                          کاملاً غیربانکی
                         </button>
                       )}
                       <button
@@ -3058,13 +3148,35 @@ export default function AdminDashboard() {
                                           )}
                                         </div>
 
-                                        <button
-                                          type="button"
-                                          onClick={() => handleApprovePendingSenderForBank(p.id)}
-                                          className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3.5 py-1.5 rounded-xl transition shadow shrink-0"
-                                        >
-                                          تایید و اتصال به {activeBank.nameFa}
-                                        </button>
+                                        <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleApprovePendingSenderForBank(p.id)}
+                                            className="bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1"
+                                            title={`تایید سرخط به عنوان شماره رسمی ${activeBank.nameFa}`}
+                                          >
+                                            <CheckCircle2 className="w-3.5 h-3.5" />
+                                            <span>تایید سرخط</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleRejectPendingSender(p.id)}
+                                            className="bg-rose-600/90 hover:bg-rose-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1"
+                                            title="مسدودسازی سراسری این سرخط برای کلیه دستگاه‌ها بدون نمایش خطا به کاربر موبایل"
+                                          >
+                                            <XCircle className="w-3.5 h-3.5" />
+                                            <span>مسدودی سرخط</span>
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => handleMarkNonBankingPendingSender(p.id)}
+                                            className="bg-slate-800 hover:bg-slate-700 text-amber-300 border border-amber-500/30 font-bold text-xs px-3 py-1.5 rounded-xl transition shadow flex items-center gap-1"
+                                            title="این پیامک و سرخط کاملاً غیربانکی است (توقف همیشگی آنالیز برای همه)"
+                                          >
+                                            <AlertCircle className="w-3.5 h-3.5" />
+                                            <span>کاملاً غیربانکی</span>
+                                          </button>
+                                        </div>
                                       </div>
                                     );
                                   })}

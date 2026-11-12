@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { getSystemSettings } from "./settings";
 
 export const SANDBOX_API_KEY = "hp_sandbox_test_key_2026";
 export const SANDBOX_DEVICE_KEY = "hp_sandbox_sync_key_2026";
@@ -94,7 +95,9 @@ export function createSandboxTransaction(params: {
   const offsetToman = 15; // Dynamic test offset
   const payableAmountToman = originalAmountToman + offsetToman;
   const payableAmountRial = payableAmountToman * 10;
-  const isPol = originalAmountToman > 15000000;
+  const settings = getSystemSettings();
+  const cardLimit = settings.limits?.cardTransferLimitToman || 15000000;
+  const isPol = originalAmountToman > cardLimit;
 
   const tx: SandboxTransaction = {
     authority,

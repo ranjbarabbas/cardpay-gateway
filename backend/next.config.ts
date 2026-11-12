@@ -5,9 +5,6 @@ const nextConfig: NextConfig = {
     // Typecheck is strictly verified via `npx tsc --noEmit` before git push
     ignoreBuildErrors: true,
   },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
 };
 
 export default nextConfig;

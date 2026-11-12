@@ -413,6 +413,75 @@ export function getBankById(id: string): BankInfo | null {
 }
 
 /**
+ * Resolves accurate bank details, ensuring specific bank names (e.g. بانک خاورمیانه)
+ * are always prioritized over generic strings like "کارت عضو شبکه شتاب" or "بانک شتاب".
+ */
+export function resolveBankDetails(params: {
+  cardNumber?: string | null;
+  iban?: string | null;
+  bankSlug?: string | null;
+  bankTitle?: string | null;
+}): {
+  nameFa: string;
+  nameEn?: string;
+  slug: string;
+  logo: string;
+  isGenericFallback: boolean;
+} {
+  const { cardNumber, iban, bankSlug, bankTitle } = params;
+
+  // 1. Try card number first
+  let detected: BankInfo | null = cardNumber ? getBankByCardNumber(cardNumber) : null;
+
+  // 2. Try IBAN
+  if (!detected && iban) {
+    detected = getBankByIban(iban);
+  }
+
+  // 3. Try bank slug
+  if (!detected && bankSlug && bankSlug !== "shetab") {
+    detected = getBankById(bankSlug);
+  }
+
+  // If detected from BIN/IBAN/slug, prioritize its official name
+  if (detected) {
+    return {
+      nameFa: detected.nameFa,
+      nameEn: detected.nameEn,
+      slug: detected.id.replace(/-/g, "_"),
+      logo: detected.logo,
+      isGenericFallback: false,
+    };
+  }
+
+  // Check if bankTitle is already a valid non-generic name
+  const isGeneric =
+    !bankTitle ||
+    bankTitle.trim() === "" ||
+    bankTitle.includes("عضو") ||
+    bankTitle === "بانک شتاب" ||
+    bankTitle === "کارت عضو شبکه شتاب" ||
+    bankTitle === "شبکه عضو شتاب";
+
+  if (!isGeneric && bankTitle) {
+    return {
+      nameFa: bankTitle.trim(),
+      slug: bankSlug || "shetab",
+      logo: "/images/banks/centeral.svg",
+      isGenericFallback: false,
+    };
+  }
+
+  // Final fallback
+  return {
+    nameFa: iban ? "حساب بانکی (شبا)" : "بانک عضو شتاب",
+    slug: bankSlug || "shetab",
+    logo: "/images/banks/centeral.svg",
+    isGenericFallback: true,
+  };
+}
+
+/**
  * Validates a 16-digit Iranian bank card using the standard Luhn Mod 10 algorithm
  */
 export function isValidIranianCardNumber(cardNumber: string): {
