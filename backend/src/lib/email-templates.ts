@@ -31,6 +31,8 @@ interface DepositAlertEmailOptions {
  * Common HTML email wrapper with HonarHub Pay brand styling
  */
 function emailLayout(title: string, contentHtml: string): string {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "https://pay.honarhub.com";
+  const logoUrl = `${baseUrl}/images/honarhub_pay_logo.png`;
   return `
 <!DOCTYPE html>
 <html dir="rtl" lang="fa">
@@ -53,14 +55,8 @@ function emailLayout(title: string, contentHtml: string): string {
                 <tr>
                   <!-- Brand Logo (Right Aligned) -->
                   <td align="right" style="vertical-align: middle;">
-                    <a href="https://pay.honarhub.com" target="_blank" style="text-decoration: none; display: inline-block;">
-                      <table role="presentation" cellpadding="0" cellspacing="0">
-                        <tr>
-                          <td style="background-color: #020617; border: 1px solid #334155; border-radius: 12px; padding: 6px 14px; vertical-align: middle;">
-                            <span style="font-size: 19px; font-weight: 900; color: #FFFFFF; font-family: Tahoma, 'Segoe UI', sans-serif; letter-spacing: -0.5px;">هنر</span><span style="background-color: #F59E0B; color: #020617; padding: 2px 7px; border-radius: 6px; margin-right: 4px; font-size: 15px; font-weight: 900;">هاب</span><span style="padding-right: 6px; font-size: 14px; font-weight: 800; color: #10B981; font-family: Tahoma, 'Segoe UI', sans-serif;">پی</span>
-                          </td>
-                        </tr>
-                      </table>
+                    <a href="${baseUrl}" target="_blank" style="text-decoration: none; display: inline-block;">
+                      <img src="${logoUrl}" alt="هنرهاب پی | HonarHub Pay" height="34" style="height: 34px; max-height: 34px; width: auto; display: block; border: 0;" />
                     </a>
                   </td>
                   <!-- Tagline Badge (Left Aligned) -->

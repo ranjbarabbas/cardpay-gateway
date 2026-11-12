@@ -715,7 +715,7 @@ export default function Home() {
         </div>
 
         <div className={`text-[11px] ${theme === "dark" ? "text-slate-600" : "text-slate-400"}`}>
-          توسعه‌یافته به صورت کاملاً مستقل و متن‌باز ❤️
+          توسعه‌یافته به صورت کاملاً مستقل
         </div>
       </footer>
     </div>
