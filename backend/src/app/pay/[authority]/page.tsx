@@ -244,10 +244,10 @@ function CheckoutContent({ authority }: { authority: string }) {
     return toPersianDigits(formatted);
   };
 
-  // Simulate deposit directly - strictly for local development machine (localhost) only
-  const handleSimulatePayment = async () => {
-    if (!isLocalhost || !details) {
-      console.warn("Payment simulation is disabled on production/live domains.");
+  // Simulate deposit directly - strictly for sandbox transactions
+  const handleSimulatePayment = async (action: "PAID" | "CANCELLED" = "PAID") => {
+    if (!isSandbox || !details) {
+      console.warn("Payment simulation is only permitted for sandbox transactions.");
       return;
     }
     setIsSimulating(true);
@@ -257,20 +257,23 @@ function CheckoutContent({ authority }: { authority: string }) {
       const res = await fetch("/api/v1/payment/simulate-sandbox", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ authority, action: "PAID" }),
+        body: JSON.stringify({ authority, action }),
       });
 
       const data = await res.json();
       if (data.success) {
         setSimResult({
           type: "success",
-          text: "✅ واریز با موفقیت شبیه‌سازی شد! وضعیت تراکنش به تاییدشده (PAID) تغییر یافت.",
+          text:
+            action === "PAID"
+              ? "✅ واریز با موفقیت شبیه‌سازی شد! وضعیت تراکنش به تاییدشده (PAID) تغییر یافت."
+              : "تراکنش به عنوان انصراف/لغوشده (CANCELLED) علامت‌گذاری گردید.",
         });
         fetchStatus();
       } else {
         setSimResult({
           type: "error",
-          text: "خطا در شبیه‌سازی واریز: " + (data.error || data.message || "خطای نامشخص"),
+          text: "خطا در شبیه‌سازی: " + (data.error || data.message || "خطای نامشخص"),
         });
       }
     } catch (e: any) {
@@ -532,8 +535,7 @@ function CheckoutContent({ authority }: { authority: string }) {
               <span>محیط تست و سندباکس درگاه پرداخت (Sandbox Test Mode)</span>
             </div>
             <p className="text-[11px] text-amber-200/90 leading-relaxed font-normal">
-              این تراکنش در محیط آزمایشی (سندباکس) ایجاد شده است و جنبه آزمایشی دارد.
-              {isLocalhost && " برای تست فرآیند در محیط لوکال، از پنل شبیه‌ساز انتهای صفحه استفاده فرمایید."}
+              این تراکنش در محیط آزمایشی (سندباکس) ایجاد شده است و جنبه شبیه‌سازی دارد. برای ارزیابی فرآیند پرداخت و بازگشت خودکار به وب‌سایت، از پنل شبیه‌ساز انتهای صفحه استفاده فرمایید.
             </p>
           </div>
         )}
@@ -777,16 +779,16 @@ function CheckoutContent({ authority }: { authority: string }) {
           </div>
         </div>
 
-        {/* Simulator Drawer - Strictly available on localhost development machine only, completely disabled on production/real domains */}
-        {isLocalhost && (
+        {/* Simulator Drawer - Strictly available for Sandbox transactions ONLY */}
+        {isSandbox && (
           <div className="bg-slate-900/90 border-2 border-emerald-500/30 rounded-3xl p-5 text-xs space-y-3 text-center shadow-xl shadow-emerald-500/5">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
               <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
                 <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-                <span>لابراتوار شبیه‌ساز تراکنش (صرفاً محیط توسعه لوکال):</span>
+                <span>لابراتوار شبیه‌ساز تراکنش (صرفاً محیط سندباکس):</span>
               </span>
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-mono">
-                لوکال‌هاست
+                سندباکس
               </span>
             </div>
 
@@ -797,7 +799,7 @@ function CheckoutContent({ authority }: { authority: string }) {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
               <button
                 type="button"
-                onClick={handleSimulatePayment}
+                onClick={() => handleSimulatePayment("PAID")}
                 disabled={isSimulating}
                 className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
@@ -807,8 +809,8 @@ function CheckoutContent({ authority }: { authority: string }) {
 
               <button
                 type="button"
-                onClick={handleCancelPayment}
-                disabled={isCancelling}
+                onClick={() => handleSimulatePayment("CANCELLED")}
+                disabled={isSimulating || isCancelling}
                 className="bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 hover:border-rose-500/40 border border-slate-700 text-slate-300 font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5"
               >
                 <XCircle className="w-3.5 h-3.5 text-rose-400" />
