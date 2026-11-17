@@ -8,6 +8,26 @@ import { SmsMatcherService } from "@/lib/services/sms-matcher.service";
 
 export async function POST(req: NextRequest) {
   try {
+    // 1. Strict Host & Environment Check:
+    // Simulation is strictly allowed ONLY on localhost/127.0.0.1 or with authenticated Admin session/key.
+    // Live customers on production domains (e.g. pay.honarhub.com) are NEVER allowed to simulate transactions.
+    const host = (req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
+    const isLocal =
+      host.includes("localhost") ||
+      host.includes("127.0.0.1") ||
+      host.includes("[::1]");
+    const isAdmin = verifyAdminAuth(req);
+
+    if (process.env.NODE_ENV === "production" && !isLocal && !isAdmin) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Sandbox simulation is strictly disabled on live production domains.",
+        },
+        { status: 403 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { authority, action = "PAID" } = body;
 
@@ -20,7 +40,7 @@ export async function POST(req: NextRequest) {
 
     const targetStatus = action === "CANCELLED" ? "CANCELLED" : "PAID";
 
-    // 1. Check Sandbox In-Memory Store
+    // 2. Check Sandbox In-Memory Store
     const updatedSandbox = updateSandboxStatus(authority, targetStatus);
     if (updatedSandbox) {
       return NextResponse.json({
@@ -39,7 +59,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // 2. Check Database Transaction (Supported in local/test/admin environments)
+    // 3. Check Database Transaction (Supported in local or admin environments)
     const tx = await db.transaction.findFirst({
       where: {
         OR: [{ authority }, { internalTrackingCode: authority }],
@@ -54,18 +74,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const host = req.headers.get("host") || "";
-    const isLocal =
-      host.includes("localhost") ||
-      host.includes("127.0.0.1") ||
-      host.startsWith("192.168.") ||
-      host.startsWith("10.") ||
-      process.env.NODE_ENV !== "production" ||
-      verifyAdminAuth(req);
-
-    if (!isLocal) {
+    if (!isLocal && !isAdmin) {
       return NextResponse.json(
-        { success: false, error: "شبیه‌سازی واریز تنها در محیط توسعه محلی یا سندباکس مجاز است." },
+        { success: false, error: "شبیه‌سازی واریز تنها در محیط توسعه محلی یا با دسترسی مدیر مجاز است." },
         { status: 403 }
       );
     }

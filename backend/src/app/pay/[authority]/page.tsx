@@ -65,26 +65,16 @@ function CheckoutContent({ authority }: { authority: string }) {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const host = window.location.hostname;
-      setIsLocalhost(
+      const host = window.location.hostname.toLowerCase();
+      // Strictly true ONLY on local development machine, NEVER on production / real domain
+      const isLocal =
         host === "localhost" ||
         host === "127.0.0.1" ||
-        host.endsWith(".local") ||
-        host.startsWith("192.168.") ||
-        host.startsWith("10.") ||
-        host === "[::1]"
-      );
-
-      const params = new URLSearchParams(window.location.search);
-      if (
-        params.get("sandbox") === "true" ||
-        authority.startsWith("hp_sandbox_") ||
-        authority.includes("sandbox")
-      ) {
-        setIsSandbox(true);
-      }
+        host === "[::1]" ||
+        host.endsWith(".localhost");
+      setIsLocalhost(isLocal);
     }
-  }, [authority]);
+  }, []);
 
   // Fetch status
   const fetchStatus = async () => {
@@ -95,7 +85,7 @@ function CheckoutContent({ authority }: { authority: string }) {
         setError(data.error || "تراکنش مورد نظر یافت نشد یا معتبر نیست.");
         return;
       }
-      if (data.isSandbox || authority.startsWith("hp_sandbox_") || authority.includes("sandbox")) {
+      if (data.isSandbox || authority.startsWith("hp_sandbox_")) {
         setIsSandbox(true);
       }
       setDetails(data.data);
@@ -254,9 +244,12 @@ function CheckoutContent({ authority }: { authority: string }) {
     return toPersianDigits(formatted);
   };
 
-  // Simulate deposit directly for testing / sandbox / localhost
+  // Simulate deposit directly - strictly for local development machine (localhost) only
   const handleSimulatePayment = async () => {
-    if (!details) return;
+    if (!isLocalhost || !details) {
+      console.warn("Payment simulation is disabled on production/live domains.");
+      return;
+    }
     setIsSimulating(true);
     setSimResult(null);
 
@@ -283,7 +276,7 @@ function CheckoutContent({ authority }: { authority: string }) {
     } catch (e: any) {
       setSimResult({
         type: "error",
-        text: "خطا در برقراری ارتباط با شبیه‌ساز: " + e.message,
+        text: "خطا در برقراری ارتباط با شبیه‌ساز: " + (e?.message || "خطای ناشناخته"),
       });
     } finally {
       setIsSimulating(false);
@@ -539,7 +532,8 @@ function CheckoutContent({ authority }: { authority: string }) {
               <span>محیط تست و سندباکس درگاه پرداخت (Sandbox Test Mode)</span>
             </div>
             <p className="text-[11px] text-amber-200/90 leading-relaxed font-normal">
-              این صفحه به صورت آزمایشی ایجاد گردیده است. هیچ‌گونه تراکنش مالی واقعی انجام نمی‌شود و نیازی به واریز وجه واقعی نیست. برای ارزیابی فرآیند پرداخت و بازگشت به سایت شما، از پنل شبیه‌ساز پایین صفحه استفاده فرمایید.
+              این تراکنش در محیط آزمایشی (سندباکس) ایجاد شده است و جنبه آزمایشی دارد.
+              {isLocalhost && " برای تست فرآیند در محیط لوکال، از پنل شبیه‌ساز انتهای صفحه استفاده فرمایید."}
             </p>
           </div>
         )}
@@ -783,16 +777,16 @@ function CheckoutContent({ authority }: { authority: string }) {
           </div>
         </div>
 
-        {/* Sandbox & Interactive Simulator Drawer - Available in Sandbox or Localhost */}
-        {(isLocalhost || isSandbox) && (
+        {/* Simulator Drawer - Strictly available on localhost development machine only, completely disabled on production/real domains */}
+        {isLocalhost && (
           <div className="bg-slate-900/90 border-2 border-emerald-500/30 rounded-3xl p-5 text-xs space-y-3 text-center shadow-xl shadow-emerald-500/5">
             <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
               <span className="flex items-center gap-1.5 text-xs font-bold text-emerald-400">
                 <Play className="w-4 h-4 text-emerald-400 fill-emerald-400" />
-                <span>لابراتوار شبیه‌ساز تراکنش (Sandbox):</span>
+                <span>لابراتوار شبیه‌ساز تراکنش (صرفاً محیط توسعه لوکال):</span>
               </span>
               <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full text-[10px] font-mono">
-                {isSandbox ? "سندباکس فعال" : "توسعه محلی"}
+                لوکال‌هاست
               </span>
             </div>
 
