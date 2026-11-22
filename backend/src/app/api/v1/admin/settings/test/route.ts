@@ -51,12 +51,13 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const patternCode = pattern || settings.sms.patternOtp || "hnr_otp_v1";
+      const patternCode = pattern || settings.sms.patternVipDeposit || settings.sms.patternDeposit || settings.sms.patternOtp || "hnr_otp_v1";
 
       const result = await sendFarazPatternSms({
         recipient: targetPhone,
         patternCode: patternCode,
         variables: {
+          number: "50000",
           code: "12345",
           amount: "50,000",
           track: "TEST-LIVE",

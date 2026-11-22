@@ -190,20 +190,34 @@ export async function sendOtpSms(phone: string, code: string): Promise<{ success
 }
 
 /**
- * Helper: Send Deposit notification SMS for PRO/SPECIAL users with variables 'amount' and 'track'
+ * Helper: Send Deposit notification SMS for VIP/SPECIAL users with variables 'number' (amount) and 'code' (tracking code)
  */
-export async function sendDepositAlertSms(phone: string, amount: string, track: string): Promise<{ success: boolean; messageId?: string; error?: string }> {
+export async function sendDepositAlertSms(
+  phone: string,
+  amount: string | number,
+  track: string,
+  customPattern?: string
+): Promise<{ success: boolean; messageId?: string; error?: string }> {
   const settings = getSystemSettings();
-  if (!settings.sms.depositAlertProEnabled) {
-    return { success: false, error: "ارسال پیامک واریز در تنظیمات سامانه غیرفعال است." };
+  if (settings.sms.enabled === false) {
+    return { success: false, error: "ارسال پیامک در تنظیمات سامانه غیرفعال است." };
   }
-  const patternCode = settings.sms.patternDeposit || "hnr_deposit_alert";
+  if (settings.sms.vipSmsNotifyEnabled === false && !customPattern) {
+    return { success: false, error: "ارسال پیامک واریز به کاربران VIP در تنظیمات سامانه غیرفعال است." };
+  }
+
+  const patternCode = (customPattern || settings.sms.patternVipDeposit || settings.sms.patternDeposit || "hnr_vip_deposit").trim();
+  const rawAmount = typeof amount === "number" ? String(amount) : String(amount).replace(/[^0-9]/g, "");
+  const formattedAmount = Number(rawAmount || 0).toLocaleString("fa-IR");
+
   return sendFarazPatternSms({
     recipient: phone,
     patternCode,
     variables: {
-      amount,
-      track,
+      number: rawAmount || String(amount),
+      code: String(track),
+      amount: formattedAmount || String(amount),
+      track: String(track),
     },
   });
 }

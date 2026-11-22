@@ -34,6 +34,8 @@ export interface SystemSettings {
     patternOtp: string; // با متغیر code
     patternDeposit: string; // با متغیرهای amount و track
     depositAlertProEnabled: boolean; // فعال/غیرفعال سازی اطلاع‌رسانی پیامک واریز برای پلن حرفه‌ای/ویژه
+    patternVipDeposit: string; // پترن پیامک واریز VIP با متغیرهای number و code
+    vipSmsNotifyEnabled: boolean; // فعال/غیرفعال‌سازی ارسال پیامک واریز به کاربران VIP (ویژه)
     patternWelcome: string;
   };
   email: {
@@ -43,6 +45,8 @@ export interface SystemSettings {
     fromEmail: string;
     fromName: string;
     replyTo?: string;
+    proEmailNotifyEnabled: boolean; // فعال/غیرفعال‌سازی ارسال ایمیل برای کاربران پلن PRO
+    vipEmailNotifyEnabled: boolean; // فعال/غیرفعال‌سازی ارسال ایمیل برای کاربران پلن VIP
   };
   general: {
     siteName: string;
@@ -86,7 +90,9 @@ export const defaultSettings: SystemSettings = {
     senderNumber: process.env.FARAZ_SMS_SENDER || "+983000505",
     patternOtp: "hnr_otp_v1",
     patternDeposit: "hnr_deposit_alert",
+    patternVipDeposit: "hnr_vip_deposit",
     depositAlertProEnabled: true,
+    vipSmsNotifyEnabled: true,
     patternWelcome: "hnr_welcome_user",
   },
   email: {
@@ -96,6 +102,8 @@ export const defaultSettings: SystemSettings = {
     fromEmail: process.env.RESEND_FROM_EMAIL || "notifications@honarhub.com",
     fromName: "هنرهاب پی | HonarHub Pay",
     replyTo: "support@honarhub.com",
+    proEmailNotifyEnabled: true,
+    vipEmailNotifyEnabled: true,
   },
   general: {
     siteName: "هنرهاب پی (HonarHub Pay)",

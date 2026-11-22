@@ -55,10 +55,13 @@ export async function dispatchDepositNotifications(params: DepositNotificationPa
       return { smsSent: false, emailSent: false, details: "No user attached to transaction" };
     }
 
-    // Only PRO and SPECIAL plan users receive deposit alerts
-    const isProOrSpecial = user.plan === "PRO" || user.plan === "SPECIAL";
-    if (!isProOrSpecial) {
-      return { smsSent: false, emailSent: false, details: "User plan is FREE (deposit alerts require PRO/SPECIAL)" };
+    // Only PRO and SPECIAL/VIP plan users receive deposit alerts
+    const planUpper = (user.plan || "FREE").toUpperCase();
+    const isPro = planUpper === "PRO";
+    const isVip = planUpper === "SPECIAL" || planUpper === "VIP";
+
+    if (!isPro && !isVip) {
+      return { smsSent: false, emailSent: false, details: `User plan is ${planUpper} (deposit alerts require PRO or VIP/SPECIAL)` };
     }
 
     const amountNum = Number(params.amountToman);
@@ -69,22 +72,19 @@ export async function dispatchDepositNotifications(params: DepositNotificationPa
       emailSent: false,
     };
 
-    const userPhone = user.phone || (user as any).phoneNumber || "";
+    const userPhone = (user.phone || (user as any).phoneNumber || "").trim();
+    const userEmail = (user.email || "").trim();
 
-    // 1. Send SMS Deposit Alert if enabled in settings
-    // 1. Send SMS Deposit Alert if user is on SPECIAL plan and has enabled smsNotifyDeposit
-    const canSendSms = user.plan === "SPECIAL" && user.smsNotifyDeposit && userPhone;
-    if (canSendSms) {
-      try {
-        const smsRes = await sendDepositAlertSms(userPhone, amountStr, trackCode);
-        results.smsSent = smsRes.success;
-      } catch (smsErr) {
-        console.error("[DEPOSIT_NOTIFICATION_SMS_ERROR]", smsErr);
-      }
-    }
+    // System-level settings
+    const isEmailGloballyEnabled = settings.email?.enabled !== false;
+    const isSmsGloballyEnabled = settings.sms?.enabled !== false;
+    const isProEmailEnabled = settings.email?.proEmailNotifyEnabled !== false;
+    const isVipEmailEnabled = settings.email?.vipEmailNotifyEnabled !== false;
+    const isVipSmsEnabled = settings.sms?.vipSmsNotifyEnabled !== false;
 
-    // 2. Send Email Deposit Alert if email verified and user has enabled email alerts
-    if (user.email && user.isEmailVerified && user.emailNotifyDeposit !== false) {
+    // Helper: Send deposit confirmation email
+    const sendAlertEmail = async () => {
+      if (!userEmail) return;
       try {
         const html = getDepositAlertTemplate({
           recipientName: user.name || "کاربر گرامی",
@@ -96,13 +96,45 @@ export async function dispatchDepositNotifications(params: DepositNotificationPa
         });
 
         const emailRes = await sendResendEmail({
-          to: user.email,
+          to: userEmail,
           subject: `واریز موفق مبلغ ${amountStr} تومان به حساب شما - هنرهاب پی`,
           html,
         });
         results.emailSent = emailRes.success;
       } catch (emailErr) {
         console.error("[DEPOSIT_NOTIFICATION_EMAIL_ERROR]", emailErr);
+      }
+    };
+
+    // Helper: Send deposit confirmation SMS (VIP only)
+    const sendAlertSms = async () => {
+      if (!userPhone) return;
+      try {
+        const smsRes = await sendDepositAlertSms(userPhone, amountNum, trackCode);
+        results.smsSent = smsRes.success;
+      } catch (smsErr) {
+        console.error("[DEPOSIT_NOTIFICATION_SMS_ERROR]", smsErr);
+      }
+    };
+
+    // 1. Plan PRO:
+    // If user has email registered -> send email (if enabled). Do not send SMS.
+    if (isPro) {
+      if (isEmailGloballyEnabled && isProEmailEnabled && userEmail && user.emailNotifyDeposit !== false) {
+        await sendAlertEmail();
+      }
+    }
+
+    // 2. Plan VIP (SPECIAL):
+    // If user has email registered -> send email (if enabled).
+    // If user has mobile registered -> send SMS (if enabled) with pattern parameters 'number' and 'code'.
+    if (isVip) {
+      if (isEmailGloballyEnabled && isVipEmailEnabled && userEmail && user.emailNotifyDeposit !== false) {
+        await sendAlertEmail();
+      }
+
+      if (isSmsGloballyEnabled && isVipSmsEnabled && userPhone) {
+        await sendAlertSms();
       }
     }
 

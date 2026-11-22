@@ -134,7 +134,9 @@ export default function AdminDashboard() {
       senderNumber: "+983000505",
       patternOtp: "hnr_otp_v1",
       patternDeposit: "hnr_deposit_alert",
+      patternVipDeposit: "hnr_vip_deposit",
       depositAlertProEnabled: true,
+      vipSmsNotifyEnabled: true,
       patternWelcome: "hnr_welcome_user",
     },
     email: {
@@ -144,6 +146,8 @@ export default function AdminDashboard() {
       fromEmail: "notifications@honarhub.com",
       fromName: "هنرهاب پی | HonarHub Pay",
       replyTo: "support@honarhub.com",
+      proEmailNotifyEnabled: true,
+      vipEmailNotifyEnabled: true,
     },
   });
   const [settingsSaving, setSettingsSaving] = useState(false);
@@ -3608,6 +3612,109 @@ export default function AdminDashboard() {
                       </div>
                     </div>
                   </div>
+
+                  {/* Plan Notifications Overview Card */}
+                  <div className="lg:col-span-2 bg-slate-900 border border-slate-800 rounded-2xl p-5 space-y-4 text-xs">
+                    <div className="flex items-center justify-between border-b border-slate-800 pb-3">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-emerald-400" />
+                        <div>
+                          <span className="font-bold text-white text-sm block">قوانین و تنظیمات اطلاع‌رسانی خودکار و دستی واریزی‌ها</span>
+                          <span className="text-[11px] text-slate-400">
+                            ارسال ایمیل و پیامک به کاربران بر اساس نوع پلن اشتراک هنگام تایید موفق پرداخت
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2.5 py-0.5 rounded-full font-mono">
+                        PRO &amp; VIP Notifications
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      {/* PRO Rules */}
+                      <div className="bg-slate-950 p-4 rounded-xl border border-teal-500/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-teal-300 flex items-center gap-1.5">
+                            <Mail className="w-4 h-4 text-teal-400" />
+                            پلن حرفه‌ای (PRO)
+                          </span>
+                          <span className="text-[10px] bg-teal-500/20 text-teal-300 px-2 py-0.5 rounded font-bold">
+                            صرفاً ایمیل
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          با تایید خودکار یا دستی واریزی، چنانچه کاربر پلن PRO ایمیل ثبت کرده باشد، رسید رسمی واریز برایش ارسال می‌شود (برای پلن پرو پیامک ارسال نمی‌شود).
+                        </p>
+                        <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-800">
+                          <input
+                            type="checkbox"
+                            checked={systemSettings.email.proEmailNotifyEnabled ?? true}
+                            onChange={(e) =>
+                              setSystemSettings({
+                                ...systemSettings,
+                                email: { ...systemSettings.email, proEmailNotifyEnabled: e.target.checked },
+                              })
+                            }
+                            className="accent-teal-500 w-4 h-4 rounded"
+                          />
+                          <span className="text-white text-[11px] font-bold">
+                            ارسال خودکار ایمیل واریز برای پلن پرو (PRO)
+                          </span>
+                        </label>
+                      </div>
+
+                      {/* VIP Rules */}
+                      <div className="bg-slate-950 p-4 rounded-xl border border-amber-500/30 space-y-3">
+                        <div className="flex items-center justify-between">
+                          <span className="font-bold text-amber-300 flex items-center gap-1.5">
+                            <Sparkles className="w-4 h-4 text-amber-400" />
+                            پلن ویژه (VIP)
+                          </span>
+                          <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-bold">
+                            ایمیل + پیامک خدماتی
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-400 leading-relaxed">
+                          با تایید خودکار یا دستی واریزی، در صورت ثبت ایمیل برای کاربر ایمیل و در صورت ثبت موبایل، پیامک آنی با پترن فراز اس‌ام‌اس ارسال می‌شود.
+                        </p>
+                        <div className="space-y-2 pt-2 border-t border-slate-800">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={systemSettings.email.vipEmailNotifyEnabled ?? true}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  email: { ...systemSettings.email, vipEmailNotifyEnabled: e.target.checked },
+                                })
+                              }
+                              className="accent-amber-500 w-4 h-4 rounded"
+                            />
+                            <span className="text-white text-[11px] font-bold">
+                              ارسال خودکار ایمیل واریز برای پلن VIP
+                            </span>
+                          </label>
+
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={systemSettings.sms.vipSmsNotifyEnabled ?? true}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  sms: { ...systemSettings.sms, vipSmsNotifyEnabled: e.target.checked },
+                                })
+                              }
+                              className="accent-amber-500 w-4 h-4 rounded"
+                            />
+                            <span className="text-white text-[11px] font-bold">
+                              ارسال خودکار پیامک واریز برای پلن VIP (فراز اس‌ام‌اس)
+                            </span>
+                          </label>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -3726,40 +3833,48 @@ export default function AdminDashboard() {
                           <p className="text-[10px] text-slate-500">برای ارسال کد تایید یکبار مصرف، تغییر رمز عبور و ورود امن با متغیر %code%.</p>
                         </div>
 
-                        {/* Pattern 2: Deposit notification for PRO/SPECIAL with toggle */}
-                        <div className="p-3 bg-slate-950/80 border border-slate-800 rounded-xl space-y-2">
+                        {/* Pattern 2: Deposit notification for VIP with toggle */}
+                        <div className="p-3 bg-slate-950/80 border border-amber-500/30 rounded-xl space-y-2.5">
                           <div className="flex items-center justify-between">
-                            <label className="text-slate-300 font-bold block text-[11px]">۲. پترن اطلاع‌رسانی واریزی‌ها (پلن حرفه‌ای/ویژه):</label>
-                            <span className="text-[10px] bg-sky-500/20 text-sky-400 px-2 py-0.5 rounded font-mono">متغیرها: amount , track</span>
+                            <label className="text-amber-300 font-bold block text-[11px] flex items-center gap-1.5">
+                              <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                              <span>۲. پترن پیامک واریزی کاربران VIP (ویژه):</span>
+                            </label>
+                            <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded font-mono font-bold">
+                              متغیرها: number (عدد فاکتور) , code (کدرهگیری)
+                            </span>
                           </div>
                           <input
                             type="text"
-                            value={systemSettings.sms.patternDeposit}
+                            value={systemSettings.sms.patternVipDeposit || "hnr_vip_deposit"}
                             onChange={(e) =>
                               setSystemSettings({
                                 ...systemSettings,
-                                sms: { ...systemSettings.sms, patternDeposit: e.target.value },
+                                sms: { ...systemSettings.sms, patternVipDeposit: e.target.value },
                               })
                             }
-                            placeholder="hnr_deposit_alert"
-                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-emerald-500"
+                            placeholder="hnr_vip_deposit"
+                            className="w-full bg-slate-900 border border-slate-800 rounded-lg px-3 py-1.5 text-white font-mono text-[11px] focus:outline-none focus:border-amber-500"
                           />
+                          <p className="text-[10px] text-slate-400 leading-relaxed">
+                            این پترن هنگام تایید خودکار یا دستی واریز برای کاربر VIP ارسال می‌شود. متغیر <span className="text-amber-300 font-mono font-bold">number</span> برای عدد فاکتور (مبلغ واریزی) و <span className="text-amber-300 font-mono font-bold">code</span> برای کدرهگیری تراکنش به فراز اس‌ام‌اس ارسال می‌گردد.
+                          </p>
                           
-                          {/* Toggle for PRO Deposit Alerts */}
-                          <label className="flex items-center gap-2 cursor-pointer pt-1 border-t border-slate-800/80">
+                          {/* Toggle for VIP Deposit SMS */}
+                          <label className="flex items-center gap-2 cursor-pointer pt-2 border-t border-slate-800">
                             <input
                               type="checkbox"
-                              checked={systemSettings.sms.depositAlertProEnabled ?? true}
+                              checked={systemSettings.sms.vipSmsNotifyEnabled ?? true}
                               onChange={(e) =>
                                 setSystemSettings({
                                   ...systemSettings,
-                                  sms: { ...systemSettings.sms, depositAlertProEnabled: e.target.checked },
+                                  sms: { ...systemSettings.sms, vipSmsNotifyEnabled: e.target.checked },
                                 })
                               }
-                              className="accent-emerald-500 w-4 h-4 rounded"
+                              className="accent-amber-500 w-4 h-4 rounded"
                             />
-                            <span className="text-slate-300 text-[11px]">
-                              فعال‌سازی ارسال پیامک واریزی به صاحب درگاه (پلن‌های حرفه‌ای و ویژه)
+                            <span className="text-slate-200 text-[11px] font-bold">
+                              فعال‌سازی ارسال پیامک واریز به کاربران پلن VIP (ویژه) در صورت ثبت شماره موبایل
                             </span>
                           </label>
                         </div>
@@ -3940,6 +4055,59 @@ export default function AdminDashboard() {
                           placeholder="support@honarhub.com"
                           className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-white font-mono focus:outline-none focus:border-teal-500"
                         />
+                      </div>
+
+                      {/* Plan Email Notification Rules */}
+                      <div className="pt-3 border-t border-slate-800 space-y-3">
+                        <span className="font-bold text-slate-300 block text-xs">
+                          تنظیمات ارسال ایمیل واریز بر اساس پلن کاربری:
+                        </span>
+
+                        {/* PRO Plan Email Toggle */}
+                        <div className="p-3 bg-slate-950/80 border border-teal-500/30 rounded-xl space-y-1.5">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={systemSettings.email.proEmailNotifyEnabled ?? true}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  email: { ...systemSettings.email, proEmailNotifyEnabled: e.target.checked },
+                                })
+                              }
+                              className="accent-teal-500 w-4 h-4 rounded"
+                            />
+                            <span className="text-teal-300 text-[11px] font-bold">
+                              فعال‌سازی ارسال ایمیل واریز برای پلن حرفه‌ای (PRO)
+                            </span>
+                          </label>
+                          <p className="text-[10px] text-slate-400 leading-relaxed pr-6">
+                            در صورت تایید واریز (خودکار یا دستی)، چنانچه کاربر دارای پلن PRO باشد و آدرس ایمیل ثبت کرده باشد، رسید واریز برایش ایمیل می‌شود (برای پلن پرو پیامک ارسال نمی‌گردد).
+                          </p>
+                        </div>
+
+                        {/* VIP Plan Email Toggle */}
+                        <div className="p-3 bg-slate-950/80 border border-amber-500/30 rounded-xl space-y-1.5">
+                          <label className="flex items-center gap-2 cursor-pointer">
+                            <input
+                              type="checkbox"
+                              checked={systemSettings.email.vipEmailNotifyEnabled ?? true}
+                              onChange={(e) =>
+                                setSystemSettings({
+                                  ...systemSettings,
+                                  email: { ...systemSettings.email, vipEmailNotifyEnabled: e.target.checked },
+                                })
+                              }
+                              className="accent-amber-500 w-4 h-4 rounded"
+                            />
+                            <span className="text-amber-300 text-[11px] font-bold">
+                              فعال‌سازی ارسال ایمیل واریز برای پلن ویژه (VIP)
+                            </span>
+                          </label>
+                          <p className="text-[10px] text-slate-400 leading-relaxed pr-6">
+                            در صورت تایید واریز (خودکار یا دستی)، چنانچه کاربر دارای پلن VIP باشد و آدرس ایمیل ثبت کرده باشد، رسید واریز برایش ایمیل می‌شود.
+                          </p>
+                        </div>
                       </div>
                     </div>
                   </div>
