@@ -32,6 +32,9 @@ import {
   Lock,
   Bell,
   MailCheck,
+  AlertTriangle,
+  X,
+  RotateCcw,
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
@@ -90,6 +93,53 @@ export default function UserPortalPage() {
   const [passwordOtpSent, setPasswordOtpSent] = useState(false);
   const [passwordLoading, setPasswordLoading] = useState(false);
   const [passwordFeedback, setPasswordFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  // Manual Transaction Verification Modal State
+  const [manualVerifyTx, setManualVerifyTx] = useState<any | null>(null);
+  const [manualVerifyLoading, setManualVerifyLoading] = useState(false);
+  const [manualVerifyFeedback, setManualVerifyFeedback] = useState<{ type: "success" | "error"; message: string } | null>(null);
+
+  const handleManualVerifySubmit = async () => {
+    if (!manualVerifyTx) return;
+    setManualVerifyLoading(true);
+    setManualVerifyFeedback(null);
+
+    try {
+      const res = await fetch("/api/v1/user/transactions/manual-verify", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          transactionId: manualVerifyTx.id,
+          authority: manualVerifyTx.authority,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setManualVerifyFeedback({
+          type: "success",
+          message: "✅ تایید دستی با موفقیت ثبت شد و وضعیت تراکنش به «تایید دستی» تغییر یافت.",
+        });
+        await fetchUserData();
+        setTimeout(() => {
+          setManualVerifyTx(null);
+          setManualVerifyFeedback(null);
+        }, 1400);
+      } else {
+        setManualVerifyFeedback({
+          type: "error",
+          message: data.error || "خطا در ثبت تایید دستی",
+        });
+      }
+    } catch (err: any) {
+      setManualVerifyFeedback({
+        type: "error",
+        message: err?.message || "خطا در برقراری ارتباط با سرور",
+      });
+    } finally {
+      setManualVerifyLoading(false);
+    }
+  };
 
   const fetchUserData = async () => {
     try {
@@ -1402,6 +1452,7 @@ export default function UserPortalPage() {
                           <th className="p-3">وضعیت</th>
                           <th className="p-3">کارت مقصد</th>
                           <th className="p-3">تاریخ</th>
+                          <th className="p-3 text-center">عملیات</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-slate-800/60 font-mono">
@@ -1429,19 +1480,27 @@ export default function UserPortalPage() {
                                 className={`px-2 py-0.5 rounded-full text-[11px] font-sans font-bold ${
                                   tx.status === "PAID"
                                     ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                                    : tx.status === "MANUALLY_VERIFIED"
+                                    ? "bg-teal-500/10 text-teal-300 border border-teal-500/30"
                                     : tx.status === "PENDING"
                                     ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                                     : tx.status === "EXPIRED"
                                     ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                                    : tx.status === "CANCELLED"
+                                    ? "bg-slate-800 text-slate-300 border border-slate-700"
                                     : "bg-slate-800 text-slate-400"
                                 }`}
                               >
                                 {tx.status === "PAID"
                                   ? "پرداخت شده"
+                                  : tx.status === "MANUALLY_VERIFIED"
+                                  ? "تایید دستی"
                                   : tx.status === "PENDING"
                                   ? "در انتظار پرداخت"
                                   : tx.status === "EXPIRED"
                                   ? "منقضی شده"
+                                  : tx.status === "CANCELLED"
+                                  ? "لغو شده"
                                   : tx.status}
                               </span>
                             </td>
@@ -1449,6 +1508,32 @@ export default function UserPortalPage() {
                             <td className="p-3 text-slate-500 font-sans text-[11px]">
                               {toPersianDigits(new Date(tx.createdAt).toLocaleDateString("fa-IR"))}{" "}
                               {toPersianDigits(new Date(tx.createdAt).toLocaleTimeString("fa-IR", { hour: "2-digit", minute: "2-digit" }))}
+                            </td>
+                            <td className="p-3 text-center font-sans">
+                              {tx.status === "PAID" ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                  <span>پرداخت خودکار</span>
+                                </span>
+                              ) : tx.status === "MANUALLY_VERIFIED" ? (
+                                <span className="inline-flex items-center gap-1 text-[11px] text-teal-300 font-semibold bg-teal-500/10 px-2 py-0.5 rounded-lg border border-teal-500/20">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                                  <span>تایید دستی شده</span>
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setManualVerifyFeedback(null);
+                                    setManualVerifyTx(tx);
+                                  }}
+                                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl text-xs font-bold bg-amber-500/15 hover:bg-emerald-500/25 text-amber-300 hover:text-emerald-300 border border-amber-500/30 hover:border-emerald-500/40 transition-all shadow-sm active:scale-95"
+                                  title="ثبت تاییدیه دستی برای این تراکنش"
+                                >
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>تایید دستی</span>
+                                </button>
+                              )}
                             </td>
                           </tr>
                         ))}
@@ -2147,6 +2232,117 @@ export default function UserPortalPage() {
                   </button>
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Payment Verification Modal */}
+      {manualVerifyTx && (
+        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-[#0F172A] border border-slate-800 rounded-3xl max-w-md w-full p-6 md:p-8 space-y-5 animate-in zoom-in-95 duration-150 text-right">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-amber-400" />
+                <h3 className="text-base font-bold text-white">تایید دستی پرداخت</h3>
+              </div>
+              <button
+                onClick={() => !manualVerifyLoading && setManualVerifyTx(null)}
+                className="text-slate-400 hover:text-white p-1 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {manualVerifyFeedback && (
+              <div
+                className={`p-3 rounded-xl border text-xs flex items-center gap-2 ${
+                  manualVerifyFeedback.type === "success"
+                    ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-300"
+                    : "bg-rose-500/10 border-rose-500/30 text-rose-300"
+                }`}
+              >
+                {manualVerifyFeedback.type === "success" ? (
+                  <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                ) : (
+                  <AlertCircle className="w-4 h-4 shrink-0 text-rose-400" />
+                )}
+                <span>{manualVerifyFeedback.message}</span>
+              </div>
+            )}
+
+            <div className="space-y-3.5 text-xs">
+              {/* Transaction Summary Card */}
+              <div className="bg-slate-950/80 border border-slate-800/80 rounded-2xl p-4 space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">شناسه پیگیری:</span>
+                  <span className="font-mono text-emerald-400 font-bold text-xs">
+                    {toPersianDigits(manualVerifyTx.internalTrackingCode || manualVerifyTx.authority)}
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">مبلغ نهایی پرداختی:</span>
+                  <span className="font-bold text-white text-sm">
+                    {formatPersianNumber(manualVerifyTx.finalAmountToman)} تومان
+                  </span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-slate-400">وضعیت فعلی:</span>
+                  <span className="text-amber-400 font-bold">
+                    {manualVerifyTx.status === "PENDING"
+                      ? "در انتظار پرداخت"
+                      : manualVerifyTx.status === "EXPIRED"
+                      ? "منقضی شده"
+                      : manualVerifyTx.status === "CANCELLED"
+                      ? "لغو شده"
+                      : manualVerifyTx.status}
+                  </span>
+                </div>
+                {manualVerifyTx.card?.ownerName && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-slate-400">کارت مقصد:</span>
+                    <span className="text-slate-200">{manualVerifyTx.card.ownerName}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Exact Warning requested by user */}
+              <div className="bg-amber-500/10 border-2 border-amber-500/30 rounded-2xl p-4 text-amber-200 space-y-2 leading-relaxed">
+                <div className="flex items-center gap-1.5 text-amber-400 font-bold text-xs">
+                  <AlertTriangle className="w-4 h-4 shrink-0 text-amber-400" />
+                  <span>هشدار قطعی و سلب مسئولیت:</span>
+                </div>
+                <p className="text-[12px] text-amber-100 font-medium leading-relaxed">
+                  با تایید این پرداخت استعلام این پرداخت موفق و غیر قابل تغییر می‌گردد و به منزله واریز قطعی به حساب کاربر تلقی می‌شود.
+                </p>
+                <p className="text-[11px] text-amber-300/80 leading-relaxed">
+                  لطفاً پیش از ثبت تایید، صورت‌حساب بانکی خود را بررسی نمایید تا از واریز مطمئن باشید.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end gap-3 pt-2">
+              <button
+                type="button"
+                disabled={manualVerifyLoading}
+                onClick={() => setManualVerifyTx(null)}
+                className="px-5 py-2.5 rounded-2xl text-xs font-semibold text-slate-400 hover:text-white bg-slate-800 hover:bg-slate-700 transition"
+              >
+                انصراف
+              </button>
+              <button
+                type="button"
+                disabled={manualVerifyLoading}
+                onClick={handleManualVerifySubmit}
+                className="px-6 py-2.5 rounded-2xl text-xs font-bold bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-slate-950 flex items-center gap-2 transition disabled:opacity-50 shadow-lg shadow-emerald-500/20 active:scale-95"
+              >
+                {manualVerifyLoading ? (
+                  <RotateCcw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
+                <span>ثبت تایید دستی</span>
+              </button>
             </div>
           </div>
         </div>
