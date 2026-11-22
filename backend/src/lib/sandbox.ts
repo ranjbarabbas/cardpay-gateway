@@ -64,7 +64,7 @@ export interface SandboxTransaction {
   };
 }
 
-// In-memory store on globalThis to survive HMR/reloads
+// In-memory store on globalThis to survive HMR/reloads across all worker scopes
 const globalForSandbox = globalThis as unknown as {
   sandboxStore?: Map<string, SandboxTransaction>;
 };
@@ -72,9 +72,7 @@ const globalForSandbox = globalThis as unknown as {
 export const sandboxStore =
   globalForSandbox.sandboxStore ?? new Map<string, SandboxTransaction>();
 
-if (process.env.NODE_ENV !== "production") {
-  globalForSandbox.sandboxStore = sandboxStore;
-}
+globalForSandbox.sandboxStore = sandboxStore;
 
 /**
  * Creates and stores a temporary Sandbox Transaction in memory
@@ -97,6 +95,7 @@ export function createSandboxTransaction(params: {
   const payableAmountRial = payableAmountToman * 10;
   const settings = getSystemSettings();
   const cardLimit = settings.limits?.cardTransferLimitToman || 15000000;
+  const timeoutMinutes = settings.general?.defaultGracePeriodMinutes || 10;
   const isPol = originalAmountToman > cardLimit;
 
   const tx: SandboxTransaction = {
@@ -108,7 +107,7 @@ export function createSandboxTransaction(params: {
     payableAmountRial,
     status: "PENDING",
     createdAt: new Date(),
-    expiresAt: new Date(Date.now() + 15 * 60 * 1000), // 15 minutes validity
+    expiresAt: new Date(Date.now() + timeoutMinutes * 60 * 1000), // Default 10 minutes
     callbackUrl: params.callbackUrl || "https://honarhub.com/order/callback",
     webhookUrl: params.webhookUrl,
     customerMobile: params.customerMobile || "09120000000",
@@ -138,7 +137,14 @@ export function getSandboxTransaction(identifier: string): SandboxTransaction | 
   if (!identifier) return null;
 
   if (sandboxStore.has(identifier)) {
-    return sandboxStore.get(identifier)!;
+    const tx = sandboxStore.get(identifier)!;
+    // Auto-expire if pending and past expiration time
+    if (tx.status === "PENDING" && new Date() > tx.expiresAt) {
+      tx.status = "EXPIRED";
+      sandboxStore.set(tx.authority, tx);
+      sandboxStore.set(tx.internalTrackingCode, tx);
+    }
+    return tx;
   }
 
   // Synthesize realistic fallback transaction if identifier looks like test/sandbox
@@ -148,13 +154,28 @@ export function getSandboxTransaction(identifier: string): SandboxTransaction | 
     identifier === "test" ||
     identifier.startsWith("PAY-SANDBOX-")
   ) {
+    const match = identifier.match(/hp_sandbox_(\d+)_/);
+    const createdAtTime = match ? Number(match[1]) : Date.now();
+    const settings = getSystemSettings();
+    const timeoutMinutes = settings.general?.defaultGracePeriodMinutes || 10;
+    const expiresAt = new Date(createdAtTime + timeoutMinutes * 60 * 1000);
+    const isExpired = Date.now() > expiresAt.getTime();
+
     const fallbackTx = createSandboxTransaction({
       amount: 150000,
       callbackUrl: "https://honarhub.com/order/callback",
       description: "تراکنش نمونه محیط سندباکس",
     });
+    fallbackTx.authority = identifier;
+    fallbackTx.createdAt = new Date(createdAtTime);
+    fallbackTx.expiresAt = expiresAt;
+    if (isExpired) {
+      fallbackTx.status = "EXPIRED";
+    }
+
     // Link this identifier to the fallback
     sandboxStore.set(identifier, fallbackTx);
+    sandboxStore.set(fallbackTx.internalTrackingCode, fallbackTx);
     return fallbackTx;
   }
 
@@ -166,7 +187,7 @@ export function getSandboxTransaction(identifier: string): SandboxTransaction | 
  */
 export function updateSandboxStatus(
   identifier: string,
-  status: "PAID" | "CANCELLED"
+  status: "PAID" | "CANCELLED" | "EXPIRED"
 ): SandboxTransaction | null {
   const tx = getSandboxTransaction(identifier);
   if (!tx) return null;
@@ -174,6 +195,8 @@ export function updateSandboxStatus(
   tx.status = status;
   if (status === "PAID") {
     tx.paidAt = new Date();
+  } else if (status === "EXPIRED") {
+    tx.expiresAt = new Date(Date.now() - 1000);
   }
 
   sandboxStore.set(tx.authority, tx);

@@ -18,18 +18,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const targetStatus = action === "CANCELLED" ? "CANCELLED" : "PAID";
+    const targetStatus: "PAID" | "CANCELLED" | "EXPIRED" =
+      action === "EXPIRED"
+        ? "EXPIRED"
+        : action === "CANCELLED"
+        ? "CANCELLED"
+        : "PAID";
 
     // 1. Check Sandbox In-Memory Store (Always allowed for Sandbox transactions)
     const updatedSandbox = updateSandboxStatus(authority, targetStatus);
     if (updatedSandbox) {
+      let message = "تراکنش سندباکس با موفقیت به عنوان پرداخت‌شده (PAID) علامت‌گذاری گردید.";
+      if (targetStatus === "CANCELLED") {
+        message = "تراکنش سندباکس به عنوان لغوشده (CANCELLED) علامت‌گذاری گردید.";
+      } else if (targetStatus === "EXPIRED") {
+        message = "تراکنش سندباکس به عنوان منقضی‌شده (EXPIRED) علامت‌گذاری گردید.";
+      }
+
       return NextResponse.json({
         success: true,
         isSandbox: true,
-        message:
-          targetStatus === "PAID"
-            ? "تراکنش سندباکس با موفقیت به عنوان پرداخت‌شده (PAID) علامت‌گذاری گردید."
-            : "تراکنش سندباکس به عنوان لغوشده (CANCELLED) علامت‌گذاری گردید.",
+        message,
         data: {
           authority: updatedSandbox.authority,
           status: updatedSandbox.status,

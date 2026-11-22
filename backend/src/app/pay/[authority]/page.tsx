@@ -99,9 +99,17 @@ function CheckoutContent({ authority }: { authority: string }) {
 
   useEffect(() => {
     fetchStatus();
+    if (
+      details?.status === "PAID" ||
+      details?.status === "MANUALLY_VERIFIED" ||
+      details?.status === "CANCELLED" ||
+      details?.status === "EXPIRED"
+    ) {
+      return;
+    }
     const interval = setInterval(fetchStatus, 2500);
     return () => clearInterval(interval);
-  }, [authority]);
+  }, [authority, details?.status]);
 
   // Local 1-second countdown ticker
   useEffect(() => {
@@ -175,36 +183,36 @@ function CheckoutContent({ authority }: { authority: string }) {
   }, [details?.status, details?.callbackUrl, authority]);
 
   // Auto redirect on expired with 8-second countdown
+  const isExpired = details?.status === "EXPIRED" || (details !== null && secondsLeft <= 0);
+
   useEffect(() => {
-    const isExpired = details?.status === "EXPIRED" || (details && secondsLeft <= 0);
-    if (isExpired && details?.callbackUrl) {
-      setExpiredCountdown(8);
-      const timer = setInterval(() => {
-        setExpiredCountdown((prev) => {
-          if (prev <= 1) {
-            clearInterval(timer);
-            try {
-              const url = new URL(details.callbackUrl);
-              url.searchParams.set("authority", authority);
-              url.searchParams.set("status", "failed");
-              url.searchParams.set("Status", "NOK");
-              url.searchParams.set("error", "expired");
-              url.searchParams.set("message", "payment_expired");
-              if (details.trackingCode) {
-                url.searchParams.set("tracking_code", details.trackingCode);
-              }
-              window.location.href = url.toString();
-            } catch {
-              window.location.href = details.callbackUrl;
+    if (!isExpired || !details?.callbackUrl) return;
+    setExpiredCountdown(8);
+    const timer = setInterval(() => {
+      setExpiredCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          try {
+            const url = new URL(details.callbackUrl);
+            url.searchParams.set("authority", authority);
+            url.searchParams.set("status", "failed");
+            url.searchParams.set("Status", "NOK");
+            url.searchParams.set("error", "expired");
+            url.searchParams.set("message", "payment_expired");
+            if (details.trackingCode) {
+              url.searchParams.set("tracking_code", details.trackingCode);
             }
-            return 0;
+            window.location.href = url.toString();
+          } catch {
+            window.location.href = details.callbackUrl;
           }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(timer);
-    }
-  }, [details?.status, details?.callbackUrl, authority, secondsLeft]);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [isExpired, details?.callbackUrl, authority]);
 
   const handleCancelPayment = async () => {
     if (isCancelling || !details) return;
@@ -245,7 +253,7 @@ function CheckoutContent({ authority }: { authority: string }) {
   };
 
   // Simulate deposit directly - strictly for sandbox transactions
-  const handleSimulatePayment = async (action: "PAID" | "CANCELLED" = "PAID") => {
+  const handleSimulatePayment = async (action: "PAID" | "CANCELLED" | "EXPIRED" = "PAID") => {
     if (!isSandbox || !details) {
       console.warn("Payment simulation is only permitted for sandbox transactions.");
       return;
@@ -262,12 +270,16 @@ function CheckoutContent({ authority }: { authority: string }) {
 
       const data = await res.json();
       if (data.success) {
+        let text = "✅ واریز با موفقیت شبیه‌سازی شد! وضعیت تراکنش به تاییدشده (PAID) تغییر یافت.";
+        if (action === "CANCELLED") {
+          text = "تراکنش به عنوان انصراف/لغوشده (CANCELLED) علامت‌گذاری گردید.";
+        } else if (action === "EXPIRED") {
+          text = "تراکنش به عنوان منقضی‌شده (EXPIRED) علامت‌گذاری گردید.";
+        }
+
         setSimResult({
           type: "success",
-          text:
-            action === "PAID"
-              ? "✅ واریز با موفقیت شبیه‌سازی شد! وضعیت تراکنش به تاییدشده (PAID) تغییر یافت."
-              : "تراکنش به عنوان انصراف/لغوشده (CANCELLED) علامت‌گذاری گردید.",
+          text,
         });
         fetchStatus();
       } else {
@@ -796,7 +808,7 @@ function CheckoutContent({ authority }: { authority: string }) {
               جهت ارزیابی رفتار وب‌سایت خود در زمان دریافت وضعیت‌های مختلف، یکی از گزینه‌های زیر را انتخاب نمایید:
             </p>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 pt-1">
               <button
                 type="button"
                 onClick={() => handleSimulatePayment("PAID")}
@@ -804,7 +816,7 @@ function CheckoutContent({ authority }: { authority: string }) {
                 className="bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 disabled:opacity-50 text-slate-950 font-black text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-500/20"
               >
                 {isSimulating ? <RotateCcw className="w-3.5 h-3.5 animate-spin" /> : <CheckCircle2 className="w-3.5 h-3.5" />}
-                <span>شبیه‌سازی واریز موفق</span>
+                <span>شبیه‌سازی واریز</span>
               </button>
 
               <button
@@ -815,6 +827,16 @@ function CheckoutContent({ authority }: { authority: string }) {
               >
                 <XCircle className="w-3.5 h-3.5 text-rose-400" />
                 <span>شبیه‌سازی انصراف</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => handleSimulatePayment("EXPIRED")}
+                disabled={isSimulating}
+                className="bg-slate-800 hover:bg-amber-950/60 hover:text-amber-300 hover:border-amber-500/40 border border-slate-700 text-slate-300 font-semibold text-xs py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-1.5"
+              >
+                <Clock className="w-3.5 h-3.5 text-amber-400" />
+                <span>شبیه‌سازی انقضا</span>
               </button>
             </div>
 

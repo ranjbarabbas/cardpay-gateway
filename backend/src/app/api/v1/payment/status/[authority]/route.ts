@@ -15,6 +15,14 @@ export async function GET(
     const sandboxTx = getSandboxTransaction(authority);
     if (sandboxTx) {
       const now = new Date();
+      let currentStatus = sandboxTx.status;
+
+      // Auto-expire sandbox transaction if timer has run out
+      if (currentStatus === "PENDING" && now > sandboxTx.expiresAt) {
+        sandboxTx.status = "EXPIRED";
+        currentStatus = "EXPIRED";
+      }
+
       const remainingSeconds = Math.max(
         0,
         Math.floor((sandboxTx.expiresAt.getTime() - now.getTime()) / 1000)
@@ -25,7 +33,8 @@ export async function GET(
         isSandbox: true,
         data: {
           authority: sandboxTx.authority,
-          status: sandboxTx.status,
+          status: currentStatus,
+          transferType: sandboxTx.transferType || "CARD_TO_CARD",
           remainingSeconds,
           originalAmountToman: sandboxTx.originalAmountToman,
           offsetToman: sandboxTx.offsetToman,
