@@ -48,6 +48,7 @@ import {
   ChevronLeft,
   MessageSquareCode,
   BrainCircuit,
+  Pencil,
 } from "lucide-react";
 import { APP_NAME, WEB_APP_VERSION, ANDROID_APK_VERSION } from "@/lib/version";
 import { toPersianDigits, formatPersianNumber } from "@/lib/persian-utils";
@@ -223,6 +224,17 @@ export default function AdminDashboard() {
   // Smart SMS Analysis & Templates State
   const [smartAnalysisLoading, setSmartAnalysisLoading] = useState(false);
   const [smartAnalysisResult, setSmartAnalysisResult] = useState<any>(null);
+  const [editableAnalysis, setEditableAnalysis] = useState<{
+    isDeposit: boolean;
+    amountToman: string;
+    amountRial: string;
+    balanceToman: string;
+    balanceRial: string;
+    accountOrCard: string;
+    trackingCode: string;
+    isManuallyEdited: boolean;
+  } | null>(null);
+  const [editingTemplateId, setEditingTemplateId] = useState<string | null>(null);
   const [newTemplateTitle, setNewTemplateTitle] = useState("");
   const [newTemplateType, setNewTemplateType] = useState<"CARD_TO_CARD" | "POL" | "PAYA" | "SIGN_BASED" | "GENERAL">("SIGN_BASED");
   const [quickSenderInput, setQuickSenderInput] = useState("");
@@ -628,32 +640,48 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleAnalyzeBankSms = async () => {
-    if (!testBankSmsText.trim()) return;
+  const handleAnalyzeBankSms = async (textOverride?: string) => {
+    const textToAnalyze = (typeof textOverride === "string" ? textOverride : testBankSmsText).trim();
+    if (!textToAnalyze) return;
     setSmartAnalysisLoading(true);
     setSmartAnalysisResult(null);
+    setEditableAnalysis(null);
     try {
       const res = await fetch("/api/v1/admin/sms-formats/analyze", {
         method: "POST",
         headers,
         body: JSON.stringify({
-          text: testBankSmsText,
+          text: textToAnalyze,
+          bankId: selectedBankId,
         }),
       });
       const data = await res.json();
       if (data.success) {
         setSmartAnalysisResult(data.data);
+        setEditableAnalysis({
+          isDeposit: data.data.isDeposit,
+          amountToman: data.data.amountToman ? data.data.amountToman.toString() : "",
+          amountRial: data.data.amountRial ? data.data.amountRial.toString() : "",
+          balanceToman: data.data.balanceToman ? data.data.balanceToman.toString() : "",
+          balanceRial: data.data.balanceRial ? data.data.balanceRial.toString() : "",
+          accountOrCard: data.data.accountOrCard || "",
+          trackingCode: data.data.trackingCode || "",
+          isManuallyEdited: Boolean(data.data.manuallyCorrected),
+        });
+
         const activeBank = bankSmsFormats.find((b) => b.id === selectedBankId);
         const bName = activeBank?.nameFa || "بانک";
-        if (data.data.patternType === "SIGN_BASED") {
-          setNewTemplateTitle(`الگوی واریز علامتی (+) ${bName}`);
-          setNewTemplateType("SIGN_BASED");
-        } else if (data.data.type === "POL" || data.data.accountOrIban?.startsWith("IR")) {
-          setNewTemplateTitle(`الگوی واریز انتقال پل ${bName}`);
-          setNewTemplateType("POL");
-        } else {
-          setNewTemplateTitle(`الگوی واریز کارت‌به‌کارت ${bName}`);
-          setNewTemplateType("CARD_TO_CARD");
+        if (!editingTemplateId) {
+          if (data.data.patternType === "SIGN_BASED") {
+            setNewTemplateTitle(`الگوی واریز علامتی (+) ${bName}`);
+            setNewTemplateType("SIGN_BASED");
+          } else if (data.data.type === "POL" || data.data.accountOrIban?.startsWith("IR")) {
+            setNewTemplateTitle(`الگوی واریز انتقال پل ${bName}`);
+            setNewTemplateType("POL");
+          } else {
+            setNewTemplateTitle(`الگوی واریز کارت‌به‌کارت ${bName}`);
+            setNewTemplateType("CARD_TO_CARD");
+          }
         }
       } else {
         alert("خطا در تحلیل هوشمند پیامک: " + (data.error || "خطای ناشناخته"));
@@ -663,6 +691,131 @@ export default function AdminDashboard() {
     } finally {
       setSmartAnalysisLoading(false);
     }
+  };
+
+  const handleLoadTemplateIntoLab = (tpl: any) => {
+    setEditingTemplateId(tpl.id);
+    setTestBankSmsText(tpl.sampleText);
+    setNewTemplateTitle(tpl.title);
+    setNewTemplateType(tpl.type || "CARD_TO_CARD");
+
+    if (tpl.extractedPreview) {
+      setEditableAnalysis({
+        isDeposit: tpl.extractedPreview.isDeposit ?? true,
+        amountToman: tpl.extractedPreview.amountToman ? tpl.extractedPreview.amountToman.toString() : "",
+        amountRial: tpl.extractedPreview.amountRial ? tpl.extractedPreview.amountRial.toString() : "",
+        balanceToman: tpl.extractedPreview.balanceToman ? tpl.extractedPreview.balanceToman.toString() : "",
+        balanceRial: tpl.extractedPreview.balanceRial ? tpl.extractedPreview.balanceRial.toString() : "",
+        accountOrCard: tpl.extractedPreview.accountOrCard || "",
+        trackingCode: tpl.extractedPreview.trackingCode || "",
+        isManuallyEdited: Boolean(tpl.extractedPreview.manuallyCorrected),
+      });
+    }
+
+    handleAnalyzeBankSms(tpl.sampleText);
+  };
+
+  const handleUpdateEditableField = (field: string, value: any) => {
+    if (!editableAnalysis) return;
+    const cleanDigits = (typeof value === "string" ? value : "").replace(/[^0-9]/g, "");
+
+    if (field === "amountToman") {
+      const tomanNum = cleanDigits ? parseInt(cleanDigits, 10) : 0;
+      setEditableAnalysis({
+        ...editableAnalysis,
+        amountToman: cleanDigits,
+        amountRial: tomanNum > 0 ? (tomanNum * 10).toString() : "",
+        isManuallyEdited: true,
+      });
+    } else if (field === "amountRial") {
+      const rialNum = cleanDigits ? parseInt(cleanDigits, 10) : 0;
+      setEditableAnalysis({
+        ...editableAnalysis,
+        amountRial: cleanDigits,
+        amountToman: rialNum > 0 ? Math.floor(rialNum / 10).toString() : "",
+        isManuallyEdited: true,
+      });
+    } else if (field === "balanceToman") {
+      const tomanNum = cleanDigits ? parseInt(cleanDigits, 10) : 0;
+      setEditableAnalysis({
+        ...editableAnalysis,
+        balanceToman: cleanDigits,
+        balanceRial: tomanNum > 0 ? (tomanNum * 10).toString() : "",
+        isManuallyEdited: true,
+      });
+    } else if (field === "balanceRial") {
+      const rialNum = cleanDigits ? parseInt(cleanDigits, 10) : 0;
+      setEditableAnalysis({
+        ...editableAnalysis,
+        balanceRial: cleanDigits,
+        balanceToman: rialNum > 0 ? Math.floor(rialNum / 10).toString() : "",
+        isManuallyEdited: true,
+      });
+    } else if (field === "isDeposit") {
+      setEditableAnalysis({
+        ...editableAnalysis,
+        isDeposit: Boolean(value),
+        isManuallyEdited: true,
+      });
+    } else {
+      setEditableAnalysis({
+        ...editableAnalysis,
+        [field]: value,
+        isManuallyEdited: true,
+      });
+    }
+  };
+
+  const handleSelectExtractedNumber = (numItem: any, target: "amount" | "balance") => {
+    if (!editableAnalysis) return;
+    const num = numItem.cleanNum;
+    if (target === "amount") {
+      if (numItem.unit === "TOMAN") {
+        setEditableAnalysis({
+          ...editableAnalysis,
+          amountToman: num.toString(),
+          amountRial: (num * 10).toString(),
+          isManuallyEdited: true,
+        });
+      } else {
+        setEditableAnalysis({
+          ...editableAnalysis,
+          amountRial: num.toString(),
+          amountToman: Math.floor(num / 10).toString(),
+          isManuallyEdited: true,
+        });
+      }
+    } else if (target === "balance") {
+      if (numItem.unit === "TOMAN") {
+        setEditableAnalysis({
+          ...editableAnalysis,
+          balanceToman: num.toString(),
+          balanceRial: (num * 10).toString(),
+          isManuallyEdited: true,
+        });
+      } else {
+        setEditableAnalysis({
+          ...editableAnalysis,
+          balanceRial: num.toString(),
+          balanceToman: Math.floor(num / 10).toString(),
+          isManuallyEdited: true,
+        });
+      }
+    }
+  };
+
+  const handleResetToAiAnalysis = () => {
+    if (!smartAnalysisResult) return;
+    setEditableAnalysis({
+      isDeposit: smartAnalysisResult.isDeposit,
+      amountToman: smartAnalysisResult.amountToman ? smartAnalysisResult.amountToman.toString() : "",
+      amountRial: smartAnalysisResult.amountRial ? smartAnalysisResult.amountRial.toString() : "",
+      balanceToman: smartAnalysisResult.balanceToman ? smartAnalysisResult.balanceToman.toString() : "",
+      balanceRial: smartAnalysisResult.balanceRial ? smartAnalysisResult.balanceRial.toString() : "",
+      accountOrCard: smartAnalysisResult.accountOrCard || "",
+      trackingCode: smartAnalysisResult.trackingCode || "",
+      isManuallyEdited: false,
+    });
   };
 
   const handleSaveSmartTemplate = async (status: "CONFIRMED" | "PENDING") => {
@@ -680,10 +833,31 @@ export default function AdminDashboard() {
           action: "SAVE_TEMPLATE",
           bankId: selectedBankId,
           template: {
+            id: editingTemplateId || undefined,
             title,
             type: newTemplateType,
             sampleText: testBankSmsText.trim(),
             status,
+            extractedPreview: editableAnalysis
+              ? {
+                  isDeposit: editableAnalysis.isDeposit,
+                  amountToman: editableAnalysis.amountToman
+                    ? Number(editableAnalysis.amountToman.toString().replace(/[^0-9]/g, ""))
+                    : undefined,
+                  amountRial: editableAnalysis.amountRial
+                    ? Number(editableAnalysis.amountRial.toString().replace(/[^0-9]/g, ""))
+                    : undefined,
+                  balanceToman: editableAnalysis.balanceToman
+                    ? Number(editableAnalysis.balanceToman.toString().replace(/[^0-9]/g, ""))
+                    : undefined,
+                  balanceRial: editableAnalysis.balanceRial
+                    ? Number(editableAnalysis.balanceRial.toString().replace(/[^0-9]/g, ""))
+                    : undefined,
+                  accountOrCard: editableAnalysis.accountOrCard.trim() || undefined,
+                  trackingCode: editableAnalysis.trackingCode.trim() || undefined,
+                  manuallyCorrected: editableAnalysis.isManuallyEdited,
+                }
+              : undefined,
           },
         }),
       });
@@ -691,9 +865,10 @@ export default function AdminDashboard() {
       if (data.success) {
         setSmsFormatFeedback(
           status === "CONFIRMED"
-            ? "الگو با موفقیت تایید نهایی شد و برای اپلیکیشن موبایل و وب فعال گردید."
+            ? "الگو با موفقیت تایید نهایی شد و با مقادیر اصلاح‌شده در سامانه فعال گردید."
             : "الگو به عنوان پیش‌نویس (در انتظار تایید) ذخیره شد."
         );
+        setEditingTemplateId(null);
         await reloadBankSmsFormats();
         setTimeout(() => setSmsFormatFeedback(null), 4000);
       } else {
@@ -2793,6 +2968,12 @@ export default function AdminDashboard() {
                                     {/* Extracted preview tags */}
                                     {tpl.extractedPreview && (
                                       <div className="flex flex-wrap items-center gap-2 mt-2 text-[10px]">
+                                        {tpl.extractedPreview.manuallyCorrected && (
+                                          <span className="bg-amber-950/80 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1">
+                                            <Pencil className="w-2.5 h-2.5" />
+                                            <span>اصلاح دستی شده</span>
+                                          </span>
+                                        )}
                                         {tpl.extractedPreview.amountToman && (
                                           <span className="bg-slate-900 px-2 py-0.5 rounded text-emerald-400 font-mono border border-slate-800">
                                             مبلغ: {formatPersianNumber(tpl.extractedPreview.amountToman)} تومان
@@ -2820,14 +3001,11 @@ export default function AdminDashboard() {
                                     <div className="flex items-center justify-between border-t border-slate-800/80 pt-2.5 mt-2.5 text-xs">
                                       <button
                                         type="button"
-                                        onClick={() => {
-                                          setTestBankSmsText(tpl.sampleText);
-                                          handleAnalyzeBankSms();
-                                        }}
-                                        className="text-teal-400 hover:text-teal-300 flex items-center gap-1 font-bold text-[11px]"
+                                        onClick={() => handleLoadTemplateIntoLab(tpl)}
+                                        className="text-teal-400 hover:text-teal-300 flex items-center gap-1.5 font-bold text-[11px]"
                                       >
-                                        <Sparkles className="w-3.5 h-3.5" />
-                                        <span>بارگذاری در لابراتوار هوشمند</span>
+                                        <Pencil className="w-3.5 h-3.5 text-amber-400" />
+                                        <span>ویرایش و اصلاح مقادیر در لابراتوار</span>
                                       </button>
 
                                       <div className="flex items-center gap-2">
@@ -2922,7 +3100,7 @@ export default function AdminDashboard() {
                             <div className="flex justify-end">
                               <button
                                 type="button"
-                                onClick={handleAnalyzeBankSms}
+                                onClick={() => handleAnalyzeBankSms()}
                                 disabled={smartAnalysisLoading || !testBankSmsText.trim()}
                                 className="bg-gradient-to-r from-teal-600 via-emerald-600 to-teal-500 hover:from-teal-500 hover:to-emerald-400 disabled:opacity-50 text-white font-bold text-xs px-5 py-2.5 rounded-xl transition flex items-center gap-2 shadow-lg shadow-teal-500/20"
                               >
@@ -2937,19 +3115,25 @@ export default function AdminDashboard() {
                             <div className="bg-slate-900/95 border border-teal-500/40 rounded-xl p-4 space-y-4 animate-in fade-in">
                               <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-800/80 pb-2.5 gap-2">
                                 <div className="flex items-center gap-2">
-                                  {smartAnalysisResult.isDeposit ? (
+                                  {editableAnalysis?.isDeposit ? (
                                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                                   ) : (
                                     <XCircle className="w-4 h-4 text-rose-400" />
                                   )}
                                   <span className="text-xs font-bold text-white">
-                                    {smartAnalysisResult.isDeposit
+                                    {editableAnalysis?.isDeposit
                                       ? "پیامک معتبر واریزی تشخیص داده شد"
-                                      : "پیامک واریزی نیست"}
+                                      : "پیامک غیرواریزی یا برداشت"}
                                   </span>
                                 </div>
 
                                 <div className="flex items-center gap-2">
+                                  {editableAnalysis?.isManuallyEdited && (
+                                    <span className="text-[10px] font-bold bg-amber-950/80 border border-amber-500/50 text-amber-300 px-2.5 py-0.5 rounded-full flex items-center gap-1">
+                                      <Pencil className="w-2.5 h-2.5" />
+                                      <span>اصلاح دستی فعال</span>
+                                    </span>
+                                  )}
                                   <span className="text-[10px] font-bold bg-teal-950 border border-teal-500/40 text-teal-300 px-2.5 py-0.5 rounded-full font-mono">
                                     الگو: {smartAnalysisResult.patternType}
                                   </span>
@@ -2961,7 +3145,7 @@ export default function AdminDashboard() {
                                 <div className="p-3 bg-purple-950/40 border border-purple-500/30 text-purple-200 rounded-xl text-xs flex items-center gap-2">
                                   <Info className="w-4 h-4 text-purple-400 shrink-0" />
                                   <span>
-                                    تشخیص الگوی علامتی (+): در این پیامک واژه «واریز» وجود ندارد اما مبلغ با علامت مثبت در خط دوم تشخیص داده شده و مانده حساب به درستی تفکیک گردید.
+                                    تشخیص الگوی علامتی (+): در این پیامک واژه «واریز» وجود ندارد اما مبلغ با علامت مثبت در خط دوم تشخیص داده شده و مانده حساب تفکیک گردید.
                                   </span>
                                 </div>
                               )}
@@ -2976,47 +3160,243 @@ export default function AdminDashboard() {
                                         key={s.bankId}
                                         className="text-[10px] bg-slate-950 border border-slate-800 px-2.5 py-1 rounded-lg text-slate-300"
                                       >
-                                        <strong className="text-teal-400 font-mono">{toPersianDigits(s.score)}٪</strong> شباهت به {s.nameFa}
+                                        <strong className="text-teal-400 font-mono">{toPersianDigits(s.similarityScore || s.score)}٪</strong> شباهت به {s.bankName || s.nameFa}
                                       </span>
                                     ))}
                                   </div>
                                 </div>
                               )}
 
-                              {/* Extracted Parameters Grid */}
-                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs">
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
-                                  <span className="text-[10px] text-slate-400 block mb-0.5">مبلغ واریزی (تومان):</span>
-                                  <span className="font-bold text-emerald-400 font-mono text-sm">
-                                    {smartAnalysisResult.amountToman ? `${formatPersianNumber(smartAnalysisResult.amountToman)} ت` : "یافت نشد"}
-                                  </span>
+                              {/* Extracted Numbers Quick-Selector Chips */}
+                              {smartAnalysisResult.extractedNumbers && smartAnalysisResult.extractedNumbers.length > 0 && (
+                                <div className="p-3 bg-slate-950/90 border border-slate-800 rounded-xl space-y-2">
+                                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 text-xs">
+                                    <span className="font-bold text-slate-200 flex items-center gap-1.5">
+                                      <Sparkles className="w-3.5 h-3.5 text-teal-400" />
+                                      <span>اعداد شناسایی‌شده در متن پیامک (جهت انتساب سریع با ۱ کلیک):</span>
+                                    </span>
+                                    <span className="text-[10px] text-slate-400">
+                                      اگر مبلغ به اشتباه تشخیص داده شده، عدد صحیح را انتخاب کنید:
+                                    </span>
+                                  </div>
+                                  <div className="flex flex-wrap gap-2 pt-1">
+                                    {smartAnalysisResult.extractedNumbers.map((num: any, idx: number) => {
+                                      const isCurrentAmount =
+                                        editableAnalysis &&
+                                        (editableAnalysis.amountRial === num.cleanNum.toString() ||
+                                          editableAnalysis.amountToman === num.cleanNum.toString());
+                                      const isCurrentBalance =
+                                        editableAnalysis &&
+                                        (editableAnalysis.balanceRial === num.cleanNum.toString() ||
+                                          editableAnalysis.balanceToman === num.cleanNum.toString());
+
+                                      return (
+                                        <div
+                                          key={idx}
+                                          className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs transition ${
+                                            isCurrentAmount
+                                              ? "bg-emerald-950/80 border-emerald-500/70 text-emerald-300 shadow-sm"
+                                              : isCurrentBalance
+                                              ? "bg-sky-950/80 border-sky-500/70 text-sky-300"
+                                              : "bg-slate-900 border-slate-800 text-slate-300"
+                                          }`}
+                                        >
+                                          <span className="font-mono font-bold" dir="ltr">
+                                            {formatPersianNumber(num.cleanNum)}
+                                          </span>
+                                          <span className="text-[10px] text-slate-400">
+                                            ({num.context ? num.context.slice(0, 16) : ""}...)
+                                          </span>
+                                          <div className="flex items-center gap-1 border-r border-slate-700 pr-1.5 mr-0.5">
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSelectExtractedNumber(num, "amount")}
+                                              className="text-[10px] bg-emerald-600/30 hover:bg-emerald-600 text-emerald-200 px-1.5 py-0.5 rounded font-bold transition"
+                                              title="انتخاب این عدد به عنوان مبلغ واریزی"
+                                            >
+                                              مبلغ
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleSelectExtractedNumber(num, "balance")}
+                                              className="text-[10px] bg-sky-600/30 hover:bg-sky-600 text-sky-200 px-1.5 py-0.5 rounded font-bold transition"
+                                              title="انتخاب این عدد به عنوان مانده حساب"
+                                            >
+                                              مانده
+                                            </button>
+                                          </div>
+                                        </div>
+                                      );
+                                    })}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Interactive Editable Parameters Grid */}
+                              <div className="p-3.5 bg-slate-950/90 border border-teal-500/30 rounded-xl space-y-3">
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                                  <div className="flex items-center gap-2">
+                                    <Pencil className="w-4 h-4 text-amber-400" />
+                                    <span className="text-xs font-bold text-white">
+                                      اصلاح دستی مقادیر استخراج‌شده (در صورت خطای هوش مصنوعی، اینجا ویرایش کنید):
+                                    </span>
+                                  </div>
+
+                                  {editableAnalysis?.isManuallyEdited && (
+                                    <button
+                                      type="button"
+                                      onClick={handleResetToAiAnalysis}
+                                      className="text-[11px] text-slate-400 hover:text-white flex items-center gap-1 transition"
+                                    >
+                                      <RotateCcw className="w-3 h-3" />
+                                      <span>بازگردانی به مقادیر اولیه هوش مصنوعی</span>
+                                    </button>
+                                  )}
                                 </div>
 
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
-                                  <span className="text-[10px] text-slate-400 block mb-0.5">مبلغ به ریال:</span>
-                                  <span className="font-bold text-slate-200 font-mono text-xs">
-                                    {smartAnalysisResult.amountRial ? formatPersianNumber(smartAnalysisResult.amountRial) : "یافت نشد"}
-                                  </span>
-                                </div>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                                  {/* Amount Toman */}
+                                  <div>
+                                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                                      مبلغ واریزی (تومان):
+                                    </label>
+                                    <input
+                                      type="text"
+                                      dir="ltr"
+                                      value={editableAnalysis?.amountToman || ""}
+                                      onChange={(e) => handleUpdateEditableField("amountToman", e.target.value)}
+                                      placeholder="مثال: 50000"
+                                      className="w-full bg-slate-900 border border-emerald-500/50 rounded-lg px-3 py-1.5 text-emerald-400 font-mono font-bold text-sm focus:outline-none focus:border-emerald-400"
+                                    />
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                      {editableAnalysis?.amountToman
+                                        ? `${formatPersianNumber(Number(editableAnalysis.amountToman))} تومان`
+                                        : "—"}
+                                    </span>
+                                  </div>
 
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
-                                  <span className="text-[10px] text-slate-400 block mb-0.5">مانده حساب (تومان):</span>
-                                  <span className="font-bold text-sky-300 font-mono text-xs">
-                                    {smartAnalysisResult.balanceToman ? `${formatPersianNumber(smartAnalysisResult.balanceToman)} ت` : "یافت نشد"}
-                                  </span>
-                                </div>
+                                  {/* Amount Rial */}
+                                  <div>
+                                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                                      مبلغ به ریال:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      dir="ltr"
+                                      value={editableAnalysis?.amountRial || ""}
+                                      onChange={(e) => handleUpdateEditableField("amountRial", e.target.value)}
+                                      placeholder="مثال: 500000"
+                                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 font-mono font-bold text-xs focus:outline-none focus:border-teal-500"
+                                    />
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                      {editableAnalysis?.amountRial
+                                        ? `${formatPersianNumber(Number(editableAnalysis.amountRial))} ریال`
+                                        : "—"}
+                                    </span>
+                                  </div>
 
-                                <div className="bg-slate-950 p-2.5 rounded-lg border border-slate-800/80">
-                                  <span className="text-[10px] text-slate-400 block mb-0.5">کارت یا شماره حساب:</span>
-                                  <span className="font-bold text-amber-300 font-mono text-xs" dir="ltr">
-                                    {smartAnalysisResult.accountOrCard || "یافت نشد"}
-                                  </span>
+                                  {/* Balance Toman */}
+                                  <div>
+                                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                                      مانده حساب (تومان):
+                                    </label>
+                                    <input
+                                      type="text"
+                                      dir="ltr"
+                                      value={editableAnalysis?.balanceToman || ""}
+                                      onChange={(e) => handleUpdateEditableField("balanceToman", e.target.value)}
+                                      placeholder="اختیاری"
+                                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-sky-300 font-mono text-xs focus:outline-none focus:border-teal-500"
+                                    />
+                                    <span className="text-[10px] text-slate-400 block mt-0.5">
+                                      {editableAnalysis?.balanceToman
+                                        ? `${formatPersianNumber(Number(editableAnalysis.balanceToman))} تومان`
+                                        : "—"}
+                                    </span>
+                                  </div>
+
+                                  {/* Account or Card */}
+                                  <div>
+                                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                                      شماره کارت یا حساب / شبا:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      dir="ltr"
+                                      value={editableAnalysis?.accountOrCard || ""}
+                                      onChange={(e) => handleUpdateEditableField("accountOrCard", e.target.value)}
+                                      placeholder="مثال: 603799**1234 یا IR..."
+                                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-amber-300 font-mono text-xs focus:outline-none focus:border-teal-500"
+                                    />
+                                  </div>
+
+                                  {/* Tracking Code */}
+                                  <div>
+                                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                                      کد پیگیری / شماره ارجاع:
+                                    </label>
+                                    <input
+                                      type="text"
+                                      dir="ltr"
+                                      value={editableAnalysis?.trackingCode || ""}
+                                      onChange={(e) => handleUpdateEditableField("trackingCode", e.target.value)}
+                                      placeholder="مثال: 98765432"
+                                      className="w-full bg-slate-900 border border-slate-700 rounded-lg px-3 py-1.5 text-slate-200 font-mono text-xs focus:outline-none focus:border-teal-500"
+                                    />
+                                  </div>
+
+                                  {/* Transaction Type Radio */}
+                                  <div className="sm:col-span-2 lg:col-span-3">
+                                    <label className="text-[11px] text-slate-300 font-bold block mb-1">
+                                      ماهیت پیامک:
+                                    </label>
+                                    <div className="flex flex-wrap items-center gap-4 pt-1">
+                                      <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                                        <input
+                                          type="radio"
+                                          name="isDepositRadio"
+                                          checked={editableAnalysis?.isDeposit === true}
+                                          onChange={() => handleUpdateEditableField("isDeposit", true)}
+                                          className="text-emerald-500 focus:ring-emerald-500"
+                                        />
+                                        <span className="text-emerald-400 font-bold">واریز معتبر به حساب (تایید خودکار تراکنش)</span>
+                                      </label>
+
+                                      <label className="flex items-center gap-1.5 cursor-pointer text-xs">
+                                        <input
+                                          type="radio"
+                                          name="isDepositRadio"
+                                          checked={editableAnalysis?.isDeposit === false}
+                                          onChange={() => handleUpdateEditableField("isDeposit", false)}
+                                          className="text-rose-500 focus:ring-rose-500"
+                                        />
+                                        <span className="text-rose-400 font-bold">برداشت یا اطلاع‌رسانی متفرقه (رد خودکار)</span>
+                                      </label>
+                                    </div>
+                                  </div>
                                 </div>
                               </div>
 
                               {/* Save & Confirm Form */}
                               <div className="bg-slate-950/70 border border-slate-800 rounded-xl p-3.5 space-y-3">
-                                <span className="text-xs font-bold text-white block">ثبت و تایید نهایی این الگو در سامانه:</span>
+                                <div className="flex items-center justify-between">
+                                  <span className="text-xs font-bold text-white block">
+                                    {editingTemplateId ? "ویرایش و ذخیره الگوی ساختاری موجود:" : "ثبت و تایید نهایی این الگو در سامانه:"}
+                                  </span>
+                                  {editingTemplateId && (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        setEditingTemplateId(null);
+                                        setNewTemplateTitle("");
+                                      }}
+                                      className="text-[11px] text-amber-400 hover:text-amber-300 font-bold transition"
+                                    >
+                                      انصراف از ویرایش (ایجاد الگوی تازه)
+                                    </button>
+                                  )}
+                                </div>
+
                                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                                   <div>
                                     <label className="text-[10px] text-slate-400 block mb-1">عنوان الگو:</label>
@@ -3062,7 +3442,13 @@ export default function AdminDashboard() {
                                     className="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-xs px-5 py-2 rounded-xl transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-1.5"
                                   >
                                     <Check className="w-4 h-4" />
-                                    <span>{smsFormatSaving ? "در حال ذخیره..." : "تایید نهایی الگو و فعال‌سازی در سامانه"}</span>
+                                    <span>
+                                      {smsFormatSaving
+                                        ? "در حال ذخیره..."
+                                        : editingTemplateId
+                                        ? "ذخیره تغییرات و فعال‌سازی الگو"
+                                        : "تایید نهایی الگو و فعال‌سازی در سامانه"}
+                                    </span>
                                   </button>
                                 </div>
                               </div>

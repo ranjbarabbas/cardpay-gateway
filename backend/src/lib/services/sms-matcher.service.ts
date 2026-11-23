@@ -2,7 +2,7 @@ import { db } from "../db";
 import { bankParserRegistry } from "./parsers";
 import { dispatchDepositNotifications } from "../notifications";
 import { checkAndProcessPlanUpgradeTransaction } from "./plan-expiration.service";
-import { analyzeBankSmsStructure } from "../bank-utils";
+import { analyzeBankSmsStructure, parseBankDepositSms, BankSmsTemplate } from "../bank-utils";
 
 export interface SmsIngestInput {
   sender: string;
@@ -78,7 +78,44 @@ export class SmsMatcherService {
     }
 
     // 2. Parse SMS structure using bank parser registry
-    const parsed = bankParserRegistry.parse(cleanSender, rawText);
+    let parsed = bankParserRegistry.parse(cleanSender, rawText);
+
+    // If static parser failed or returned 0 amount, fallback to offline AI engine + confirmed templates
+    if (!parsed.success || parsed.amountRial <= BigInt(0)) {
+      let confirmedTemplates: BankSmsTemplate[] = [];
+      try {
+        const formatsRecord = await db.systemSetting.findUnique({
+          where: { key: "bank_sms_formats" },
+        });
+        if (formatsRecord?.value) {
+          const map = JSON.parse(formatsRecord.value);
+          for (const bankKey of Object.keys(map)) {
+            if (map[bankKey]?.templates) {
+              const list = map[bankKey].templates.filter((t: BankSmsTemplate) => t.status === "CONFIRMED");
+              confirmedTemplates.push(...list);
+            }
+          }
+        }
+      } catch {
+        // ignore setting load failure
+      }
+
+      const dynamicResult = parseBankDepositSms(rawText, { confirmedTemplates });
+      if (dynamicResult.isDeposit && dynamicResult.amountRial && dynamicResult.amountRial > 0) {
+        parsed = {
+          success: true,
+          bankSlug: dynamicResult.detectedBank?.id?.replace(/-/g, "_") || (parsed.bankSlug !== "unknown" ? parsed.bankSlug : "unknown"),
+          isDeposit: true,
+          amountRial: BigInt(dynamicResult.amountRial),
+          amountToman: BigInt(dynamicResult.amountToman || Math.floor(dynamicResult.amountRial / 10)),
+          accountNumber: dynamicResult.accountOrIban,
+          cardNumberLast4: dynamicResult.cardLast4,
+          trackingCode: dynamicResult.trackingCode,
+          balanceRial: dynamicResult.balanceRial ? BigInt(dynamicResult.balanceRial) : undefined,
+          rawText,
+        };
+      }
+    }
 
     // 3. Check if sender is APPROVED
     const isSenderApproved = trustedRecord && trustedRecord.status === "APPROVED";

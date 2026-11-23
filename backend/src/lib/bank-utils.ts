@@ -25,6 +25,17 @@ export interface BankSmsTemplate {
     trackingCode?: string;
     date?: string;
     time?: string;
+    manuallyCorrected?: boolean;
+    customRuleApplied?: boolean;
+  };
+  customRules?: {
+    amountPrefix?: string;
+    amountRegex?: string;
+    balanceRegex?: string;
+    accountRegex?: string;
+    trackingRegex?: string;
+    amountUnit?: "TOMAN" | "RIAL";
+    isDeposit?: boolean;
   };
 }
 
@@ -586,6 +597,16 @@ export function isValidIranianIban(iban: string): {
   return { valid: true, formatted: clean, bank };
 }
 
+export interface ExtractedNumberItem {
+  raw: string;
+  cleanNum: number;
+  formatted: string;
+  unit?: "TOMAN" | "RIAL";
+  context: string;
+  role: "AMOUNT" | "BALANCE" | "CARD" | "ACCOUNT" | "TRACKING" | "UNKNOWN";
+  lineIndex: number;
+}
+
 export interface SmsAnalysisResult {
   patternType: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID";
   isDeposit: boolean;
@@ -619,16 +640,41 @@ export interface SmsAnalysisResult {
     balancePattern?: string;
     accountPattern?: string;
   };
+  extractedNumbers?: ExtractedNumberItem[];
+  manuallyCorrected?: boolean;
+}
+
+/**
+ * Normalizes Persian/Arabic digits, commas, and zero-width spaces
+ */
+export function normalizeBankSmsText(rawText: string): string {
+  if (!rawText) return "";
+  return rawText
+    // Persian & Arabic digits -> Latin digits 0-9
+    .replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) =>
+      String(d.charCodeAt(0) >= 0x06f0 ? d.charCodeAt(0) - 0x06f0 : d.charCodeAt(0) - 0x0660)
+    )
+    // Persian comma (،) and Arabic thousand/decimal separators to standard comma (,)
+    .replace(/[\u060C\u066B\u066C]/g, ",")
+    // Zero-width non-joiner (half-space) and non-breaking spaces to standard space
+    .replace(/[\u200C\u00A0\uFEFF]/g, " ")
+    .trim();
 }
 
 /**
  * Intelligent Structural Inference Engine for Bank SMS (100% Offline, No External AI / No Internet Required)
  * - Identifies mathematical sign-based (+/-) layouts (e.g. Mehr Iran, Resalat)
- * - Identifies keyword-based multi-line layouts (e.g. Mellat, Melli, Saman, Blu)
+ * - Identifies keyword-based multi-line layouts (e.g. Mellat, Melli, Saman, Blu, Pasargad, Sepah)
  * - Detects currency (Rial standard vs Toman)
+ * - Classifies all numbers with roles and allows manual correction / rule overrides
  * - Matches structural similarities across all Iranian bank templates
  */
-export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
+export function analyzeBankSmsStructure(
+  rawText: string,
+  options?: {
+    confirmedTemplates?: BankSmsTemplate[];
+  }
+): SmsAnalysisResult {
   if (!rawText || !rawText.trim()) {
     return {
       patternType: "KEYWORD_BASED",
@@ -641,16 +687,12 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
       suggestedBank: null,
       similarityScores: [],
       generatedRules: { amountPattern: "" },
+      extractedNumbers: [],
     };
   }
 
-  // Normalize Persian / Arabic digits to English
-  const normalized = rawText
-    .replace(/[\u0660-\u0669\u06F0-\u06F9]/g, (d) =>
-      String(d.charCodeAt(0) >= 0x06f0 ? d.charCodeAt(0) - 0x06f0 : d.charCodeAt(0) - 0x0660)
-    )
-    .trim();
-
+  // 1. Normalize Persian / Arabic digits, commas, and hidden formatting characters
+  const normalized = normalizeBankSmsText(rawText);
   const lines = normalized.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
 
   let patternType: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID" = "KEYWORD_BASED";
@@ -668,64 +710,32 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
   let time: string | undefined;
   let amountRegexUsed = "";
 
-  // 1. Check for Sign-based pattern (+ or -)
-  // Format: "1,000,000+" or "+1,000,000" or "1000000+"
-  const plusSignMatch = normalized.match(/([0-9,]{3,})\s*\+/m) || normalized.match(/\+\s*([0-9,]{3,})/m);
-  const minusSignMatch = normalized.match(/([0-9,]{3,})\s*-/m) || normalized.match(/-\s*([0-9,]{3,})/m);
-
-  if (plusSignMatch) {
-    patternType = "SIGN_BASED";
-    isDeposit = true;
-    const rawNum = parseInt(plusSignMatch[1].replace(/,/g, ""), 10);
-    // Standard Core banking without unit is Rial
-    amountRial = rawNum;
-    amountToman = Math.floor(rawNum / 10);
-    amountRegexUsed = plusSignMatch[0];
-  } else if (minusSignMatch && !normalized.match(/[0-9]{4}\/[0-9]{1,2}\/[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}/)) {
-    patternType = "SIGN_BASED";
-    isDeposit = false;
-    const rawNum = parseInt(minusSignMatch[1].replace(/,/g, ""), 10);
-    amountRial = rawNum;
-    amountToman = Math.floor(rawNum / 10);
-    amountRegexUsed = minusSignMatch[0];
-  }
-
-  // 2. Keyword-based pattern if amount not extracted via sign
-  if (amountRial === 0) {
-    const isKeywordDeposit = /واریز|بستانکار|افزایش موجودی|شارژ/i.test(normalized);
-    if (isKeywordDeposit) isDeposit = true;
-
-    const amtMatch =
-      normalized.match(/(?:واریز|مبلغ|بستانکار)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i) ||
-      normalized.match(/([0-9,]+)\s*(ریال|تومان)/i);
-
-    if (amtMatch) {
-      const rawNum = parseInt(amtMatch[1].replace(/,/g, ""), 10);
-      amountRegexUsed = amtMatch[0];
-      if (amtMatch[2] === "تومان") {
-        amountToman = rawNum;
-        amountRial = rawNum * 10;
+  // 2. Extract Balance First (to avoid false-positive amount collision)
+  const balMatch = normalized.match(/(?:مانده|موجودی|موجود|balance)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i);
+  let rawBalanceStr = "";
+  if (balMatch) {
+    rawBalanceStr = balMatch[1].replace(/,/g, "");
+    const rawBal = parseInt(rawBalanceStr, 10);
+    if (!isNaN(rawBal)) {
+      if (balMatch[2] === "تومان") {
+        balanceToman = rawBal;
+        balanceRial = rawBal * 10;
       } else {
-        amountRial = rawNum;
-        amountToman = Math.floor(rawNum / 10);
+        balanceRial = rawBal;
+        balanceToman = Math.floor(rawBal / 10);
       }
     }
   }
 
-  // 3. Balance extraction (مانده / موجودی)
-  const balMatch = normalized.match(/(?:مانده|موجودی|موجود|balance)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i);
-  if (balMatch) {
-    const rawBal = parseInt(balMatch[1].replace(/,/g, ""), 10);
-    if (balMatch[2] === "تومان") {
-      balanceToman = rawBal;
-      balanceRial = rawBal * 10;
-    } else {
-      balanceRial = rawBal;
-      balanceToman = Math.floor(rawBal / 10);
-    }
+  // 3. Extract Tracking / Reference Code First
+  const trackMatch =
+    normalized.match(/(?:پیگیری|ارجاع|مرجع|رهگیری|شناسه|کد)\s*:?\s*([A-Za-z0-9-]+)/i) ||
+    normalized.match(/(?:ref|trace|track)\s*:?\s*([0-9]+)/i);
+  if (trackMatch && trackMatch[1]) {
+    trackingCode = trackMatch[1].trim();
   }
 
-  // 4. Account or Card / IBAN Extraction
+  // 4. Extract Account / Card / IBAN First
   const ibanMatch = normalized.match(/IR\d{24}/i);
   if (ibanMatch) {
     accountOrIban = ibanMatch[0].toUpperCase();
@@ -735,7 +745,7 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
 
   if (!accountOrCard) {
     for (const line of lines) {
-      // Core account number (e.g. 10 to 24 digits pure, like 662179818703777001)
+      // Core account number (e.g. 10 to 24 digits pure)
       if (/^[0-9]{10,24}$/.test(line)) {
         accountOrCard = line;
         accountOrIban = line;
@@ -758,22 +768,192 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
   }
 
   // 5. Date and Time
-  // Format: "1405/8/16-15:46" or "1405/08/20 12:30"
   const dtMatch = normalized.match(/([0-9]{4}\/[0-9]{1,2}\/[0-9]{1,2})(?:\s*[-:]\s*|\s+)([0-9]{1,2}:[0-9]{1,2})/);
   if (dtMatch) {
     date = dtMatch[1];
     time = dtMatch[2];
   }
 
-  // 6. Tracking / Reference Code
-  const trackMatch =
-    normalized.match(/(?:پیگیری|ارجاع|مرجع|رهگیری|شناسه|کد)\s*:?\s*([A-Za-z0-9-]+)/i) ||
-    normalized.match(/(?:ref|trace|track)\s*:?\s*([0-9]+)/i);
-  if (trackMatch && trackMatch[1]) {
-    trackingCode = trackMatch[1].trim();
+  // 6. Tokenize & Classify all numbers in SMS
+  const extractedNumbers: ExtractedNumberItem[] = [];
+  const numRegex = /([0-9,]{3,})/g;
+  let match: RegExpExecArray | null;
+
+  for (let lIdx = 0; lIdx < lines.length; lIdx++) {
+    const line = lines[lIdx];
+    numRegex.lastIndex = 0;
+    while ((match = numRegex.exec(line)) !== null) {
+      const rawNumStr = match[1];
+      const cleanDigits = rawNumStr.replace(/,/g, "");
+      const cleanNum = parseInt(cleanDigits, 10);
+      if (isNaN(cleanNum) || cleanNum < 100) continue;
+
+      // Determine surrounding context
+      const start = Math.max(0, match.index - 25);
+      const end = Math.min(line.length, match.index + rawNumStr.length + 25);
+      const context = line.substring(start, end).trim();
+
+      // Classify role
+      let role: ExtractedNumberItem["role"] = "UNKNOWN";
+      let unit: "TOMAN" | "RIAL" = "RIAL";
+      if (/تومان|ت\b/.test(context)) {
+        unit = "TOMAN";
+      }
+
+      if (cleanDigits.length >= 12 && !rawNumStr.includes(",")) {
+        role = "ACCOUNT";
+      } else if (rawBalanceStr && cleanDigits === rawBalanceStr) {
+        role = "BALANCE";
+      } else if (/مانده|موجودی|موجود|balance/i.test(context)) {
+        role = "BALANCE";
+      } else if (trackingCode && (cleanDigits === trackingCode || cleanDigits.includes(trackingCode))) {
+        role = "TRACKING";
+      } else if (/پیگیری|ارجاع|مرجع|شناسه|کد|ref|trace/i.test(context)) {
+        role = "TRACKING";
+      } else if (/کارت|card|شبا/i.test(context)) {
+        role = "CARD";
+      } else if (/واریز|به مبلغ|بمبلغ|مبلغ|بستانکار|افزایش|شارژ/i.test(context) || /\+|\-/.test(context)) {
+        role = "AMOUNT";
+      }
+
+      // Avoid duplicates
+      const exists = extractedNumbers.some((n) => n.cleanNum === cleanNum && n.role === role);
+      if (!exists) {
+        extractedNumbers.push({
+          raw: rawNumStr,
+          cleanNum,
+          formatted: cleanNum.toLocaleString("en-US"),
+          unit,
+          context,
+          role,
+          lineIndex: lIdx,
+        });
+      }
+    }
   }
 
-  // 7. Determine Transfer Type
+  // 7. Check Confirmed Templates with Custom Rules first
+  let templateApplied: BankSmsTemplate | null = null;
+  if (options?.confirmedTemplates && options.confirmedTemplates.length > 0) {
+    for (const tpl of options.confirmedTemplates) {
+      if (tpl.customRules?.amountRegex) {
+        try {
+          const customRe = new RegExp(tpl.customRules.amountRegex, "i");
+          const m = normalized.match(customRe);
+          if (m) {
+            const raw = (m[1] || m[0]).replace(/[^0-9]/g, "");
+            const val = parseInt(raw, 10);
+            if (val > 0) {
+              templateApplied = tpl;
+              isDeposit = tpl.customRules.isDeposit ?? true;
+              patternType = tpl.patternType;
+              type = tpl.type === "SIGN_BASED" ? "GENERAL" : tpl.type;
+              if (tpl.customRules.amountUnit === "TOMAN") {
+                amountToman = val;
+                amountRial = val * 10;
+              } else {
+                amountRial = val;
+                amountToman = Math.floor(val / 10);
+              }
+              amountRegexUsed = m[0];
+              break;
+            }
+          }
+        } catch {
+          // ignore invalid regex
+        }
+      }
+    }
+  }
+
+  // 8. If amount not set by template, run heuristic extraction
+  if (amountRial === 0) {
+    // A) Check for Sign-based pattern (+ or -)
+    const plusSignMatch =
+      normalized.match(/([0-9,]{3,})\s*\+/m) ||
+      normalized.match(/\+\s*([0-9,]{3,})/m);
+    const minusSignMatch =
+      normalized.match(/([0-9,]{3,})\s*-/m) ||
+      normalized.match(/-\s*([0-9,]{3,})/m);
+
+    if (plusSignMatch) {
+      patternType = "SIGN_BASED";
+      isDeposit = true;
+      const rawNum = parseInt(plusSignMatch[1].replace(/,/g, ""), 10);
+      amountRial = rawNum;
+      amountToman = Math.floor(rawNum / 10);
+      amountRegexUsed = plusSignMatch[0];
+    } else if (minusSignMatch && !normalized.match(/[0-9]{4}\/[0-9]{1,2}\/[0-9]{1,2}-[0-9]{1,2}:[0-9]{1,2}/)) {
+      patternType = "SIGN_BASED";
+      isDeposit = false;
+      const rawNum = parseInt(minusSignMatch[1].replace(/,/g, ""), 10);
+      amountRial = rawNum;
+      amountToman = Math.floor(rawNum / 10);
+      amountRegexUsed = minusSignMatch[0];
+    }
+
+    // B) Keyword-based pattern
+    if (amountRial === 0) {
+      const isKeywordDeposit = /واریز|بستانکار|افزایش موجودی|افزایش|شارژ/i.test(normalized);
+      if (isKeywordDeposit) isDeposit = true;
+
+      // Look for explicit prefix: "به مبلغ", "بمبلغ", "مبلغ واریزی", "مبلغ", "واریز", "بستانکار"
+      const amtMatch =
+        normalized.match(/(?:به مبلغ|بمبلغ|مبلغ واریزی|مبلغ واریز|مبلغ|واریز|بستانکار)\s*:?\s*([0-9,]+)\s*(ریال|تومان)?/i);
+
+      if (amtMatch) {
+        const rawDigits = amtMatch[1].replace(/,/g, "");
+        // Guarantee this is not the balance number
+        if (!rawBalanceStr || rawDigits !== rawBalanceStr) {
+          const rawNum = parseInt(rawDigits, 10);
+          amountRegexUsed = amtMatch[0];
+          if (amtMatch[2] === "تومان") {
+            amountToman = rawNum;
+            amountRial = rawNum * 10;
+          } else {
+            amountRial = rawNum;
+            amountToman = Math.floor(rawNum / 10);
+          }
+        }
+      }
+
+      // C) Fallback to extracted numbers classified as AMOUNT
+      if (amountRial === 0) {
+        const candidate = extractedNumbers.find((n) => n.role === "AMOUNT");
+        if (candidate && (!rawBalanceStr || candidate.cleanNum.toString() !== rawBalanceStr)) {
+          if (candidate.unit === "TOMAN") {
+            amountToman = candidate.cleanNum;
+            amountRial = candidate.cleanNum * 10;
+          } else {
+            amountRial = candidate.cleanNum;
+            amountToman = Math.floor(candidate.cleanNum / 10);
+          }
+          amountRegexUsed = candidate.raw;
+        }
+      }
+
+      // D) Fallback to any number with currency unit
+      if (amountRial === 0) {
+        const unitMatch = normalized.match(/([0-9,]{4,})\s*(ریال|تومان)/i);
+        if (unitMatch) {
+          const rawDigits = unitMatch[1].replace(/,/g, "");
+          if (!rawBalanceStr || rawDigits !== rawBalanceStr) {
+            const rawNum = parseInt(rawDigits, 10);
+            amountRegexUsed = unitMatch[0];
+            if (unitMatch[2] === "تومان") {
+              amountToman = rawNum;
+              amountRial = rawNum * 10;
+            } else {
+              amountRial = rawNum;
+              amountToman = Math.floor(rawNum / 10);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  // 9. Determine Transfer Type
   if (type === "UNKNOWN") {
     if (normalized.includes("پل") || normalized.includes("POL")) {
       type = "POL";
@@ -786,7 +966,7 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
     }
   }
 
-  // 8. Detect Bank
+  // 10. Detect Bank
   let detectedBank: BankInfo | null = null;
   for (const b of IRANIAN_BANKS) {
     if (normalized.includes(b.nameFa) || normalized.includes(b.nameEn)) {
@@ -795,7 +975,7 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
     }
   }
 
-  // 9. Calculate Bank Similarities & Suggestions
+  // 11. Calculate Bank Similarities & Suggestions
   const similarityScores: Array<{
     bankId: string;
     bankName: string;
@@ -856,7 +1036,6 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
     }
   }
 
-  // Sort similarity scores descending
   similarityScores.sort((a, b) => b.similarityScore - a.similarityScore);
 
   const suggestedBank = similarityScores.length > 0 ? similarityScores[0] : null;
@@ -894,15 +1073,23 @@ export function analyzeBankSmsStructure(rawText: string): SmsAnalysisResult {
       balancePattern: balMatch ? `/(?:مانده|موجودی)\\s*:?\\s*([0-9,]+)/` : undefined,
       accountPattern: accountOrCard ? `/${accountOrCard}/` : undefined,
     },
+    extractedNumbers,
+    manuallyCorrected: templateApplied?.extractedPreview?.manuallyCorrected,
   };
 }
 
 /**
  * Intelligent Bank SMS Parser
  * Parses incoming raw text for deposit amounts, tracking codes, cards/IBANs, and balances
- * (Enhanced with Token-based Structural Inference Engine)
+ * (Enhanced with Token-based Structural Inference Engine & Confirmed Template Overrides)
  */
-export function parseBankDepositSms(text: string): {
+export function parseBankDepositSms(
+  text: string,
+  options?: {
+    bankSlug?: string;
+    confirmedTemplates?: BankSmsTemplate[];
+  }
+): {
   isDeposit: boolean;
   type: "CARD_TO_CARD" | "POL" | "PAYA" | "GENERAL" | "UNKNOWN";
   amountRial?: number;
@@ -915,7 +1102,7 @@ export function parseBankDepositSms(text: string): {
   detectedBank?: BankInfo | null;
   patternType?: "SIGN_BASED" | "KEYWORD_BASED" | "HYBRID";
 } {
-  const result = analyzeBankSmsStructure(text);
+  const result = analyzeBankSmsStructure(text, options);
   return {
     isDeposit: result.isDeposit,
     type: result.type,

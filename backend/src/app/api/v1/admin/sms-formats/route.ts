@@ -140,25 +140,75 @@ export async function POST(req: NextRequest) {
     if (action === "SAVE_TEMPLATE" && template) {
       // Analyze structure if not analyzed
       const analysis = analyzeBankSmsStructure(template.sampleText);
+      const isManual = Boolean(template.extractedPreview?.manuallyCorrected);
+
+      // Determine final extracted preview (favoring manual corrections made by admin)
+      const finalAmountToman =
+        template.extractedPreview?.amountToman !== undefined && template.extractedPreview?.amountToman !== null
+          ? Number(template.extractedPreview.amountToman)
+          : analysis.amountToman > 0
+          ? analysis.amountToman
+          : undefined;
+
+      const finalAmountRial =
+        template.extractedPreview?.amountRial !== undefined && template.extractedPreview?.amountRial !== null
+          ? Number(template.extractedPreview.amountRial)
+          : analysis.amountRial > 0
+          ? analysis.amountRial
+          : finalAmountToman
+          ? finalAmountToman * 10
+          : undefined;
+
+      const finalBalanceToman =
+        template.extractedPreview?.balanceToman !== undefined && template.extractedPreview?.balanceToman !== null
+          ? Number(template.extractedPreview.balanceToman)
+          : analysis.balanceToman;
+
+      const finalBalanceRial =
+        template.extractedPreview?.balanceRial !== undefined && template.extractedPreview?.balanceRial !== null
+          ? Number(template.extractedPreview.balanceRial)
+          : analysis.balanceRial;
+
+      const finalIsDeposit =
+        template.extractedPreview?.isDeposit !== undefined
+          ? Boolean(template.extractedPreview.isDeposit)
+          : analysis.isDeposit;
+
+      // Build custom rules if manually corrected or provided
+      let customRules = template.customRules;
+      if (!customRules && isManual && finalAmountRial) {
+        // Derive amount pattern regex for this specific sample text
+        const amountNumStr = (finalAmountRial || finalAmountToman || "").toString();
+        const commaStr = (finalAmountRial || finalAmountToman || "").toLocaleString("en-US");
+        customRules = {
+          amountRegex: `(?:به مبلغ|بمبلغ|مبلغ واریزی|مبلغ واریز|مبلغ|واریز|بستانکار)\\s*:?\\s*([0-9,]+)`,
+          amountUnit: finalAmountRial ? "RIAL" : "TOMAN",
+          isDeposit: finalIsDeposit,
+        };
+      }
+
       const newTpl: BankSmsTemplate = {
         id: template.id || `tpl_${bankId}_${Date.now().toString(36)}`,
-        title: template.title || "الگوی ساختاری جدید",
+        title: template.title || "الگوی ساختاری پیامک",
         type: template.type || (analysis.patternType === "SIGN_BASED" ? "SIGN_BASED" : "CARD_TO_CARD"),
         patternType: analysis.patternType,
         sampleText: template.sampleText.trim(),
         status: template.status || "CONFIRMED",
         confirmedAt: template.status === "CONFIRMED" ? new Date().toISOString() : undefined,
         extractedPreview: {
-          isDeposit: analysis.isDeposit,
-          amountToman: analysis.amountToman > 0 ? analysis.amountToman : undefined,
-          amountRial: analysis.amountRial > 0 ? analysis.amountRial : undefined,
-          balanceToman: analysis.balanceToman,
-          balanceRial: analysis.balanceRial,
-          accountOrCard: analysis.accountOrCard,
-          trackingCode: analysis.trackingCode,
-          date: analysis.date,
-          time: analysis.time,
+          isDeposit: finalIsDeposit,
+          amountToman: finalAmountToman,
+          amountRial: finalAmountRial,
+          balanceToman: finalBalanceToman,
+          balanceRial: finalBalanceRial,
+          accountOrCard: template.extractedPreview?.accountOrCard ?? analysis.accountOrCard,
+          trackingCode: template.extractedPreview?.trackingCode ?? analysis.trackingCode,
+          date: template.extractedPreview?.date ?? analysis.date,
+          time: template.extractedPreview?.time ?? analysis.time,
+          manuallyCorrected: isManual,
+          customRuleApplied: Boolean(customRules),
         },
+        customRules,
       };
 
       const existingIdx = bankConfig.templates.findIndex((t) => t.id === newTpl.id);
