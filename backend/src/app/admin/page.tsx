@@ -2460,19 +2460,27 @@ export default function AdminDashboard() {
                               className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${
                                 tx.status === "PAID"
                                   ? "bg-emerald-500/10 text-emerald-400 border border-emerald-500/30"
+                                  : tx.status === "MANUALLY_VERIFIED"
+                                  ? "bg-teal-500/10 text-teal-300 border border-teal-500/30"
                                   : tx.status === "PENDING"
                                   ? "bg-amber-500/10 text-amber-400 border border-amber-500/30"
                                   : tx.status === "EXPIRED"
                                   ? "bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                                  : tx.status === "CANCELLED"
+                                  ? "bg-slate-800 text-slate-300 border border-slate-700"
                                   : "bg-slate-800 text-slate-400"
                               }`}
                             >
                               {tx.status === "PAID"
                                 ? "پرداخت شده"
+                                : tx.status === "MANUALLY_VERIFIED"
+                                ? "تایید دستی"
                                 : tx.status === "PENDING"
                                 ? "در انتظار"
                                 : tx.status === "EXPIRED"
                                 ? "منقضی شده"
+                                : tx.status === "CANCELLED"
+                                ? "لغو شده"
                                 : tx.status}
                             </span>
                           </td>
@@ -2482,10 +2490,20 @@ export default function AdminDashboard() {
                             {toPersianDigits(new Date(tx.createdAt).toLocaleTimeString("fa-IR"))}
                           </td>
                           <td className="p-3 text-center font-sans">
-                            {tx.status === "PENDING" && (
+                            {tx.status === "PAID" ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-emerald-400 font-semibold bg-emerald-500/10 px-2 py-0.5 rounded-lg border border-emerald-500/20">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                                <span>پرداخت خودکار</span>
+                              </span>
+                            ) : tx.status === "MANUALLY_VERIFIED" ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-teal-300 font-semibold bg-teal-500/10 px-2 py-0.5 rounded-lg border border-teal-500/20">
+                                <CheckCircle2 className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                                <span>تایید دستی شده</span>
+                              </span>
+                            ) : (
                               <button
                                 onClick={() => handleManualReconcile(tx.id)}
-                                className="text-[11px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-2 py-1 rounded-lg hover:bg-emerald-500/20"
+                                className="text-[11px] bg-teal-500/10 text-teal-400 border border-teal-500/30 px-2 py-1 rounded-lg hover:bg-teal-500/20 transition font-bold"
                               >
                                 تایید دستی
                               </button>

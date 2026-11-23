@@ -11,6 +11,37 @@ export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const status = searchParams.get("status"); // APPROVED | PENDING_REVIEW | REJECTED
 
+  // Auto-sync any unapproved senders that were captured in bankSmsLog but not yet in trustedSender
+  try {
+    const untrustedLogs = await db.bankSmsLog.findMany({
+      where: { status: "UNTRUSTED_SENDER" },
+      orderBy: { receivedAt: "desc" },
+      take: 50,
+    });
+    for (const log of untrustedLogs) {
+      const sId = (log.sender || "").trim();
+      if (!sId || sId.toUpperCase().includes("PING") || sId.toUpperCase() === "TEST") continue;
+      const exists = await db.trustedSender.findUnique({
+        where: { senderId: sId },
+      });
+      if (!exists) {
+        const analysis = analyzeBankSmsStructure(log.rawText);
+        const bankSlug = analysis.suggestedBank?.bankId?.replace(/-/g, "_") || analysis.detectedBank?.id?.replace(/-/g, "_") || "mehr_iran";
+        await db.trustedSender.create({
+          data: {
+            senderId: sId,
+            bankSlug,
+            status: "PENDING_REVIEW",
+            description: "سرخط شناسایی‌شده از لاگ پیامک‌های تاییدنشده دستگاه",
+            sampleMessage: log.rawText,
+          },
+        }).catch(() => {});
+      }
+    }
+  } catch (syncErr) {
+    console.warn("Auto-sync untrusted senders warning:", syncErr);
+  }
+
   const whereClause = status ? { status } : {};
 
   let senders = await db.trustedSender.findMany({

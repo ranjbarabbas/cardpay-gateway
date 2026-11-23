@@ -183,7 +183,8 @@ function CheckoutContent({ authority }: { authority: string }) {
   }, [details?.status, details?.callbackUrl, authority]);
 
   // Auto redirect on expired with 8-second countdown
-  const isExpired = details?.status === "EXPIRED" || (details !== null && secondsLeft <= 0);
+  const isPaid = details?.status === "PAID" || details?.status === "MANUALLY_VERIFIED";
+  const isExpired = !isPaid && (details?.status === "EXPIRED" || (details !== null && secondsLeft <= 0 && details?.status !== "CANCELLED"));
 
   useEffect(() => {
     if (!isExpired || !details?.callbackUrl) return;

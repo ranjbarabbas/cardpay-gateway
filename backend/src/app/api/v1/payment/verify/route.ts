@@ -35,48 +35,52 @@ export async function POST(req: NextRequest) {
       const sandboxTx = getSandboxTransaction(rawAuthority || rawTrackingCode || "test");
 
       if (sandboxTx) {
-        const now = new Date();
-        const isSandboxExpired =
-          sandboxTx.status === "EXPIRED" ||
-          (sandboxTx.status === "PENDING" && now > sandboxTx.expiresAt);
+        const isSandboxPaid = sandboxTx.status === "PAID" || sandboxTx.status === "MANUALLY_VERIFIED";
 
-        if (isSandboxExpired) {
-          sandboxTx.status = "EXPIRED";
-          return NextResponse.json(
-            {
-              success: false,
-              isSandbox: true,
-              status: "EXPIRED",
-              error: "Payment window has expired",
-              message: "مهلت پرداخت آزمایشی به پایان رسیده و این فاکتور منقضی شده است.",
-              code: -31,
-              data: {
-                authority: sandboxTx.authority,
+        if (!isSandboxPaid) {
+          const now = new Date();
+          const isSandboxExpired =
+            sandboxTx.status === "EXPIRED" ||
+            (sandboxTx.status === "PENDING" && now > sandboxTx.expiresAt);
+
+          if (isSandboxExpired) {
+            sandboxTx.status = "EXPIRED";
+            return NextResponse.json(
+              {
+                success: false,
+                isSandbox: true,
                 status: "EXPIRED",
-                isExpired: true,
+                error: "Payment window has expired",
+                message: "مهلت پرداخت آزمایشی به پایان رسیده و این فاکتور منقضی شده است.",
+                code: -31,
+                data: {
+                  authority: sandboxTx.authority,
+                  status: "EXPIRED",
+                  isExpired: true,
+                },
               },
-            },
-            { status: 400 }
-          );
-        }
+              { status: 400 }
+            );
+          }
 
-        if (sandboxTx.status === "CANCELLED") {
-          return NextResponse.json(
-            {
-              success: false,
-              isSandbox: true,
-              status: "CANCELLED",
-              error: "Payment was cancelled",
-              message: "تراکنش آزمایشی توسط کاربر لغو گردیده است.",
-              code: -32,
-              data: {
-                authority: sandboxTx.authority,
+          if (sandboxTx.status === "CANCELLED") {
+            return NextResponse.json(
+              {
+                success: false,
+                isSandbox: true,
                 status: "CANCELLED",
-                isCancelled: true,
+                error: "Payment was cancelled",
+                message: "تراکنش آزمایشی توسط کاربر لغو گردیده است.",
+                code: -32,
+                data: {
+                  authority: sandboxTx.authority,
+                  status: "CANCELLED",
+                  isCancelled: true,
+                },
               },
-            },
-            { status: 400 }
-          );
+              { status: 400 }
+            );
+          }
         }
       }
 
@@ -84,12 +88,20 @@ export async function POST(req: NextRequest) {
         success: true,
         isSandbox: true,
         status: "PAID",
-        message: "تراکنش با موفقیت تایید گردید (محیط آزمایشی سندباکس).",
+        code: 100,
+        paymentStatus: sandboxTx?.status || "PAID",
+        verifiedManually: sandboxTx?.status === "MANUALLY_VERIFIED",
+        message: sandboxTx?.status === "MANUALLY_VERIFIED"
+          ? "تراکنش با تایید دستی با موفقیت تایید گردید (محیط آزمایشی سندباکس)."
+          : "تراکنش با موفقیت تایید گردید (محیط آزمایشی سندباکس).",
         data: {
           authority: sandboxTx?.authority || rawAuthority || "hp_sandbox_mock",
           trackingCode: sandboxTx?.internalTrackingCode || rawTrackingCode || "PAY-SANDBOX-14050817",
+          status: "PAID",
+          paymentStatus: sandboxTx?.status || "PAID",
+          verifiedManually: sandboxTx?.status === "MANUALLY_VERIFIED",
           amountToman: sandboxTx?.payableAmountToman || (Number(amount) || 50015),
-          paidAt: new Date().toISOString(),
+          paidAt: sandboxTx?.paidAt ? sandboxTx.paidAt.toISOString() : new Date().toISOString(),
           cardLast4: "7766",
           bankTitle: "بانک قرض‌الحسنه مهر ایران",
         },
@@ -101,6 +113,9 @@ export async function POST(req: NextRequest) {
         OR: [
           ...(rawAuthority ? [{ authority: rawAuthority }] : []),
           ...(rawTrackingCode ? [{ internalTrackingCode: rawTrackingCode }] : []),
+          ...(rawTrackingCode ? [{ trackingCode: rawTrackingCode }] : []),
+          ...(rawAuthority ? [{ internalTrackingCode: rawAuthority }] : []),
+          ...(rawAuthority ? [{ trackingCode: rawAuthority }] : []),
         ],
       },
       include: { card: true },
@@ -190,10 +205,19 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      status: tx.status,
+      status: "PAID",
+      code: 100,
+      paymentStatus: tx.status,
+      verifiedManually: tx.status === "MANUALLY_VERIFIED",
+      message: tx.status === "MANUALLY_VERIFIED"
+        ? "تراکنش با تایید دستی با موفقیت تایید و تسویه گردید."
+        : "تراکنش با موفقیت تایید و تسویه گردید.",
       data: {
         authority: tx.authority,
         trackingCode: tx.internalTrackingCode || tx.trackingCode,
+        status: "PAID",
+        paymentStatus: tx.status,
+        verifiedManually: tx.status === "MANUALLY_VERIFIED",
         amountToman: Number(tx.finalAmountToman),
         originalAmountToman: Number(tx.originalAmountToman),
         offsetToman: tx.offsetToman,

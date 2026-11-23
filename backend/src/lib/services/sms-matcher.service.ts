@@ -2,6 +2,7 @@ import { db } from "../db";
 import { bankParserRegistry } from "./parsers";
 import { dispatchDepositNotifications } from "../notifications";
 import { checkAndProcessPlanUpgradeTransaction } from "./plan-expiration.service";
+import { analyzeBankSmsStructure } from "../bank-utils";
 
 export interface SmsIngestInput {
   sender: string;
@@ -84,23 +85,32 @@ export class SmsMatcherService {
 
     // 4. Security Check: If sender is NOT approved
     if (!isSenderApproved) {
-      // If it looks like a bank deposit SMS, put it in the PENDING_REVIEW queue
-      if (parsed.isDeposit && parsed.amountRial > BigInt(0)) {
-        await db.trustedSender.upsert({
-          where: { senderId: cleanSender },
-          update: {
-            sampleMessage: rawText,
-            bankSlug: parsed.bankSlug,
-          },
-          create: {
-            senderId: cleanSender,
-            bankSlug: parsed.bankSlug,
-            status: "PENDING_REVIEW",
-            description: "سرخط مشکوک یا جدید شناسایی‌شده با فرمت پیامک بانکی",
-            sampleMessage: rawText,
-          },
-        });
-      }
+      // Analyze SMS structure with bank analyzer engine to infer bank slug & deposit characteristics
+      const analysis = analyzeBankSmsStructure(rawText);
+      const detectedBankSlug =
+        parsed.bankSlug && parsed.bankSlug !== "unknown"
+          ? parsed.bankSlug
+          : (analysis.suggestedBank?.bankId?.replace(/-/g, "_") || analysis.detectedBank?.id?.replace(/-/g, "_") || "mehr_iran");
+
+      // Always register unapproved sender into trustedSender with PENDING_REVIEW queue
+      // so the admin can review and approve it from the "سرشماره‌های بانکی" panel
+      await db.trustedSender.upsert({
+        where: { senderId: cleanSender },
+        update: {
+          sampleMessage: rawText,
+          bankSlug: detectedBankSlug,
+          ...(trustedRecord?.status === "REJECTED" || trustedRecord?.status === "NON_BANKING"
+            ? {}
+            : { status: "PENDING_REVIEW" }),
+        },
+        create: {
+          senderId: cleanSender,
+          bankSlug: detectedBankSlug,
+          status: "PENDING_REVIEW",
+          description: `سرخط جدید شناسایی‌شده با پیامک بانکی (${analysis.isDeposit ? "واریزی" : "تراکنش"})`,
+          sampleMessage: rawText,
+        },
+      });
 
       // Log untrusted SMS
       const smsLog = await db.bankSmsLog.create({

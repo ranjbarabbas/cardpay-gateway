@@ -16,24 +16,26 @@ export async function GET(
     if (sandboxTx) {
       const now = new Date();
       let currentStatus = sandboxTx.status;
+      const isSandboxPaid = currentStatus === "PAID" || currentStatus === "MANUALLY_VERIFIED";
 
-      // Auto-expire sandbox transaction if timer has run out
-      if (currentStatus === "PENDING" && now > sandboxTx.expiresAt) {
+      // Auto-expire sandbox transaction if timer has run out AND not paid
+      if (!isSandboxPaid && currentStatus === "PENDING" && now > sandboxTx.expiresAt) {
         sandboxTx.status = "EXPIRED";
         currentStatus = "EXPIRED";
       }
 
-      const remainingSeconds = Math.max(
-        0,
-        Math.floor((sandboxTx.expiresAt.getTime() - now.getTime()) / 1000)
-      );
+      const remainingSeconds = isSandboxPaid
+        ? 600
+        : Math.max(0, Math.floor((sandboxTx.expiresAt.getTime() - now.getTime()) / 1000));
 
       return NextResponse.json({
         success: true,
         isSandbox: true,
         data: {
           authority: sandboxTx.authority,
-          status: currentStatus,
+          status: isSandboxPaid ? "PAID" : currentStatus,
+          paymentStatus: currentStatus,
+          verifiedManually: currentStatus === "MANUALLY_VERIFIED",
           transferType: sandboxTx.transferType || "CARD_TO_CARD",
           remainingSeconds,
           originalAmountToman: sandboxTx.originalAmountToman,
@@ -54,6 +56,7 @@ export async function GET(
         OR: [
           { authority },
           { internalTrackingCode: authority },
+          { trackingCode: authority },
         ],
       },
       include: {
@@ -70,9 +73,10 @@ export async function GET(
 
     const now = new Date();
     let currentStatus = tx.status;
+    const isPaid = currentStatus === "PAID" || currentStatus === "MANUALLY_VERIFIED";
 
-    // Check expiration
-    if (currentStatus === "PENDING" && now > tx.expiresAt) {
+    // Check expiration only if not paid
+    if (!isPaid && currentStatus === "PENDING" && now > tx.expiresAt) {
       await db.transaction.update({
         where: { id: tx.id },
         data: { status: "EXPIRED" },
@@ -80,10 +84,9 @@ export async function GET(
       currentStatus = "EXPIRED";
     }
 
-    const remainingSeconds = Math.max(
-      0,
-      Math.floor((tx.expiresAt.getTime() - now.getTime()) / 1000)
-    );
+    const remainingSeconds = isPaid
+      ? 600
+      : Math.max(0, Math.floor((tx.expiresAt.getTime() - now.getTime()) / 1000));
 
     const settings = await getSystemSettingsAsync();
     const cardLimit = settings.limits?.cardTransferLimitToman || 15000000;
@@ -100,7 +103,9 @@ export async function GET(
       success: true,
       data: {
         authority: tx.authority,
-        status: currentStatus,
+        status: isPaid ? "PAID" : currentStatus,
+        paymentStatus: currentStatus,
+        verifiedManually: currentStatus === "MANUALLY_VERIFIED",
         transferType: isPol ? "POL" : "CARD_TO_CARD",
         remainingSeconds,
         originalAmountToman: Number(tx.originalAmountToman),

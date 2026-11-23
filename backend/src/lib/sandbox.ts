@@ -44,7 +44,7 @@ export interface SandboxTransaction {
   offsetToman: number;
   payableAmountToman: number;
   payableAmountRial: number;
-  status: "PENDING" | "PAID" | "EXPIRED" | "CANCELLED";
+  status: "PENDING" | "PAID" | "MANUALLY_VERIFIED" | "EXPIRED" | "CANCELLED";
   createdAt: Date;
   expiresAt: Date;
   paidAt?: Date;
@@ -187,13 +187,13 @@ export function getSandboxTransaction(identifier: string): SandboxTransaction | 
  */
 export function updateSandboxStatus(
   identifier: string,
-  status: "PAID" | "CANCELLED" | "EXPIRED"
+  status: "PAID" | "MANUALLY_VERIFIED" | "CANCELLED" | "EXPIRED"
 ): SandboxTransaction | null {
   const tx = getSandboxTransaction(identifier);
   if (!tx) return null;
 
   tx.status = status;
-  if (status === "PAID") {
+  if (status === "PAID" || status === "MANUALLY_VERIFIED") {
     tx.paidAt = new Date();
   } else if (status === "EXPIRED") {
     tx.expiresAt = new Date(Date.now() - 1000);
