@@ -140,7 +140,8 @@ function CheckoutContent({ authority }: { authority: string }) {
                 url.searchParams.set("authority", authority);
                 url.searchParams.set("status", "success");
                 url.searchParams.set("Status", "OK");
-                url.searchParams.set("tracking_code", details.trackingCode || "");
+                const cleanTracking = (details.trackingCode && details.trackingCode !== "SMS_VERIFIED") ? details.trackingCode : (authority || "");
+                url.searchParams.set("tracking_code", cleanTracking);
                 window.location.href = url.toString();
               } catch {
                 window.location.href = details.callbackUrl;
@@ -343,7 +344,8 @@ function CheckoutContent({ authority }: { authority: string }) {
         url.searchParams.set("authority", authority);
         url.searchParams.set("status", "success");
         url.searchParams.set("Status", "OK");
-        url.searchParams.set("tracking_code", details.trackingCode || "");
+        const cleanTracking = (details.trackingCode && details.trackingCode !== "SMS_VERIFIED") ? details.trackingCode : (authority || "");
+        url.searchParams.set("tracking_code", cleanTracking);
         return url.toString();
       } catch {
         return details.callbackUrl;

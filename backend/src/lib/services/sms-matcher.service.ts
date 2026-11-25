@@ -278,7 +278,7 @@ export class SmsMatcherService {
           data: {
             status: "PAID",
             paidAt: now,
-            trackingCode: parsed.trackingCode || parsed.accountNumber || "SMS_VERIFIED",
+            trackingCode: parsed.trackingCode || parsed.accountNumber || matchedTx.internalTrackingCode || "SMS_VERIFIED",
             smsLogId: smsLog.id,
           },
         }),

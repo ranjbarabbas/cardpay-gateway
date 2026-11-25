@@ -109,15 +109,16 @@ export async function POST(req: NextRequest) {
     }
 
     const tx = await db.transaction.findFirst({
-      where: {
-        OR: [
-          ...(rawAuthority ? [{ authority: rawAuthority }] : []),
-          ...(rawTrackingCode ? [{ internalTrackingCode: rawTrackingCode }] : []),
-          ...(rawTrackingCode ? [{ trackingCode: rawTrackingCode }] : []),
-          ...(rawAuthority ? [{ internalTrackingCode: rawAuthority }] : []),
-          ...(rawAuthority ? [{ trackingCode: rawAuthority }] : []),
-        ],
-      },
+      where: rawAuthority
+        ? { authority: rawAuthority }
+        : {
+            OR: [
+              ...(rawTrackingCode ? [{ internalTrackingCode: rawTrackingCode }] : []),
+              ...(rawTrackingCode && rawTrackingCode !== "SMS_VERIFIED"
+                ? [{ trackingCode: rawTrackingCode }]
+                : []),
+            ],
+          },
       include: { card: true },
     });
 
